@@ -75,6 +75,8 @@ export const commands = sqliteTable(
     /** everyone | subscriber | vip | moderator | broadcaster */
     permission: text('permission').notNull().default('everyone'),
     showUsername: integer('show_username', { mode: 'boolean' }).notNull().default(true),
+    /** false: only the animation / GIF is shown, no text banner */
+    showText: integer('show_text', { mode: 'boolean' }).notNull().default(true),
     /** optional: `!knuffel @naam` fills {target}, otherwise targetFallback | required: ignored without a name | none: names are ignored */
     targetMode: text('target_mode').notNull().default('optional'),
     targetFallback: text('target_fallback').notNull().default('de streamer'),

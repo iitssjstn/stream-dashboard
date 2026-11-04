@@ -1,0 +1,1 @@
+ALTER TABLE `commands` ADD `show_text` integer DEFAULT true NOT NULL;

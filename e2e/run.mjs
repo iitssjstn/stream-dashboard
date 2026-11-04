@@ -214,6 +214,15 @@ try {
   const denied = (await p1.evaluate(() => fetch('/api/activity').then((r) => r.json()))).find((a) => a.commandName === 'love' && a.status === 'denied');
   check(denied?.detail?.includes('geen naam'), 'Activiteit toont "geen naam opgegeven"');
 
+  // Text can be switched off entirely: only the animation / GIF is shown
+  const dance = cmds.find((c) => c.name === 'dance');
+  const noText = await p1.evaluate((c) => fetch(`/api/commands/${c.id}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...c, showText: false, text: '', userCooldownSec: 0, globalCooldownSec: 0 }) }).then((r) => r.json()), dance);
+  check(noText.showText === false, 'Tekst uitzetten (ook met lege tekst) wordt geaccepteerd');
+  await waitFor(async () => (await overlay.locator('.lm-item').count()) === 0, 10000);
+  tw.chat('knuffelstreamer', { login: 'stil', display: 'Stil', userId: '5011', id: 'msg-11', text: '!dance' });
+  await overlay.waitForSelector('.lm-scene-dance', { timeout: 3000 });
+  check((await overlay.locator('.lm-text').count()) === 0, 'Zonder tekst: alleen de animatie in de overlay');
+
   await p1.goto(`${APP}/commands/${(await p1.evaluate(() => fetch('/api/commands').then((r) => r.json()))).find((c) => c.name === 'knuffel').id}`);
   await p1.waitForSelector('.lm-scene-hug', { timeout: 5000 });
   await sleep(1800);
@@ -224,7 +233,7 @@ try {
   await back.click();
   await p1.waitForURL('**/commands');
   check(true, 'Zonder wijzigingen: "Terug naar commands" gaat direct terug');
-  await p1.getByRole('link', { name: 'Bewerken' }).first().click();
+  await p1.locator('.card', { hasText: '!knuffel' }).getByRole('link', { name: 'Bewerken' }).click();
   await p1.getByRole('button', { name: 'Tekst & stijl' }).click();
   await p1.locator('input[maxlength="200"]').fill('{user} knuffelt {target} heel hard!');
   check(await p1.getByText('niet opgeslagen').isVisible(), 'Label "niet opgeslagen" verschijnt na een wijziging');

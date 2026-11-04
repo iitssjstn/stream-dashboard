@@ -50,7 +50,7 @@ export function Commands() {
                 </div>
                 <Toggle checked={c.enabled} onChange={(v) => save(c, { enabled: v })} label={`!${c.name} aan/uit`} />
               </div>
-              <p className="mt-3 line-clamp-2 flex-1 text-sm text-zinc-300">{c.text}</p>
+              <p className={`mt-3 line-clamp-2 flex-1 text-sm ${c.showText ? 'text-zinc-300' : 'text-zinc-500 italic'}`}>{c.showText ? c.text : 'Alleen animatie / GIF, geen tekst'}</p>
               <div className="mt-4 flex flex-wrap gap-1.5">
                 <span className="chip bg-white/[.05] text-zinc-300">{LABELS.permission[c.permission]}</span>
                 <span className="chip bg-white/[.05] text-zinc-300">{(c.durationMs / 1000).toFixed(1)}s</span>

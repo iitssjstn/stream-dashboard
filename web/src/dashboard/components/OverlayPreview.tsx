@@ -3,7 +3,7 @@ import { playEvent } from '../../overlay/renderer';
 import type { OverlayEvent } from '../../overlay/types';
 import type { Command } from '../api';
 
-export function previewEvent(cmd: Pick<Command, 'name' | 'animation' | 'imageUrl' | 'soundUrl' | 'soundVolume' | 'text' | 'durationMs' | 'style' | 'showUsername'> & Partial<Pick<Command, 'targetMode' | 'targetFallback'>>, viewer = 'KawaiiKijker'): OverlayEvent {
+export function previewEvent(cmd: Pick<Command, 'name' | 'animation' | 'imageUrl' | 'soundUrl' | 'soundVolume' | 'text' | 'durationMs' | 'style' | 'showUsername'> & Partial<Pick<Command, 'targetMode' | 'targetFallback' | 'showText'>>, viewer = 'KawaiiKijker'): OverlayEvent {
   const target = cmd.targetMode === 'required' ? 'Vriendje' : null;
   const user = cmd.showUsername ? viewer : 'Iemand';
   return {
@@ -15,7 +15,7 @@ export function previewEvent(cmd: Pick<Command, 'name' | 'animation' | 'imageUrl
     imageUrl: cmd.imageUrl,
     soundUrl: cmd.soundUrl,
     soundVolume: cmd.soundVolume,
-    text: cmd.text.replace(/\{user\}/gi, user).replace(/\{target\}/gi, target ?? cmd.targetFallback ?? 'de streamer').replace(/\{channel\}/gi, 'jouwkanaal'),
+    text: cmd.showText === false ? '' : cmd.text.replace(/\{user\}/gi, user).replace(/\{target\}/gi, target ?? cmd.targetFallback ?? 'de streamer').replace(/\{channel\}/gi, 'jouwkanaal'),
     viewer: cmd.showUsername ? viewer : null,
     target,
     durationMs: cmd.durationMs,

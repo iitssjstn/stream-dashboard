@@ -109,7 +109,7 @@ export class CommandEngine {
   /** Sends a command to the overlay. Used by chat and by the dashboard's "test" button. */
   fire(userId: number, cmd: Command, viewer: string, target: string | null, channel: string, status: 'triggered' | 'test') {
     const shownUser = cmd.showUsername ? viewer : 'Iemand';
-    const text = renderText(cmd.text, { user: shownUser, target: target ?? cmd.targetFallback, channel });
+    const text = !cmd.showText ? '' : renderText(cmd.text, { user: shownUser, target: target ?? cmd.targetFallback, channel });
     const res = this.hub.emit(userId, {
       command: cmd.name,
       animation: cmd.animation,

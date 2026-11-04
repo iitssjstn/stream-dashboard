@@ -28,6 +28,7 @@ const blank: Draft = {
   globalCooldownSec: 5,
   permission: 'everyone',
   showUsername: true,
+  showText: true,
   targetMode: 'optional',
   targetFallback: 'de streamer',
   style: { fontFamily: 'Fredoka', fontSize: 44, textColor: '#ffffff', accentColor: '#a855f7', x: 50, y: 62, scale: 1, effect: 'pop', particles: 'hearts', textShadow: true },
@@ -216,6 +217,14 @@ export function CommandEditor() {
 
           {tab === 'text' && (
             <section className="card space-y-5 p-5">
+              <div className="flex items-center justify-between rounded-xl border border-white/10 px-4 py-3">
+                <div>
+                  <div className="text-sm font-medium text-white">Tekst tonen</div>
+                  <div className="text-xs text-zinc-500">Uit: alleen de animatie of GIF verschijnt, zonder tekstbalk.</div>
+                </div>
+                <Toggle checked={d.showText} onChange={(v) => set('showText', v)} label="Tekst tonen" />
+              </div>
+              <div className={`space-y-5 transition ${d.showText ? '' : 'pointer-events-none opacity-40'}`} aria-disabled={!d.showText}>
               <Field label="Tekst" hint="Variabelen: {user} = kijker, {target} = @genoemde naam (anders “de streamer”), {channel} = jouw kanaal.">
                 <input className="input" value={d.text} maxLength={200} onChange={(e) => set('text', e.target.value)} />
               </Field>
@@ -281,6 +290,7 @@ export function CommandEditor() {
               <div className="flex items-center justify-between rounded-xl border border-white/10 px-4 py-3">
                 <span className="text-sm font-medium text-white">Tekstschaduw</span>
                 <Toggle checked={d.style.textShadow} onChange={(v) => style('textShadow', v)} />
+              </div>
               </div>
             </section>
           )}
