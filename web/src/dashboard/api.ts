@@ -23,7 +23,7 @@ export type Me = {
   user: { id: number; login: string; displayName: string; profileImageUrl: string | null; scopes: string[]; authError: string | null };
   overlay: { url: string; width: number; height: number; connectedClients: number };
   chat: { enabled: boolean; status: 'disconnected' | 'connecting' | 'connected' | 'auth_failed'; lastError: string | null; connectedAt: number | null };
-  stats: { commands: number; triggers24h: number };
+  stats: { commands: number; triggers24h: number; playsByHour: number[]; playsFirstHour: number };
   twitchConfigured: boolean;
   isOwner: boolean;
   giphyEnabled: boolean;

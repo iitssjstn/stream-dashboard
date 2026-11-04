@@ -31,11 +31,34 @@ export function CopyUrl({ url }: { url: string }) {
 }
 
 const STATUS: Record<string, { label: string; cls: string }> = {
-  triggered: { label: 'afgespeeld', cls: 'bg-emerald-500/15 text-emerald-300' },
-  test: { label: 'test', cls: 'bg-sky-500/15 text-sky-300' },
-  cooldown: { label: 'cooldown', cls: 'bg-amber-500/15 text-amber-300' },
-  denied: { label: 'geweigerd', cls: 'bg-rose-500/15 text-rose-300' },
+  triggered: { label: 'afgespeeld', cls: 'border-emerald-400/50 bg-emerald-400/10 text-emerald-300' },
+  test: { label: 'test', cls: 'border-cyan-400/50 bg-cyan-400/10 text-cyan-300' },
+  cooldown: { label: 'cooldown', cls: 'border-amber-400/50 bg-amber-400/10 text-amber-300' },
+  denied: { label: 'geweigerd', cls: 'border-rose-400/50 bg-rose-400/10 text-rose-300' },
 };
+
+const AVATAR_GRADIENTS = [
+  'from-fuchsia-500 to-purple-600',
+  'from-sky-400 to-indigo-600',
+  'from-emerald-400 to-teal-600',
+  'from-amber-400 to-rose-500',
+  'from-violet-400 to-blue-600',
+  'from-pink-400 to-fuchsia-600',
+];
+
+/** Deterministic initial avatar per viewer, so the same viewer always gets the same colour. */
+function ViewerAvatar({ name }: { name: string }) {
+  let h = 0;
+  for (const ch of name.toLowerCase()) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return (
+    <div
+      className={`grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br text-sm font-bold text-white uppercase ring-2 ring-white/10 ${AVATAR_GRADIENTS[h % AVATAR_GRADIENTS.length]}`}
+      aria-hidden="true"
+    >
+      {name.replace(/[^\p{L}\p{N}]/gu, '').charAt(0) || '?'}
+    </div>
+  );
+}
 
 export function ActivityList({ limit = 10, compact = false }: { limit?: number; compact?: boolean }) {
   const { data } = usePoll<Activity[]>(`/api/activity?limit=${limit}`, 3000);
@@ -47,24 +70,22 @@ export function ActivityList({ limit = 10, compact = false }: { limit?: number; 
       </div>
     );
   return (
-    <ul className="divide-y divide-white/[.05]">
+    <ul className="divide-y divide-white/[.06]">
       {data.map((a) => {
-        const s = STATUS[a.status] ?? { label: a.status, cls: 'bg-white/10 text-zinc-300' };
+        const s = STATUS[a.status] ?? { label: a.status, cls: 'border-white/20 bg-white/5 text-zinc-300' };
         return (
           <li key={a.id} className={`flex items-center gap-3 ${compact ? 'py-2.5' : 'py-3'}`}>
-            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-500/25 to-sky2-500/20 text-brand-400">
-              <Svg i="bolt" className="h-4 w-4" />
-            </div>
+            <ViewerAvatar name={a.viewer} />
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm text-zinc-200">
-                <span className="font-semibold text-white">{a.viewer}</span> gebruikte <code className="text-brand-400">!{a.commandName}</code>
+                <span className="font-semibold text-white">{a.viewer}</span> gebruikte <code className="font-semibold text-brand-400">!{a.commandName}</code>
               </div>
               <div className="text-xs text-zinc-500">
                 {timeAgo(a.createdAt)}
                 {a.detail && ` · ${a.detail}`}
               </div>
             </div>
-            <span className={`chip ${s.cls}`}>{s.label}</span>
+            <span className={`chip border ${s.cls}`}>{s.label}</span>
           </li>
         );
       })}

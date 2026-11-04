@@ -95,8 +95,8 @@ try {
   check(again.status === 409, 'Setup kan daarna niet opnieuw (ook niet met dezelfde code)');
   await page.getByRole('link', { name: /Koppel je Twitch-account/ }).click();
   await page.waitForURL('**/dashboard');
-  await page.getByText('Verbonden met chat').waitFor({ timeout: 10000 });
-  check(true, 'Streamer koppelt Twitch via OAuth en dashboard toont "Verbonden met chat"');
+  await page.getByText('Verbonden met Twitch').waitFor({ timeout: 10000 });
+  check(true, 'Streamer koppelt Twitch via OAuth en dashboard toont "Verbonden met Twitch"');
   const me = await page.evaluate(() => fetch('/api/me').then((r) => r.json()));
   check(me.user.login === 'knuffelstreamer', `Ingelogd als ${me.user.login}`);
   check(/\/overlay\/[\w-]{20,}$/.test(me.overlay.url), `Unieke overlay-URL: ${me.overlay.url.replace(/(overlay\/.{4}).*/, '$1…')}`);
@@ -163,7 +163,7 @@ try {
   const p2 = await dash2.newPage();
   await p2.goto(`${APP}/auth/twitch/login`);
   await p2.waitForURL('**/dashboard');
-  await p2.getByText('Verbonden met chat').waitFor({ timeout: 10000 });
+  await p2.getByText('Verbonden met Twitch').waitFor({ timeout: 10000 });
   const me2 = await p2.evaluate(() => fetch('/api/me').then((r) => r.json()));
   check(me2.overlay.url !== me.overlay.url, 'Tweede streamer krijgt een eigen overlay-URL');
   await waitFor(async () => (await overlay.locator('.lm-item').count()) === 0, 10000);

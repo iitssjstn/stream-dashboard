@@ -52,6 +52,17 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub }: Dep
       })
       .from(sql`(select 1)`)
       .get();
+    // Plays per hour over the last 24 hours (oldest first) for the dashboard sparkline.
+    const hourStart = Math.floor(Date.now() / 3600_000) * 3600_000;
+    const firstHour = hourStart - 23 * 3600_000;
+    const playsByHour = new Array<number>(24).fill(0);
+    for (const r of db
+      .select({ t: schema.activity.createdAt })
+      .from(schema.activity)
+      .where(and(eq(schema.activity.userId, u.id), eq(schema.activity.status, 'triggered'), gte(schema.activity.createdAt, firstHour)))
+      .all()) {
+      playsByHour[Math.min(23, Math.floor((r.t - firstHour) / 3600_000))]++;
+    }
     return {
       user: {
         id: u.id,
@@ -68,7 +79,7 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub }: Dep
         connectedClients: hub.count(u.id),
       },
       chat: { enabled: u.chatEnabled, ...chat.status(u.id) },
-      stats,
+      stats: { ...stats, playsByHour, playsFirstHour: firstHour },
       twitchConfigured: twitchConfigured(),
       isOwner: ownerUserId() === u.id,
       giphyEnabled: giphyKey().source !== 'none',
