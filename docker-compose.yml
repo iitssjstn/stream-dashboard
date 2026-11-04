@@ -1,7 +1,8 @@
 services:
   lumio:
+    # Prebuilt by GitHub Actions (.github/workflows/build.yml). `docker compose up -d --build` builds locally instead.
+    image: ghcr.io/iitssjstn/stream-dashboard:latest
     build: .
-    image: stream-dashboard:latest
     container_name: stream-dashboard
     restart: unless-stopped
     env_file: .env

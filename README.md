@@ -18,10 +18,11 @@ Kijkers typen een command zoals `!knuffel` in je Twitch-chat en er verschijnt me
    cp .env.example .env
    ```
    Vul `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` en `PUBLIC_URL` in. `PUBLIC_URL` moet overeenkomen met de redirect-URL uit stap 1.
-3. **Start** de app:
+3. **Start** de app met het image dat GitHub Actions bouwt:
    ```bash
-   docker compose up -d --build
+   docker compose pull && docker compose up -d
    ```
+   Wil je liever lokaal bouwen? Gebruik dan `docker compose up -d --build`.
 4. Open `PUBLIC_URL` (bijv. <http://localhost:3000>), klik op **Koppel je Twitch-account** en kopieer je overlay-URL.
 5. Kies in OBS **Bronnen → + → Browser**, plak de URL en stel 1920×1080 in. Vink *Audio regelen via OBS* aan als je geluiden gebruikt.
 6. Typ `!knuffel` in je chat. 🎉
@@ -30,7 +31,7 @@ De database, uploads en encryptiesleutel staan in het Docker-volume `lumio-data`
 
 ```bash
 docker compose logs -f              # logs bekijken
-git pull && docker compose up -d --build   # bijwerken
+docker compose pull && docker compose up -d   # bijwerken naar het nieuwste image
 ```
 
 ### Op een server met eigen domein
@@ -42,6 +43,15 @@ jouwdomein.nl {
   reverse_proxy localhost:3000
 }
 ```
+
+## GitHub Actions
+
+`.github/workflows/build.yml` draait bij elke push en pull request:
+
+1. typecheck, build en de end-to-end test (screenshots komen als artifact bij de run);
+2. daarna wordt een Docker-image voor `linux/amd64` en `linux/arm64` (bijv. Raspberry Pi) gebouwd en gepubliceerd naar `ghcr.io/iitssjstn/stream-dashboard` met de tags `latest`, `sha-…` en bij een tag `v1.2.3` ook `1.2.3` en `1.2`.
+
+Het package is standaard privé. Maak het publiek via GitHub → je profiel → *Packages* → *stream-dashboard* → *Package settings*, of log eenmalig in met `docker login ghcr.io` (gebruikersnaam + een token met `read:packages`).
 
 ## Architectuur
 
