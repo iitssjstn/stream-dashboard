@@ -1,0 +1,18 @@
+services:
+  lumio:
+    build: .
+    image: stream-dashboard:latest
+    container_name: stream-dashboard
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Fixed inside the container; change HOST_PORT in .env to expose another port.
+      PORT: 3000
+      DATA_DIR: /data
+    ports:
+      - "${HOST_PORT:-3000}:3000"
+    volumes:
+      - lumio-data:/data
+
+volumes:
+  lumio-data:

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>Lumio Overlay</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" />
+    <style>
+      html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: transparent !important; }
+      #status { position: fixed; left: 12px; bottom: 12px; font: 600 14px system-ui, sans-serif; padding: 6px 12px;
+        border-radius: 999px; color: #fff; background: #b91c1c; }
+      #status[data-ok="true"] { background: #15803d; }
+    </style>
+  </head>
+  <body>
+    <div id="stage" class="lm-stage"></div>
+    <div id="status" hidden></div>
+    <script type="module" src="/src/overlay/main.ts"></script>
+  </body>
+</html>

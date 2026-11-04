@@ -1,0 +1,141 @@
+/* Overlay renderer styles. Everything is prefixed with lm- so the editor can import it safely.
+   Only transform/opacity are animated to keep OBS's browser source cheap. */
+
+.lm-stage { position: absolute; left: 0; top: 0; overflow: hidden; transform-origin: 0 0; pointer-events: none; }
+.lm-item { position: absolute; width: max-content; transform: translate(-50%, -50%) scale(var(--scale, 1)); display: flex; flex-direction: column; align-items: center; }
+.lm-fx {
+  display: flex; flex-direction: column; align-items: center; position: relative;
+  animation: lm-in-pop var(--enter) cubic-bezier(.2, 1.5, .4, 1) both, lm-out var(--exit) ease-in var(--exit-at) forwards;
+}
+.lm-fx.lm-in-slide-up   { animation-name: lm-in-slide-up, lm-out; animation-timing-function: cubic-bezier(.2, 1.2, .4, 1), ease-in; }
+.lm-fx.lm-in-slide-left { animation-name: lm-in-slide-left, lm-out; animation-timing-function: cubic-bezier(.2, 1.2, .4, 1), ease-in; }
+.lm-fx.lm-in-fade       { animation-name: lm-in-fade, lm-out; animation-timing-function: ease-out, ease-in; }
+.lm-fx.lm-in-bounce     { animation-name: lm-in-bounce, lm-out; animation-timing-function: linear, ease-in; }
+.lm-fx.lm-in-zoom       { animation-name: lm-in-zoom, lm-out; animation-timing-function: cubic-bezier(.16, 1, .3, 1), ease-in; }
+.lm-fx.lm-in-spin       { animation-name: lm-in-spin, lm-out; animation-timing-function: cubic-bezier(.2, 1.3, .4, 1), ease-in; }
+
+@keyframes lm-in-pop        { from { opacity: 0; transform: scale(.3); } to { opacity: 1; transform: none; } }
+@keyframes lm-in-slide-up   { from { opacity: 0; transform: translateY(160px); } to { opacity: 1; transform: none; } }
+@keyframes lm-in-slide-left { from { opacity: 0; transform: translateX(260px); } to { opacity: 1; transform: none; } }
+@keyframes lm-in-fade       { from { opacity: 0; } to { opacity: 1; } }
+@keyframes lm-in-zoom       { from { opacity: 0; transform: scale(2.2); filter: blur(8px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes lm-in-spin       { from { opacity: 0; transform: rotate(-200deg) scale(.2); } to { opacity: 1; transform: none; } }
+@keyframes lm-in-bounce {
+  0% { opacity: 0; transform: translateY(-220px); } 45% { opacity: 1; transform: translateY(0); }
+  62% { transform: translateY(-50px); } 78% { transform: translateY(0); } 90% { transform: translateY(-14px); } 100% { transform: none; }
+}
+@keyframes lm-out { to { opacity: 0; transform: translateY(24px) scale(.92); } }
+
+/* ---------- text ---------- */
+.lm-text {
+  position: relative; margin-top: 4px; max-width: 1500px; padding: .32em .95em; text-wrap: balance; border-radius: 999px;
+  font-weight: 700; line-height: 1.2; text-align: center; letter-spacing: .01em;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 92%, #000), color-mix(in srgb, var(--accent) 55%, #1e1b4b));
+  box-shadow: 0 10px 30px -8px color-mix(in srgb, var(--accent) 70%, transparent), inset 0 1px 0 rgba(255,255,255,.35);
+  animation: lm-text-in 520ms cubic-bezier(.2, 1.4, .4, 1) 280ms both;
+}
+.lm-text-shadow { text-shadow: 0 2px 0 rgba(0,0,0,.35), 0 0 14px rgba(0,0,0,.35); }
+.lm-text .lm-name { filter: brightness(1.9) saturate(.6); }
+@keyframes lm-text-in { from { opacity: 0; transform: translateY(18px) scale(.85); } to { opacity: 1; transform: none; } }
+
+.lm-image { display: block; max-width: 440px; max-height: 380px; object-fit: contain; filter: drop-shadow(0 12px 24px rgba(0,0,0,.35)); }
+.lm-image-small { position: absolute; top: -10px; right: -40px; max-width: 140px; max-height: 140px; }
+
+/* ---------- scenes ---------- */
+.lm-scene { position: relative; width: 460px; height: 300px; zoom: 1.4; }
+.lm-actor { position: absolute; top: 40px; width: 150px; height: 225px; }
+.lm-actor-solo { left: 155px; }
+.lm-chibi { width: 100%; height: 100%; display: block; overflow: visible; transform-origin: 50% 95%; }
+.lm-mirror { transform: scaleX(-1); width: 100%; height: 100%; }
+.lm-bob { width: 100%; height: 100%; }
+.lm-arm, .lm-eye { transform-box: view-box; }
+.lm-eye { animation: lm-blink 3.8s infinite; }
+@keyframes lm-blink { 0%, 93%, 100% { transform: none; } 96% { transform: scaleY(.1); } }
+@keyframes lm-hop { 50% { transform: translateY(-16px); } }
+@keyframes lm-show { to { opacity: 1; } }
+@keyframes lm-hide { to { opacity: 0; } }
+
+/* hug */
+.lm-scene-hug .lm-actor-a { left: 92px;  animation: lm-come-left 900ms cubic-bezier(.3, .8, .4, 1) both; }
+.lm-scene-hug .lm-actor-b { left: 218px; animation: lm-come-right 900ms cubic-bezier(.3, .8, .4, 1) both; }
+.lm-scene-hug .lm-bob { animation: lm-hop 300ms ease-in-out 3; }
+.lm-scene-hug .lm-chibi { animation: lm-lean 450ms ease-out 850ms both; }
+.lm-scene-hug .lm-arm-r { animation: lm-arm-hug-r 420ms ease-out 820ms both; }
+.lm-scene-hug .lm-arm-l { animation: lm-arm-hug-l 420ms ease-out 880ms both; }
+.lm-scene-hug .lm-eyes-open  { animation: lm-hide 1ms 950ms forwards; }
+.lm-scene-hug .lm-eyes-happy { animation: lm-show 1ms 950ms forwards; }
+.lm-scene-hug { animation: lm-squeeze 1100ms ease-in-out 1300ms infinite; transform-origin: 50% 90%; }
+@keyframes lm-come-left  { from { transform: translateX(-190px); opacity: 0; } 30% { opacity: 1; } to { transform: none; } }
+@keyframes lm-come-right { from { transform: translateX(190px);  opacity: 0; } 30% { opacity: 1; } to { transform: none; } }
+@keyframes lm-lean { to { transform: rotate(9deg) translateX(8px); } }
+@keyframes lm-arm-hug-r { to { transform: rotate(-104deg); } }
+@keyframes lm-arm-hug-l { to { transform: rotate(-62deg); } }
+@keyframes lm-squeeze { 0%, 100% { transform: none; } 50% { transform: scale(1.05, .96); } }
+
+.lm-pop-icon { position: absolute; left: 50%; top: -14px; width: 86px; height: 86px; margin-left: -43px; animation: lm-icon-pop 600ms cubic-bezier(.2, 1.8, .4, 1) 1000ms both, lm-pulse 900ms ease-in-out 1600ms infinite; }
+.lm-pop-icon svg, .lm-held-heart svg { width: 100%; height: 100%; filter: drop-shadow(0 6px 14px rgba(0,0,0,.3)); }
+@keyframes lm-icon-pop { from { opacity: 0; transform: scale(0) rotate(-30deg); } to { opacity: 1; transform: none; } }
+@keyframes lm-pulse { 50% { transform: scale(1.15); } }
+
+/* high five */
+.lm-scene-highfive .lm-actor-a { left: 62px;  animation: lm-come-left 800ms cubic-bezier(.3, .8, .4, 1) both; }
+.lm-scene-highfive .lm-actor-b { left: 248px; animation: lm-come-right 800ms cubic-bezier(.3, .8, .4, 1) both; }
+.lm-scene-highfive .lm-bob { animation: lm-hop 260ms ease-in-out 3, lm-lunge 420ms ease-out 980ms; }
+.lm-scene-highfive .lm-arm-r { animation: lm-arm-up 300ms ease-out 700ms both; }
+.lm-scene-highfive .lm-eyes-open  { animation: lm-hide 1ms 1050ms forwards; }
+.lm-scene-highfive .lm-eyes-happy { animation: lm-show 1ms 1050ms forwards; }
+.lm-clap { position: absolute; left: 50%; top: 18px; width: 120px; height: 120px; margin-left: -60px; animation: lm-clap 700ms cubic-bezier(.2, 1.6, .4, 1) 1080ms both; }
+.lm-clap svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.lm-clap .lm-clap-spark { transform: scale(.55) rotate(20deg); }
+@keyframes lm-arm-up { to { transform: rotate(-158deg); } }
+@keyframes lm-lunge { 40% { transform: translateX(26px) rotate(4deg); } }
+@keyframes lm-clap { 0% { opacity: 0; transform: scale(0) rotate(-90deg); } 60% { opacity: 1; transform: scale(1.25) rotate(10deg); } 100% { opacity: 1; transform: scale(1); } }
+
+/* love */
+.lm-scene-love .lm-bob { animation: lm-sway 1.6s ease-in-out infinite; }
+.lm-scene-love .lm-arm-l { animation: lm-hold-l 400ms ease-out 200ms both; }
+.lm-scene-love .lm-arm-r { animation: lm-hold-r 400ms ease-out 200ms both; }
+.lm-scene-love .lm-eyes-open  { animation: lm-hide 1ms 500ms forwards; }
+.lm-scene-love .lm-eyes-happy { animation: lm-show 1ms 500ms forwards; }
+.lm-held-heart { position: absolute; left: 194px; top: 168px; width: 72px; height: 72px; animation: lm-icon-pop 500ms cubic-bezier(.2, 1.8, .4, 1) 350ms both, lm-pulse 700ms ease-in-out 900ms infinite; }
+@keyframes lm-hold-l { to { transform: rotate(-38deg); } }
+@keyframes lm-hold-r { to { transform: rotate(38deg); } }
+@keyframes lm-sway { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg) translateY(-6px); } }
+
+/* dance */
+.lm-scene-dance .lm-actor-a { left: 62px; }
+.lm-scene-dance .lm-actor-b { left: 248px; }
+.lm-scene-dance .lm-bob { animation: lm-dance 560ms ease-in-out infinite alternate; }
+.lm-scene-dance .lm-actor-b .lm-bob { animation-delay: -280ms; }
+.lm-scene-dance .lm-arm-l { animation: lm-pump-l 560ms ease-in-out infinite alternate; }
+.lm-scene-dance .lm-arm-r { animation: lm-pump-r 560ms ease-in-out -280ms infinite alternate; }
+.lm-scene-dance .lm-eyes-open  { opacity: 0; }
+.lm-scene-dance .lm-eyes-happy { opacity: 1; }
+@keyframes lm-dance { from { transform: translateY(0) rotate(-9deg); } to { transform: translateY(-22px) rotate(9deg); } }
+@keyframes lm-pump-l { from { transform: rotate(25deg); } to { transform: rotate(155deg); } }
+@keyframes lm-pump-r { from { transform: rotate(-25deg); } to { transform: rotate(-155deg); } }
+
+/* wave */
+.lm-scene-wave .lm-actor-solo { animation: lm-in-slide-up 600ms cubic-bezier(.2, 1.3, .4, 1) both; }
+.lm-scene-wave .lm-arm-r { animation: lm-wave 380ms ease-in-out 400ms infinite alternate; }
+@keyframes lm-wave { from { transform: rotate(-165deg); } to { transform: rotate(-120deg); } }
+
+/* ---------- particles ---------- */
+.lm-particles { position: absolute; left: -40px; right: -40px; top: -40px; bottom: 30px; pointer-events: none; }
+.lm-p { position: absolute; left: var(--x); bottom: 0; width: 26px; height: 26px; opacity: 0; animation: lm-rise var(--t) ease-out var(--d) infinite; }
+.lm-p svg { width: 100%; height: 100%; }
+.lm-p-confetti { top: 0; bottom: auto; width: 10px; height: 16px; border-radius: 2px; animation-name: lm-fall; animation-timing-function: linear; }
+@keyframes lm-rise {
+  0% { opacity: 0; transform: translate(0, 0) scale(calc(var(--s) * .4)); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), -300px) scale(var(--s)) rotate(calc(var(--r) / 6)); }
+}
+@keyframes lm-fall {
+  0% { opacity: 0; transform: translate(0, -20px) rotate(0); }
+  10% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), 340px) rotate(var(--r)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lm-preview-reduced * { animation-duration: 1ms !important; }
+}
