@@ -198,6 +198,22 @@ try {
   const notOwner = await p2.evaluate(() => fetch('/api/admin/twitch-app').then((r) => r.status));
   check(notOwner === 403, 'Andere streamer mag Twitch-app niet wijzigen');
   check(statuses.includes('knuffel:cooldown') && statuses.filter((s) => s === 'knuffel:triggered').length === 2, `Activiteit: ${statuses.reverse().join(', ')}`);
+  // 12. Recipient name: optional (fallback) vs. required
+  const cmds = await p1.evaluate(() => fetch('/api/commands').then((r) => r.json()));
+  const love = cmds.find((c) => c.name === 'love');
+  const saved = await p1.evaluate((c) => fetch(`/api/commands/${c.id}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...c, targetMode: 'required', userCooldownSec: 0, globalCooldownSec: 0 }) }).then((r) => r.json()), love);
+  check(saved.targetMode === 'required', 'Ontvanger-naam verplicht instellen via de API');
+  await waitFor(async () => (await overlay.locator('.lm-item').count()) === 0, 10000);
+  tw.chat('knuffelstreamer', { login: 'lover', display: 'Lover', userId: '5010', id: 'msg-9', text: '!love' });
+  await sleep(1000);
+  check((await overlay.locator('.lm-item').count()) === 0, 'Verplichte naam: "!love" zonder naam doet niets');
+  tw.chat('knuffelstreamer', { login: 'lover', display: 'Lover', userId: '5010', id: 'msg-10', text: '!love @BesteVriend' });
+  await overlay.waitForSelector('.lm-scene-love', { timeout: 3000 });
+  const loveText = await overlay.locator('.lm-text').textContent();
+  check(loveText === 'Lover stuurt liefde naar BesteVriend!', `Met naam: "${loveText}"`);
+  const denied = (await p1.evaluate(() => fetch('/api/activity').then((r) => r.json()))).find((a) => a.commandName === 'love' && a.status === 'denied');
+  check(denied?.detail?.includes('geen naam'), 'Activiteit toont "geen naam opgegeven"');
+
   await p1.goto(`${APP}/commands/${(await p1.evaluate(() => fetch('/api/commands').then((r) => r.json()))).find((c) => c.name === 'knuffel').id}`);
   await p1.waitForSelector('.lm-scene-hug', { timeout: 5000 });
   await sleep(1800);

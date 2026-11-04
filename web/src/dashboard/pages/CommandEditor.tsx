@@ -21,6 +21,8 @@ const blank: Draft = {
   globalCooldownSec: 5,
   permission: 'everyone',
   showUsername: true,
+  targetMode: 'optional',
+  targetFallback: 'de streamer',
   style: { fontFamily: 'Fredoka', fontSize: 44, textColor: '#ffffff', accentColor: '#a855f7', x: 50, y: 62, scale: 1, effect: 'pop', particles: 'hearts', textShadow: true },
 };
 
@@ -193,6 +195,42 @@ export function CommandEditor() {
                   <div className="text-xs text-zinc-500">Uit: {'{user}'} wordt “Iemand”.</div>
                 </div>
                 <Toggle checked={d.showUsername} onChange={(v) => set('showUsername', v)} />
+              </div>
+              <div className="rounded-xl border border-white/10 p-4">
+                <span className="label">Naam van de ontvanger</span>
+                <p className="mb-3 text-xs text-zinc-500">
+                  Kijkers typen <code className="text-brand-400">!{d.name || 'knuffel'} @naam</code>. Die naam komt op de plek van <code>{'{target}'}</code> in de tekst.
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(
+                    [
+                      ['optional', 'Optioneel'],
+                      ['required', 'Verplicht'],
+                      ['none', 'Geen naam'],
+                    ] as const
+                  ).map(([k, l]) => (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => set('targetMode', k)}
+                      className={`cursor-pointer rounded-xl border px-3 py-2.5 text-sm font-medium transition ${d.targetMode === k ? 'border-brand-500 bg-brand-500/10 text-white' : 'border-white/10 text-zinc-300 hover:bg-white/[.04]'}`}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-zinc-500">
+                  {d.targetMode === 'optional' && 'Zonder naam wordt de tekst hieronder gebruikt.'}
+                  {d.targetMode === 'required' && 'Zonder naam gebeurt er niets (en gaat er geen cooldown af). In de preview zie je “Vriendje” als voorbeeld.'}
+                  {d.targetMode === 'none' && 'Namen achter het command worden genegeerd; {target} wordt de tekst hieronder.'}
+                </p>
+                {d.targetMode !== 'required' && (
+                  <div className="mt-3">
+                    <Field label="Tekst als er geen naam is">
+                      <input className="input" value={d.targetFallback} maxLength={40} onChange={(e) => set('targetFallback', e.target.value)} />
+                    </Field>
+                  </div>
+                )}
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Lettertype">

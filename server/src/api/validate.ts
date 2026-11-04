@@ -1,4 +1,4 @@
-import { ANIMATIONS, EFFECTS, PARTICLES, PERMISSIONS } from '../commands/defaults.js';
+import { ANIMATIONS, EFFECTS, PARTICLES, PERMISSIONS, TARGET_MODES } from '../commands/defaults.js';
 import type { CommandStyle } from '../db/schema.js';
 
 export class ValidationError extends Error {}
@@ -62,6 +62,8 @@ export function validateCommand(body: any) {
     globalCooldownSec: int(body.globalCooldownSec, 'Globale cooldown', 0, 86_400),
     permission: oneOf(body.permission, PERMISSIONS, 'permissie'),
     showUsername: body.showUsername !== false,
+    targetMode: oneOf(body.targetMode ?? 'optional', TARGET_MODES, 'ontvanger-instelling'),
+    targetFallback: str(body.targetFallback ?? 'de streamer', 'Tekst zonder naam', 40)!,
     style,
   };
 }

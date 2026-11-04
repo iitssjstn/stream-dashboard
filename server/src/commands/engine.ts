@@ -80,6 +80,13 @@ export class CommandEngine {
       return;
     }
 
+    const target = cmd.targetMode === 'none' ? null : parseTarget(rest.join(' '));
+    if (cmd.targetMode === 'required' && !target) {
+      // Checked before cooldowns, so a forgotten name doesn't cost the viewer their cooldown.
+      this.record(userId, cmd.name, msg.displayName, 'denied', `geen naam opgegeven (!${cmd.name} @naam)`);
+      return;
+    }
+
     const now = Date.now();
     const isBroadcaster = msg.roles.has('broadcaster');
     const gKey = `${userId}:${cmd.id}`;
@@ -96,13 +103,13 @@ export class CommandEngine {
     this.globalCooldown.set(gKey, now + cmd.globalCooldownSec * 1000);
     this.userCooldown.set(uKey, now + cmd.userCooldownSec * 1000);
 
-    this.fire(userId, cmd, msg.displayName, parseTarget(rest.join(' ')), msg.channel, 'triggered');
+    this.fire(userId, cmd, msg.displayName, target, msg.channel, 'triggered');
   }
 
   /** Sends a command to the overlay. Used by chat and by the dashboard's "test" button. */
   fire(userId: number, cmd: Command, viewer: string, target: string | null, channel: string, status: 'triggered' | 'test') {
     const shownUser = cmd.showUsername ? viewer : 'Iemand';
-    const text = renderText(cmd.text, { user: shownUser, target: target ?? 'de streamer', channel });
+    const text = renderText(cmd.text, { user: shownUser, target: target ?? cmd.targetFallback, channel });
     const res = this.hub.emit(userId, {
       command: cmd.name,
       animation: cmd.animation,

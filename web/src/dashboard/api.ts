@@ -14,6 +14,8 @@ export type Command = {
   globalCooldownSec: number;
   permission: 'everyone' | 'subscriber' | 'vip' | 'moderator' | 'broadcaster';
   showUsername: boolean;
+  targetMode: 'optional' | 'required' | 'none';
+  targetFallback: string;
   style: CommandStyle;
 };
 

@@ -25,6 +25,7 @@ export const DEFAULT_COMMANDS = [
     name: 'hug',
     animation: 'hug',
     text: '{user} gives {target} a big hug!',
+    targetFallback: 'the streamer',
     style: defaultStyle({ particles: 'hearts', accentColor: '#ec4899' }),
   },
   {
@@ -50,4 +51,5 @@ export const DEFAULT_COMMANDS = [
 export const ANIMATIONS = ['hug', 'highfive', 'love', 'dance', 'wave', 'image'] as const;
 export const PERMISSIONS = ['everyone', 'subscriber', 'vip', 'moderator', 'broadcaster'] as const;
 export const EFFECTS = ['pop', 'slide-up', 'slide-left', 'fade', 'bounce', 'zoom', 'spin'] as const;
+export const TARGET_MODES = ['optional', 'required', 'none'] as const;
 export const PARTICLES = ['none', 'hearts', 'stars', 'confetti', 'sparkles'] as const;

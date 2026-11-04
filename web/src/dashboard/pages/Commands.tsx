@@ -55,6 +55,7 @@ export function Commands() {
                 <span className="chip bg-white/[.05] text-zinc-300">{LABELS.permission[c.permission]}</span>
                 <span className="chip bg-white/[.05] text-zinc-300">{(c.durationMs / 1000).toFixed(1)}s</span>
                 <span className="chip bg-white/[.05] text-zinc-300">⏱ {c.userCooldownSec}s / {c.globalCooldownSec}s</span>
+                {c.targetMode === 'required' && <span className="chip bg-white/[.05] text-zinc-300">@naam verplicht</span>}
                 {c.soundUrl && <span className="chip bg-white/[.05] text-zinc-300">🔊 geluid</span>}
               </div>
               <div className="mt-4 flex gap-2 border-t border-white/[.05] pt-4">
