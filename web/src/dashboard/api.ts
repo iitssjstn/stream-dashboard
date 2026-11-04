@@ -26,6 +26,7 @@ export type Me = {
   stats: { commands: number; triggers24h: number };
   twitchConfigured: boolean;
   isOwner: boolean;
+  giphyEnabled: boolean;
 };
 
 export type Activity = { id: number; commandName: string; viewer: string; status: string; detail: string | null; createdAt: number };

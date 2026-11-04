@@ -43,6 +43,18 @@ export function saveTwitchCredentials(clientId: string, clientSecret: string) {
   setupCode = null;
 }
 
+// ---- GIPHY: API key entered by the owner in Settings (or a Docker secret), stored encrypted ----
+export function giphyKey(): { key: string; source: 'secret' | 'setup' | 'none' } {
+  const fromSecret = readSecret('GIPHY_API_KEY');
+  if (fromSecret) return { key: fromSecret, source: 'secret' };
+  const stored = get('giphy_api_key');
+  return stored ? { key: decrypt(stored), source: 'setup' } : { key: '', source: 'none' };
+}
+export function saveGiphyKey(key: string | null) {
+  if (key) set('giphy_api_key', encrypt(key));
+  else db.delete(schema.appSettings).where(eq(schema.appSettings.key, 'giphy_api_key')).run();
+}
+
 // ---- owner: the first streamer who logs in after setup may change instance settings ----
 export const ownerUserId = () => Number(get('owner_user_id')) || null;
 export function claimOwnerIfUnset(userId: number) {

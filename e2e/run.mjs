@@ -37,7 +37,7 @@ function startApp() {
     const name = 'lumio-e2e';
     spawn('docker', ['rm', '-f', name], { stdio: 'ignore' });
     const env = { PORT: APP_PORT, PUBLIC_URL: APP, LOG_LEVEL: 'warn',
-      TWITCH_ID_BASE: `http://localhost:${TW_PORT}`, TWITCH_API_BASE: `http://localhost:${TW_PORT}`, TWITCH_IRC_URL: `ws://localhost:${TW_PORT}/irc` };
+      TWITCH_ID_BASE: `http://localhost:${TW_PORT}`, TWITCH_API_BASE: `http://localhost:${TW_PORT}`, TWITCH_IRC_URL: `ws://localhost:${TW_PORT}/irc`, GIPHY_API_BASE: `http://localhost:${TW_PORT}` };
     const args = ['run', '--rm', '--name', name, '--network', 'host', '-v', 'lumio-e2e-data:/data', ...Object.entries(env).flatMap(([k, v]) => ['-e', `${k}=${v}`]), IMAGE];
     const p = watchOutput(spawn('docker', args, { stdio: ['ignore', 'pipe', 'inherit'] }));
     const kill = p.kill.bind(p);
@@ -49,7 +49,7 @@ function startApp() {
     env: {
       ...process.env, PORT: String(APP_PORT), PUBLIC_URL: APP, DATA_DIR: DATA, LOG_LEVEL: 'warn',
       TWITCH_ID_BASE: `http://localhost:${TW_PORT}`, TWITCH_API_BASE: `http://localhost:${TW_PORT}`,
-      TWITCH_IRC_URL: `ws://localhost:${TW_PORT}/irc`,
+      TWITCH_IRC_URL: `ws://localhost:${TW_PORT}/irc`, GIPHY_API_BASE: `http://localhost:${TW_PORT}`,
     },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
@@ -236,6 +236,38 @@ try {
   await back.click();
   await p1.waitForURL('**/commands');
   check(true, 'Bevestigen gaat terug naar de commandlijst');
+
+  // 15. GIPHY: owner stores the key in Settings, then searches and picks a GIF in the editor
+  await p1.goto(`${APP}/settings`);
+  const keyInput = p1.getByLabel('GIPHY API-sleutel');
+  await keyInput.fill('verkeerdesleutel1234567');
+  await p1.getByRole('button', { name: 'Opslaan', exact: true }).click();
+  await p1.getByText('GIPHY accepteert deze API-sleutel niet').waitFor();
+  check(true, 'GIPHY: verkeerde sleutel wordt geweigerd');
+  await keyInput.fill('giphytestkey1234567890');
+  await p1.getByRole('button', { name: 'Opslaan', exact: true }).click();
+  await p1.getByText('GIPHY ingesteld').waitFor();
+  check(true, 'GIPHY: sleutel opgeslagen via Instellingen');
+  const leaks = await p1.evaluate(async () => [await (await fetch('/api/me')).text(), await (await fetch('/api/admin/giphy')).text(), await (await fetch('/api/giphy/search?q=hug')).text()].join(''));
+  check(!leaks.includes('giphytestkey1234567890'), 'GIPHY-sleutel komt nooit in de browser');
+  check((await p2.evaluate(() => fetch('/api/admin/giphy').then((r) => r.status))) === 403, 'GIPHY-sleutel alleen door eigenaar te beheren');
+  const knuffelId = (await p1.evaluate(() => fetch('/api/commands').then((r) => r.json()))).find((c) => c.name === 'knuffel').id;
+  await p1.goto(`${APP}/commands/${knuffelId}`);
+  await p1.getByRole('button', { name: 'Zoek op GIPHY' }).click();
+  const dlg = p1.getByRole('dialog', { name: 'GIF zoeken op GIPHY' });
+  await dlg.getByText('Trending').waitFor();
+  await dlg.getByPlaceholder(/Zoek een GIF/).fill('hug');
+  await dlg.getByTitle('hug gif 0', { exact: true }).waitFor();
+  check((await dlg.getByText('Powered by GIPHY').count()) === 1, 'GIPHY: zoekresultaten met "Powered by GIPHY"');
+  await dlg.getByRole('button', { name: 'Meer laden' }).click();
+  await dlg.getByTitle('hug gif 24', { exact: true }).waitFor();
+  check(true, 'GIPHY: meer resultaten laden');
+  await dlg.getByTitle('hug gif 3', { exact: true }).click();
+  await p1.getByText('Gekozen GIF').waitFor();
+  await p1.getByRole('button', { name: 'Opslaan', exact: true }).click();
+  await p1.getByText('!knuffel opgeslagen').waitFor();
+  const withGif = (await p1.evaluate(() => fetch('/api/commands').then((r) => r.json()))).find((c) => c.name === 'knuffel');
+  check(withGif.imageUrl === 'https://media.giphy.com/media/hug-3/giphy.gif', `GIPHY-GIF opgeslagen bij !knuffel (${withGif.imageUrl})`);
 
   // 14. Layout: command list next to the canvas
   await p1.setViewportSize({ width: 1440, height: 1000 });

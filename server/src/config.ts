@@ -72,6 +72,10 @@ export const config = {
     ircUrl: env('TWITCH_IRC_URL', 'wss://irc-ws.chat.twitch.tv:443'),
     scopes: ['chat:read', 'chat:edit', 'user:read:email'],
   },
+  giphy: {
+    /** Overridable for tests. */
+    apiBase: env('GIPHY_API_BASE', 'https://api.giphy.com'),
+  },
   webDist: path.resolve(env('WEB_DIST', '../web/dist')),
 };
 

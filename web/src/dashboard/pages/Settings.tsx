@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMe } from '../App';
 import { api } from '../api';
@@ -44,6 +45,7 @@ export function Settings() {
         </section>
 
         {me.isOwner && <TwitchAppSettings />}
+        {me.isOwner && <GiphySettings onChange={reload} />}
 
         <section className="card flex flex-wrap gap-3 p-5">
           <button
@@ -85,6 +87,79 @@ function TwitchAppSettings() {
         <p className="text-sm text-zinc-400">Deze gegevens komen uit Docker secrets en worden daar beheerd.</p>
       ) : (
         <TwitchAppForm mode="update" redirectUri={status.redirectUri} initialClientId={data.clientId} onDone={reload} />
+      )}
+    </section>
+  );
+}
+
+function GiphySettings({ onChange }: { onChange: () => void }) {
+  const { data, reload } = usePoll<{ source: 'secret' | 'setup' | 'none' }>('/api/admin/giphy');
+  const [key, setKey] = useState('');
+  const [busy, setBusy] = useState(false);
+  const toast = useToast();
+  if (!data) return null;
+  const done = () => {
+    setKey('');
+    void reload();
+    onChange();
+  };
+  return (
+    <section className="card p-5">
+      <h2 className="font-semibold text-white">GIPHY (eigenaar)</h2>
+      <p className="mt-1 mb-4 text-sm text-zinc-400">
+        Hiermee kun je in de command-editor GIF's zoeken. Maak gratis een API-sleutel op{' '}
+        <a className="font-semibold text-brand-400 underline" href="https://developers.giphy.com/dashboard/" target="_blank" rel="noreferrer">
+          developers.giphy.com
+        </a>{' '}
+        (kies <i>API</i>). De sleutel wordt versleuteld opgeslagen en nooit getoond.
+      </p>
+      {data.source === 'secret' ? (
+        <p className="text-sm text-zinc-400">De sleutel komt uit Docker secrets en wordt daar beheerd.</p>
+      ) : (
+        <form
+          className="flex flex-col gap-2 sm:flex-row"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setBusy(true);
+            try {
+              await api('/api/admin/giphy', { method: 'PUT', json: { apiKey: key } });
+              toast('GIPHY ingesteld');
+              done();
+            } catch (err) {
+              toast((err as Error).message, 'error');
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <input
+            className="input font-mono"
+            type="password"
+            autoComplete="off"
+            aria-label="GIPHY API-sleutel"
+            placeholder={data.source === 'setup' ? '•••••••• (ingesteld, vul in om te vervangen)' : 'GIPHY API-sleutel'}
+            value={key}
+            onChange={(e) => setKey(e.target.value.trim())}
+            required
+          />
+          <button className="btn-primary" disabled={busy}>
+            {busy ? 'Controleren…' : 'Opslaan'}
+          </button>
+          {data.source === 'setup' && (
+            <button
+              type="button"
+              className="btn-danger"
+              onClick={async () => {
+                if (!confirm('GIPHY uitschakelen? Gekozen GIF\'s blijven werken.')) return;
+                await api('/api/admin/giphy', { method: 'DELETE' });
+                toast('GIPHY uitgeschakeld');
+                done();
+              }}
+            >
+              Verwijderen
+            </button>
+          )}
+        </form>
       )}
     </section>
   );

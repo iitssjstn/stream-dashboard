@@ -47,6 +47,22 @@ export function startFakeTwitch(port) {
       if (!acct) return res.writeHead(401).end();
       const a = accounts[acct];
       res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data: [{ ...a, profile_image_url: '' }] }));
+    } else if (url.pathname === '/v1/gifs/search' || url.pathname === '/v1/gifs/trending') {
+      // TEST-ONLY stand-in for api.giphy.com
+      if (url.searchParams.get('api_key') !== 'giphytestkey1234567890') return res.writeHead(401).end('{"message":"Unauthorized"}');
+      const q = url.searchParams.get('q') ?? 'trending';
+      const offset = Number(url.searchParams.get('offset') ?? 0);
+      const data = Array.from({ length: Number(url.searchParams.get('limit') ?? 24) }, (_, i) => ({
+        id: `${q}-${offset + i}`,
+        title: `${q} gif ${offset + i}`,
+        images: {
+          fixed_width_downsampled: { url: `http://localhost:${port}/gif.gif`, width: '200', height: '150' },
+          downsized_medium: { url: `https://media.giphy.com/media/${q}-${offset + i}/giphy.gif`, width: '480', height: '360' },
+        },
+      }));
+      res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data, pagination: { total_count: 100, count: data.length, offset } }));
+    } else if (url.pathname === '/gif.gif') {
+      res.writeHead(200, { 'content-type': 'image/gif' }).end(Buffer.from('R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==', 'base64'));
     } else if (url.pathname === '/oauth2/revoke') {
       res.writeHead(200).end();
     } else res.writeHead(404).end();

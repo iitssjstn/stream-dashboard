@@ -2,6 +2,8 @@ import { useRef, useState } from 'react';
 import { api, type Activity, type Upload } from '../api';
 import { timeAgo, usePoll } from '../hooks';
 import { Svg, useToast } from '../ui';
+import { useMe } from '../App';
+import { GiphyPicker, PoweredByGiphy } from './GiphyPicker';
 
 export function CopyUrl({ url }: { url: string }) {
   const [shown, setShown] = useState(false);
@@ -74,7 +76,10 @@ export function ActivityList({ limit = 10, compact = false }: { limit?: number; 
 export function MediaPicker({ kind, value, onChange }: { kind: 'image' | 'audio'; value: string | null; onChange: (url: string | null) => void }) {
   const { data, reload } = usePoll<Upload[]>('/api/uploads');
   const [busy, setBusy] = useState(false);
+  const [giphyOpen, setGiphyOpen] = useState(false);
+  const { me } = useMe();
   const input = useRef<HTMLInputElement>(null);
+  const external = kind === 'image' && value && !value.startsWith('/uploads/') ? value : null;
   const toast = useToast();
   const items = (data ?? []).filter((u) => u.mime.startsWith(kind === 'image' ? 'image/' : 'audio/'));
 
@@ -100,6 +105,11 @@ export function MediaPicker({ kind, value, onChange }: { kind: 'image' | 'audio'
         <button type="button" className="btn-ghost" disabled={busy} onClick={() => input.current?.click()}>
           <Svg i="upload" className="h-4 w-4" /> {busy ? 'Uploaden…' : kind === 'image' ? 'Afbeelding / GIF uploaden' : 'Geluid uploaden'}
         </button>
+        {kind === 'image' && me.giphyEnabled && (
+          <button type="button" className="btn-ghost" onClick={() => setGiphyOpen(true)}>
+            <Svg i="giphy" className="h-4 w-4" /> Zoek op GIPHY
+          </button>
+        )}
         {value && (
           <button type="button" className="btn-ghost" onClick={() => onChange(null)}>
             Verwijderen
@@ -117,6 +127,28 @@ export function MediaPicker({ kind, value, onChange }: { kind: 'image' | 'audio'
           }}
         />
       </div>
+      {kind === 'image' && !me.giphyEnabled && me.isOwner && (
+        <p className="text-xs text-zinc-500">Tip: stel onder Instellingen een GIPHY-sleutel in om GIF's te zoeken.</p>
+      )}
+      {giphyOpen && (
+        <GiphyPicker
+          onClose={() => setGiphyOpen(false)}
+          onPick={(url) => {
+            onChange(url);
+            setGiphyOpen(false);
+            toast('GIF gekozen');
+          }}
+        />
+      )}
+      {external && (
+        <div className="flex items-center gap-3 rounded-xl border border-brand-500/40 bg-brand-500/5 p-2">
+          <img src={external} alt="Gekozen GIF" className="checker h-16 w-16 rounded-lg object-contain" />
+          <div className="min-w-0 flex-1 text-sm">
+            <div className="font-semibold text-white">Gekozen GIF</div>
+            {external.includes('giphy.com') && <PoweredByGiphy />}
+          </div>
+        </div>
+      )}
       {items.length > 0 && (
         <div className={kind === 'image' ? 'grid grid-cols-4 gap-2 sm:grid-cols-6' : 'flex flex-col gap-1.5'}>
           {items.map((u) =>

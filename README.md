@@ -24,6 +24,12 @@ Kijkers typen een command zoals `!knuffel` in je Twitch-chat en er verschijnt me
 5. Kies in OBS **Bronnen → + → Browser**, plak de URL en stel 1920×1080 in. Vink *Audio regelen via OBS* aan als je geluiden gebruikt.
 6. Typ `!knuffel` in je chat. 🎉
 
+### GIF's zoeken met GIPHY (optioneel)
+
+Maak gratis een API-sleutel op <https://developers.giphy.com/dashboard/> (kies *API*). Vul hem daarna in als eigenaar onder **Instellingen → GIPHY**. In de command-editor verschijnt dan de knop **Zoek op GIPHY**.
+
+De sleutel wordt versleuteld opgeslagen, en zoeken gaat via de server, zodat de sleutel nooit in de browser komt. Je kunt hem ook als Docker secret `giphy_api_key` meegeven.
+
 ### Hoe de Twitch-gegevens beveiligd zijn
 
 - **Opslag:** de gegevens staan nergens in environment-variabelen of bestanden. Je vult ze één keer in op de website, waarna ze AES-256-GCM-versleuteld in de database staan. Het Client Secret wordt nooit meer naar de browser gestuurd.

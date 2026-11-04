@@ -14,6 +14,7 @@ import { CommandEngine } from './commands/engine.js';
 import { ChatManager } from './twitch/manager.js';
 import { authRoutes } from './auth/routes.js';
 import { setupRoutes } from './setup/routes.js';
+import { giphyRoutes } from './giphy/routes.js';
 import { ensureSetupCode, twitchConfigured } from './settings.js';
 import { apiRoutes } from './api/routes.js';
 import { overlayRoutes } from './overlay/routes.js';
@@ -38,6 +39,7 @@ app.get('/healthz', async () => ({ ok: true }));
 
 await app.register(authRoutes, { chat });
 await app.register(setupRoutes, { chat });
+await app.register(giphyRoutes);
 await app.register(apiRoutes, { prefix: '/api', chat, engine, hub });
 await app.register(overlayRoutes, { hub });
 

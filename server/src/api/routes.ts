@@ -7,7 +7,7 @@ import { db, schema } from '../db/index.js';
 import { config } from '../config.js';
 import { randomToken } from '../crypto.js';
 import { requireUser } from '../auth/session.js';
-import { ownerUserId, twitchConfigured } from '../settings.js';
+import { giphyKey, ownerUserId, twitchConfigured } from '../settings.js';
 import { validateCommand, ValidationError } from './validate.js';
 import { ANIMATIONS, EFFECTS, PARTICLES, PERMISSIONS } from '../commands/defaults.js';
 import type { ChatManager } from '../twitch/manager.js';
@@ -71,6 +71,7 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub }: Dep
       stats,
       twitchConfigured: twitchConfigured(),
       isOwner: ownerUserId() === u.id,
+      giphyEnabled: giphyKey().source !== 'none',
     };
   });
 
