@@ -262,6 +262,11 @@ try {
   await dlg.getByRole('button', { name: 'Meer laden' }).click();
   await dlg.getByTitle('hug gif 24', { exact: true }).waitFor();
   check(true, 'GIPHY: meer resultaten laden');
+  const box = await dlg.boundingBox();
+  const vp = p1.viewportSize();
+  const centred = box && box.x >= 0 && box.y >= 0 && box.x + box.width <= vp.width && box.y + box.height <= vp.height && Math.abs(box.x + box.width / 2 - vp.width / 2) < 4;
+  check(centred, `GIPHY-venster staat volledig en gecentreerd in beeld (${Math.round(box?.x)},${Math.round(box?.y)} ${Math.round(box?.width)}×${Math.round(box?.height)})`);
+  await p1.screenshot({ path: path.join(OUT, '8-giphy.png') });
   await dlg.getByTitle('hug gif 3', { exact: true }).click();
   await p1.getByText('Gekozen GIF').waitFor();
   await p1.getByRole('button', { name: 'Opslaan', exact: true }).click();

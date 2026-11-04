@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { api } from '../api';
 import { Svg } from '../ui';
 
@@ -41,15 +42,23 @@ export function GiphyPicker({ onPick, onClose }: { onPick: (url: string) => void
     input.current?.focus();
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', esc);
-    return () => window.removeEventListener('keydown', esc);
+    // Lock page scroll while the dialog is open.
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', esc);
+      document.body.style.overflow = prev;
+    };
   }, [onClose]);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6" onClick={onClose}>
+  // Portal to <body>: ancestors with backdrop-filter would otherwise trap position:fixed.
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink-950/80 p-0 backdrop-blur-md sm:items-center sm:p-6" onClick={onClose}>
       <div
         role="dialog"
+        aria-modal="true"
         aria-label="GIF zoeken op GIPHY"
-        className="card fade-in flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-b-none sm:rounded-2xl"
+        className="fade-in flex h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-ink-850 shadow-2xl shadow-black/60 sm:h-[min(80vh,720px)] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 border-b border-white/[.06] p-4">
@@ -65,19 +74,19 @@ export function GiphyPicker({ onPick, onClose }: { onPick: (url: string) => void
             ✕
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="thin-scroll flex-1 overflow-y-auto p-4">
           {error && <div className="mb-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{error}</div>}
           {!q && !error && <div className="mb-3 text-xs font-semibold tracking-wider text-zinc-500 uppercase">Trending</div>}
-          <div className="columns-2 gap-2 sm:columns-3 md:columns-4">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
             {gifs.map((g) => (
               <button
                 key={g.id}
                 type="button"
                 onClick={() => onPick(g.url)}
-                className="checker mb-2 block w-full cursor-pointer overflow-hidden rounded-lg border-2 border-transparent transition hover:border-brand-500 focus-visible:border-brand-500 focus-visible:outline-none"
+                className="group relative aspect-square cursor-pointer overflow-hidden rounded-xl bg-ink-700 ring-2 ring-transparent transition hover:ring-brand-500 focus-visible:ring-brand-500 focus-visible:outline-none"
                 title={g.title}
               >
-                <img src={g.preview} alt={g.title} loading="lazy" className="block w-full" style={g.width && g.height ? { aspectRatio: `${g.width} / ${g.height}` } : undefined} />
+                <img src={g.preview} alt={g.title} loading="lazy" className="h-full w-full object-cover transition duration-200 group-hover:scale-105" />
               </button>
             ))}
           </div>
@@ -95,7 +104,8 @@ export function GiphyPicker({ onPick, onClose }: { onPick: (url: string) => void
           <PoweredByGiphy />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
