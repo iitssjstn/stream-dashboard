@@ -95,6 +95,7 @@ export const Icon = {
     </>
   ),
   play: <path d="M7 4v16l13-8z" />,
+  back: <path d="M15 18l-6-6 6-6" />,
   plus: <path d="M12 5v14M5 12h14" />,
   trash: <path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14" />,
   edit: <path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4" />,

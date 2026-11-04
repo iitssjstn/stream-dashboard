@@ -218,6 +218,24 @@ try {
   await p1.waitForSelector('.lm-scene-hug', { timeout: 5000 });
   await sleep(1800);
   await p1.screenshot({ path: path.join(OUT, '5-editor.png') });
+
+  // 13. Editor: easy way back, with a guard against losing unsaved changes
+  const back = p1.getByRole('button', { name: 'Terug naar commands' });
+  await back.click();
+  await p1.waitForURL('**/commands');
+  check(true, 'Zonder wijzigingen: "Terug naar commands" gaat direct terug');
+  await p1.getByRole('link', { name: 'Bewerken' }).first().click();
+  await p1.getByRole('button', { name: 'Tekst & stijl' }).click();
+  await p1.locator('input[maxlength="200"]').fill('{user} knuffelt {target} heel hard!');
+  check(await p1.getByText('niet opgeslagen').isVisible(), 'Label "niet opgeslagen" verschijnt na een wijziging');
+  p1.once('dialog', (dlg) => dlg.dismiss());
+  await back.click();
+  await sleep(300);
+  check(/\/commands\/\d+$/.test(p1.url()), 'Met wijzigingen: bevestiging gevraagd, annuleren blijft in de editor');
+  p1.once('dialog', (dlg) => dlg.accept());
+  await back.click();
+  await p1.waitForURL('**/commands');
+  check(true, 'Bevestigen gaat terug naar de commandlijst');
   await p1.goto(`${APP}/dashboard`);
   await p1.getByText('Recente activiteit').waitFor();
   await sleep(600);

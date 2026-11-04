@@ -8,6 +8,13 @@ import { Field, PageHeader, Svg, Toggle, useToast } from '../ui';
 
 type Draft = Omit<Command, 'id'> & { id?: number };
 
+/** Stable fingerprint of the editable fields, used to detect unsaved changes. */
+const fingerprint = (x: Draft) =>
+  JSON.stringify(Object.keys(blank).map((k) => {
+    const v = x[k as keyof Draft];
+    return v && typeof v === 'object' ? Object.entries(v).sort(([a], [b]) => a.localeCompare(b)) : v;
+  }));
+
 const blank: Draft = {
   name: '',
   enabled: true,
@@ -36,12 +43,30 @@ export function CommandEditor() {
   const [saving, setSaving] = useState(false);
   const [replay, setReplay] = useState(0);
   const [tab, setTab] = useState<'visual' | 'text' | 'rules' | 'sound'>('visual');
+  const [savedPrint, setSavedPrint] = useState(isNew ? fingerprint(blank) : '');
+  const dirty = d !== null && fingerprint(d) !== savedPrint;
+
+  // Warn before closing/refreshing the tab with unsaved changes.
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+
+  const goBack = () => {
+    if (dirty && !confirm('Je hebt wijzigingen die nog niet zijn opgeslagen. Toch teruggaan?')) return;
+    nav('/commands');
+  };
 
   useEffect(() => {
     if (isNew) return;
     api<Command[]>('/api/commands').then((all) => {
       const c = all.find((x) => x.id === Number(id));
-      if (c) setD(c);
+      if (c) {
+        setD(c);
+        setSavedPrint(fingerprint(c));
+      }
       else nav('/commands');
     });
   }, [id, isNew, nav]);
@@ -57,6 +82,7 @@ export function CommandEditor() {
       const saved = await api<Command>(isNew ? '/api/commands' : `/api/commands/${id}`, { method: isNew ? 'POST' : 'PUT', json: d });
       toast(`!${saved.name} opgeslagen`);
       void reload();
+      setSavedPrint(fingerprint(saved));
       if (isNew) nav(`/commands/${saved.id}`, { replace: true });
       else setD(saved);
     } catch (e) {
@@ -75,13 +101,17 @@ export function CommandEditor() {
 
   return (
     <>
+      <button onClick={goBack} className="mb-3 -ml-1 inline-flex cursor-pointer items-center gap-1 rounded-lg px-1 py-1 text-sm font-semibold text-zinc-400 transition hover:text-white">
+        <Svg i="back" className="h-4 w-4" /> Terug naar commands
+      </button>
       <PageHeader
         title={isNew ? 'Nieuw command' : `!${d.name}`}
         subtitle="Wijzigingen zie je direct in de preview. Klik of sleep in de preview om de positie te kiezen."
         actions={
           <>
-            <button className="btn-ghost" onClick={() => nav('/commands')}>
-              Annuleren
+            {dirty && <span className="chip self-center bg-amber-500/15 text-amber-300">niet opgeslagen</span>}
+            <button className="btn-ghost" onClick={goBack}>
+              Terug
             </button>
             {!isNew && (
               <button
