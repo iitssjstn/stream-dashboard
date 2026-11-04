@@ -295,6 +295,21 @@ try {
   await sleep(1500);
   await p1.getByText('Indeling', { exact: true }).scrollIntoViewIfNeeded();
   await p1.screenshot({ path: path.join(OUT, '7-layout.png') });
+
+  // 16. Commands page: hero grid and list view, choice remembered
+  await p1.goto(`${APP}/commands`);
+  await p1.locator('article.card').first().waitFor();
+  check((await p1.locator('article.card').count()) === 5, 'Hero grid toont alle commands als kaart met visual');
+  await sleep(400);
+  await p1.screenshot({ path: path.join(OUT, '9-commands-grid.png') });
+  await p1.getByRole('button', { name: 'Lijst' }).click();
+  await p1.locator('ul li', { hasText: '!knuffel' }).waitFor();
+  await p1.reload();
+  await p1.locator('ul li', { hasText: '!knuffel' }).waitFor();
+  check((await p1.locator('article.card').count()) === 0, 'Lijstweergave wordt onthouden na herladen');
+  await sleep(600);
+  await p1.screenshot({ path: path.join(OUT, '10-commands-list.png') });
+  await p1.getByRole('button', { name: 'Grid' }).click();
   await p1.goto(`${APP}/dashboard`);
   await p1.getByText('Recente activiteit').waitFor();
   await sleep(600);

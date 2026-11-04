@@ -96,6 +96,8 @@ export const Icon = {
   ),
   play: <path d="M7 4v16l13-8z" />,
   back: <path d="M15 18l-6-6 6-6" />,
+  grid: <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" />,
+  list: <path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" />,
   giphy: <path d="M5 3h14v18H5zM9 3v4h4M15 9V7" />,
   plus: <path d="M12 5v14M5 12h14" />,
   trash: <path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14" />,
