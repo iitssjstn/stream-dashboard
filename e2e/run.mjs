@@ -236,6 +236,19 @@ try {
   await back.click();
   await p1.waitForURL('**/commands');
   check(true, 'Bevestigen gaat terug naar de commandlijst');
+
+  // 14. Layout: command list next to the canvas
+  await p1.setViewportSize({ width: 1440, height: 1000 });
+  await p1.goto(`${APP}/overlay`);
+  const list = p1.getByRole('list', { name: 'Commands in de overlay' });
+  await list.waitFor();
+  check((await list.getByRole('listitem').count()) === 5, 'Indeling toont lijst met alle 5 commands');
+  await list.getByRole('button', { name: /!love/ }).click();
+  await p1.getByRole('button', { name: 'Test in OBS' }).waitFor();
+  check(true, 'Command in lijst selecteren toont Test/Bewerken');
+  await sleep(1500);
+  await p1.getByText('Indeling', { exact: true }).scrollIntoViewIfNeeded();
+  await p1.screenshot({ path: path.join(OUT, '7-layout.png') });
   await p1.goto(`${APP}/dashboard`);
   await p1.getByText('Recente activiteit').waitFor();
   await sleep(600);

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { useMe } from '../App';
 import { api, LABELS, type Command } from '../api';
@@ -20,6 +21,7 @@ export function OverlayPage() {
   const [w, setW] = useState(me.overlay.width);
   const [h, setH] = useState(me.overlay.height);
   const [selected, setSelected] = useState<number | null>(null);
+  const [hovered, setHovered] = useState<number | null>(null);
 
   const saveRes = async (width: number, height: number) => {
     setW(width);
@@ -92,54 +94,96 @@ export function OverlayPage() {
       </div>
 
       <section className="card mt-6 p-5">
-        <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h2 className="font-semibold text-white">Indeling</h2>
-            <p className="text-sm text-zinc-400">Sleep elementen naar hun plek. Klik een element om het af te spelen in de preview.</p>
-          </div>
-          {sel && (
-            <button
-              className="btn-ghost"
-              onClick={async () => {
-                const r = await api<{ delivered: number }>(`/api/commands/${sel.id}/test`, { method: 'POST' });
-                toast(r.delivered ? 'Afgespeeld in OBS' : 'Geen overlay open in OBS', r.delivered ? 'ok' : 'error');
-              }}
-            >
-              <Svg i="play" className="h-3.5 w-3.5" /> !{sel.name} testen in OBS
-            </button>
-          )}
+        <div className="mb-4">
+          <h2 className="font-semibold text-white">Indeling</h2>
+          <p className="text-sm text-zinc-400">Kies rechts een command, of klik op een vak, en sleep het naar zijn plek. Het geselecteerde command speelt af in de preview.</p>
         </div>
         {cmds && (
-          <LayoutCanvas
-            width={me.overlay.width}
-            height={me.overlay.height}
-            commands={cmds}
-            selected={selected}
-            onSelect={setSelected}
-            onMove={(id, x, y) => setData((all) => all?.map((c) => (c.id === id ? { ...c, style: { ...c.style, x, y } } : c)) ?? null)}
-            onDrop={async (id) => {
-              const c = cmds.find((x) => x.id === id);
-              if (!c) return;
-              try {
-                await api(`/api/commands/${id}`, { method: 'PUT', json: c });
-              } catch (e) {
-                toast((e as Error).message, 'error');
-                void reloadCmds();
-              }
-            }}
-            preview={sel}
-          />
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+            <LayoutCanvas
+              width={me.overlay.width}
+              height={me.overlay.height}
+              commands={cmds}
+              selected={selected}
+              hovered={hovered}
+              onSelect={setSelected}
+              onMove={(id, x, y) => setData((all) => all?.map((c) => (c.id === id ? { ...c, style: { ...c.style, x, y } } : c)) ?? null)}
+              onDrop={async (id) => {
+                const c = cmds.find((x) => x.id === id);
+                if (!c) return;
+                try {
+                  await api(`/api/commands/${id}`, { method: 'PUT', json: c });
+                } catch (e) {
+                  toast((e as Error).message, 'error');
+                  void reloadCmds();
+                }
+              }}
+              preview={sel}
+            />
+            <ul className="flex max-h-[520px] flex-col gap-1.5 overflow-y-auto pr-1" aria-label="Commands in de overlay">
+              {cmds.map((c, i) => {
+                const active = c.id === selected;
+                return (
+                  <li key={c.id}>
+                    <div
+                      onMouseEnter={() => setHovered(c.id)}
+                      onMouseLeave={() => setHovered(null)}
+                      className={`rounded-xl border transition ${
+                        active ? 'border-brand-500/60 bg-brand-500/10' : 'border-white/[.06] bg-white/[.02] hover:border-white/15 hover:bg-white/[.04]'
+                      } ${c.enabled ? '' : 'opacity-50'}`}
+                    >
+                      <button
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => setSelected(active ? null : c.id)}
+                        className="block w-full cursor-pointer px-3 pt-2.5 pb-2.5 text-left"
+                      >
+                      <div className="flex items-center gap-2.5">
+                        <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: colorFor(i) }} />
+                        <span className="truncate font-mono text-sm font-semibold text-white">!{c.name}</span>
+                        {!c.enabled && <span className="chip ml-auto bg-white/[.06] px-2 py-0.5 text-[10px] text-zinc-400">uit</span>}
+                      </div>
+                      <div className="mt-0.5 pl-[22px] text-xs text-zinc-500">
+                        {LABELS.animation[c.animation] ?? c.animation} · x {c.style.x}% · y {c.style.y}%
+                      </div>
+                      </button>
+                      {active && (
+                        <div className="-mt-0.5 flex gap-2 px-3 pb-2.5 pl-[34px]">
+                          <button
+                            className="btn-ghost px-2.5 py-1.5 text-xs"
+                            onClick={async () => {
+                              const r = await api<{ delivered: number }>(`/api/commands/${c.id}/test`, { method: 'POST' });
+                              toast(r.delivered ? 'Afgespeeld in OBS' : 'Geen overlay open in OBS', r.delivered ? 'ok' : 'error');
+                            }}
+                          >
+                            <Svg i="play" className="h-3 w-3" /> Test in OBS
+                          </button>
+                          <Link to={`/commands/${c.id}`} className="btn-ghost px-2.5 py-1.5 text-xs">
+                            <Svg i="edit" className="h-3.5 w-3.5" /> Bewerken
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         )}
       </section>
     </>
   );
 }
 
+const PALETTE = ['#a855f7', '#3b82f6', '#ec4899', '#22d3ee', '#f59e0b', '#10b981', '#f43f5e', '#8b5cf6', '#84cc16', '#06b6d4'];
+const colorFor = (i: number) => PALETTE[i % PALETTE.length];
+
 function LayoutCanvas(props: {
   width: number;
   height: number;
   commands: Command[];
   selected: number | null;
+  hovered: number | null;
   preview: Command | null;
   onSelect: (id: number) => void;
   onMove: (id: number, x: number, y: number) => void;
@@ -183,29 +227,46 @@ function LayoutCanvas(props: {
           drag.current = null;
         }}
       >
-        {props.commands.map((c) => {
-          const bw = (c.animation === 'image' ? 440 : 680) * c.style.scale * scale;
-          const bh = (c.animation === 'image' ? 380 : 500) * c.style.scale * scale;
-          const active = props.selected === c.id;
-          return (
-            <div
-              key={c.id}
-              onPointerDown={(e) => {
-                e.preventDefault();
-                (e.currentTarget.parentElement as HTMLElement).setPointerCapture(e.pointerId);
-                drag.current = c.id;
-                props.onSelect(c.id);
-              }}
-              className={`absolute flex cursor-grab items-start justify-start rounded-lg border-2 border-dashed p-1 text-[11px] font-semibold transition-colors active:cursor-grabbing ${
-                active ? 'z-10 border-brand-400 bg-brand-500/10 text-white' : 'border-white/25 bg-white/[.03] text-zinc-300 hover:border-white/50'
-              } ${c.enabled ? '' : 'opacity-40'}`}
-              style={{ left: `${c.style.x}%`, top: `${c.style.y}%`, width: bw, height: bh, transform: 'translate(-50%, -50%)' }}
-              title={LABELS.animation[c.animation]}
-            >
-              <span className="rounded bg-black/60 px-1.5 py-0.5 font-mono">!{c.name}</span>
-            </div>
-          );
-        })}
+        {props.commands
+          .map((c, i) => ({ c, color: colorFor(i) }))
+          // The selected element is drawn last so it is always on top and can be grabbed.
+          .sort((a, b) => Number(a.c.id === props.selected) - Number(b.c.id === props.selected))
+          .map(({ c, color }) => {
+            const bw = (c.animation === 'image' ? 440 : 680) * c.style.scale * scale;
+            const bh = (c.animation === 'image' ? 380 : 500) * c.style.scale * scale;
+            const active = props.selected === c.id;
+            const hot = active || props.hovered === c.id;
+            const dimmed = props.selected !== null && !active && props.hovered !== c.id;
+            return (
+              <div
+                key={c.id}
+                onPointerDown={(e) => {
+                  e.preventDefault();
+                  (e.currentTarget.parentElement as HTMLElement).setPointerCapture(e.pointerId);
+                  drag.current = c.id;
+                  props.onSelect(c.id);
+                }}
+                className={`absolute flex cursor-grab items-start justify-start rounded-lg border-2 p-1 text-[11px] font-semibold transition-[opacity,background-color,border-style] active:cursor-grabbing ${
+                  hot ? 'border-solid' : 'border-dashed'
+                } ${dimmed ? 'opacity-30' : ''} ${c.enabled ? '' : 'opacity-40'}`}
+                style={{
+                  left: `${c.style.x}%`,
+                  top: `${c.style.y}%`,
+                  width: bw,
+                  height: bh,
+                  transform: 'translate(-50%, -50%)',
+                  borderColor: color,
+                  background: hot ? `${color}26` : `${color}0d`,
+                  zIndex: active ? 20 : hot ? 10 : 1,
+                }}
+                title={LABELS.animation[c.animation]}
+              >
+                <span className={`rounded px-1.5 py-0.5 font-mono text-white shadow ${dimmed ? 'invisible' : ''}`} style={{ background: color }}>
+                  !{c.name}
+                </span>
+              </div>
+            );
+          })}
       </div>
     </div>
   );
