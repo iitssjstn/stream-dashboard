@@ -11,6 +11,25 @@ function env(name: string, fallback?: string): string {
   return v;
 }
 
+/**
+ * Reads a secret without requiring it to be in the environment. Lookup order:
+ *  1. file named by <NAME>_FILE
+ *  2. Docker / compose secret at /run/secrets/<name> (lowercase)
+ *  3. plain environment variable (only meant for local development)
+ */
+function secret(name: string): string {
+  const candidates = [process.env[`${name}_FILE`], path.join(process.env.SECRETS_DIR ?? '/run/secrets', name.toLowerCase())];
+  for (const file of candidates) {
+    if (!file || !fs.existsSync(file)) continue;
+    try {
+      return fs.readFileSync(file, 'utf8').trim();
+    } catch (err) {
+      throw new Error(`Cannot read secret ${name} from ${file} (${(err as NodeJS.ErrnoException).code}). The container runs as uid 1000: chown 1000:1000 the file.`);
+    }
+  }
+  return process.env[name]?.trim() ?? '';
+}
+
 const dataDir = path.resolve(env('DATA_DIR', './data'));
 fs.mkdirSync(dataDir, { recursive: true });
 
@@ -19,7 +38,7 @@ fs.mkdirSync(dataDir, { recursive: true });
  * and persist it inside the data dir so tokens survive restarts.
  */
 function loadSecret(): Buffer {
-  const fromEnv = process.env.TOKEN_ENCRYPTION_KEY;
+  const fromEnv = secret('TOKEN_ENCRYPTION_KEY');
   if (fromEnv) {
     const buf = Buffer.from(fromEnv, 'base64');
     if (buf.length !== 32) throw new Error('TOKEN_ENCRYPTION_KEY must be 32 bytes, base64 encoded');
@@ -46,8 +65,8 @@ export const config = {
   dbFile: path.join(dataDir, 'lumio.sqlite'),
   encryptionKey: loadSecret(),
   twitch: {
-    clientId: env('TWITCH_CLIENT_ID', ''),
-    clientSecret: env('TWITCH_CLIENT_SECRET', ''),
+    clientId: secret('TWITCH_CLIENT_ID'),
+    clientSecret: secret('TWITCH_CLIENT_SECRET'),
     redirectUri: env('TWITCH_REDIRECT_URI', `${publicUrl}/auth/twitch/callback`),
     /** Overridable so the full chain can be exercised against a local Twitch-compatible test server. */
     idBase: env('TWITCH_ID_BASE', 'https://id.twitch.tv'),

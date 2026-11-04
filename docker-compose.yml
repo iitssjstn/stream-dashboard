@@ -5,15 +5,25 @@ services:
     build: .
     container_name: stream-dashboard
     restart: unless-stopped
-    env_file: .env
     environment:
-      # Fixed inside the container; change HOST_PORT in .env to expose another port.
+      # Only non-secret settings here. Credentials come from the secrets below.
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
       PORT: 3000
       DATA_DIR: /data
+    secrets:
+      - twitch_client_id
+      - twitch_client_secret
     ports:
       - "${HOST_PORT:-3000}:3000"
     volumes:
       - lumio-data:/data
+
+# Mounted read-only at /run/secrets/<name>; never part of the container environment.
+secrets:
+  twitch_client_id:
+    file: ./secrets/twitch_client_id
+  twitch_client_secret:
+    file: ./secrets/twitch_client_secret
 
 volumes:
   lumio-data:

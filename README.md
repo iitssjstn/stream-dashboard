@@ -13,11 +13,15 @@ Kijkers typen een command zoals `!knuffel` in je Twitch-chat en er verschijnt me
 1. **Maak een Twitch-app** op <https://dev.twitch.tv/console/apps>:
    - *OAuth Redirect URL*: `http://localhost:3000/auth/twitch/callback` (of `https://jouwdomein.nl/auth/twitch/callback`)
    - Categorie: *Broadcasting Suite*. Noteer de **Client ID** en maak een **Client Secret** aan.
-2. **Configureer** de app:
+2. **Zet de Twitch-gegevens als secrets.** Ze komen nooit in environment-variabelen terecht: Docker koppelt ze als bestand in `/run/secrets/`.
    ```bash
-   cp .env.example .env
+   mkdir -p secrets && chmod 700 secrets
+   printf '%s' 'JOUW_CLIENT_ID'     > secrets/twitch_client_id
+   printf '%s' 'JOUW_CLIENT_SECRET' > secrets/twitch_client_secret
+   sudo chown 1000:1000 secrets/* && chmod 600 secrets/*   # de container draait als uid 1000
+   cp .env.example .env      # alleen PUBLIC_URL en HOST_PORT, geen geheimen
    ```
-   Vul `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` en `PUBLIC_URL` in. `PUBLIC_URL` moet overeenkomen met de redirect-URL uit stap 1.
+   `PUBLIC_URL` moet overeenkomen met de redirect-URL uit stap 1. De map `secrets/` staat in `.gitignore`.
 3. **Start** de app met het image dat GitHub Actions bouwt:
    ```bash
    docker compose pull && docker compose up -d
@@ -26,6 +30,8 @@ Kijkers typen een command zoals `!knuffel` in je Twitch-chat en er verschijnt me
 4. Open `PUBLIC_URL` (bijv. <http://localhost:3000>), klik op **Koppel je Twitch-account** en kopieer je overlay-URL.
 5. Kies in OBS **Bronnen → + → Browser**, plak de URL en stel 1920×1080 in. Vink *Audio regelen via OBS* aan als je geluiden gebruikt.
 6. Typ `!knuffel` in je chat. 🎉
+
+De app zoekt elk geheim op deze plekken, in deze volgorde: het bestand uit `<NAAM>_FILE`, daarna `/run/secrets/<naam>`, en pas als laatste de environment-variabele (alleen bedoeld voor lokale ontwikkeling). Het gaat om `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` en het optionele `TOKEN_ENCRYPTION_KEY`.
 
 De database, uploads en encryptiesleutel staan in het Docker-volume `lumio-data`, dus ze blijven bewaard na updates en herstarts.
 
@@ -79,7 +85,9 @@ e2e/                        End-to-end test van de volledige keten
 
 ```bash
 npm run install:all
-cp .env.example .env               # vul de Twitch-gegevens in
+cp .env.example .env
+mkdir -p secrets && printf '%s' 'ID' > secrets/twitch_client_id && printf '%s' 'SECRET' > secrets/twitch_client_secret
+export SECRETS_DIR=$PWD/secrets     # lokaal i.p.v. /run/secrets
 npm run dev:server                 # API op :3000
 npm run dev:web                    # Vite op :5173 (proxy naar :3000)
 ```
