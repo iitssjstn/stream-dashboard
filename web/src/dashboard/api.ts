@@ -23,6 +23,7 @@ export type Me = {
   chat: { enabled: boolean; status: 'disconnected' | 'connecting' | 'connected' | 'auth_failed'; lastError: string | null; connectedAt: number | null };
   stats: { commands: number; triggers24h: number };
   twitchConfigured: boolean;
+  isOwner: boolean;
 };
 
 export type Activity = { id: number; commandName: string; viewer: string; status: string; detail: string | null; createdAt: number };

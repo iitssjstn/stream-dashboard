@@ -110,5 +110,12 @@ export const uploads = sqliteTable('uploads', {
   createdAt: integer('created_at').notNull(),
 });
 
+/** Instance-wide settings (e.g. Twitch app credentials entered in the setup wizard). Secrets are stored encrypted. */
+export const appSettings = sqliteTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
+
 export type User = typeof users.$inferSelect;
 export type Command = typeof commands.$inferSelect;

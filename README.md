@@ -10,28 +10,29 @@ Kijkers typen een command zoals `!knuffel` in je Twitch-chat en er verschijnt me
 
 ## Snel starten met Docker Compose
 
-1. **Maak een Twitch-app** op <https://dev.twitch.tv/console/apps>:
-   - *OAuth Redirect URL*: `http://localhost:3000/auth/twitch/callback` (of `https://jouwdomein.nl/auth/twitch/callback`)
-   - Categorie: *Broadcasting Suite*. Noteer de **Client ID** en maak een **Client Secret** aan.
-2. **Zet de Twitch-gegevens als secrets.** Ze komen nooit in environment-variabelen terecht: Docker koppelt ze als bestand in `/run/secrets/`.
-   ```bash
-   mkdir -p secrets && chmod 700 secrets
-   printf '%s' 'JOUW_CLIENT_ID'     > secrets/twitch_client_id
-   printf '%s' 'JOUW_CLIENT_SECRET' > secrets/twitch_client_secret
-   sudo chown 1000:1000 secrets/* && chmod 600 secrets/*   # de container draait als uid 1000
-   cp .env.example .env      # alleen PUBLIC_URL en HOST_PORT, geen geheimen
-   ```
-   `PUBLIC_URL` moet overeenkomen met de redirect-URL uit stap 1. De map `secrets/` staat in `.gitignore`.
-3. **Start** de app met het image dat GitHub Actions bouwt:
+1. **Start** de app met het image dat GitHub Actions bouwt:
    ```bash
    docker compose pull && docker compose up -d
    ```
-   Wil je liever lokaal bouwen? Gebruik dan `docker compose up -d --build`.
-4. Open `PUBLIC_URL` (bijv. <http://localhost:3000>), klik op **Koppel je Twitch-account** en kopieer je overlay-URL.
+   Wil je liever lokaal bouwen? Gebruik dan `docker compose up -d --build`. Zet eventueel `PUBLIC_URL` in `.env` (zie `.env.example`); daar staan geen geheimen in.
+2. **Haal de eenmalige setup-code** uit de logs:
+   ```bash
+   docker logs stream-dashboard | grep "SETUP CODE"
+   ```
+3. **Open `PUBLIC_URL`** (bijv. <http://localhost:3000>). De setup-wizard toont de *OAuth Redirect URL* die je in de Twitch-app invult. Maak de app aan op <https://dev.twitch.tv/console/apps> (categorie *Broadcasting Suite*) en vul daarna in de wizard de setup-code, de **Client ID** en het **Client Secret** in.
+4. Klik op **Koppel je Twitch-account** en kopieer je overlay-URL. De eerste streamer die inlogt wordt **eigenaar** en kan de Twitch-app later wijzigen onder *Instellingen*.
 5. Kies in OBS **Bronnen → + → Browser**, plak de URL en stel 1920×1080 in. Vink *Audio regelen via OBS* aan als je geluiden gebruikt.
 6. Typ `!knuffel` in je chat. 🎉
 
-De app zoekt elk geheim op deze plekken, in deze volgorde: het bestand uit `<NAAM>_FILE`, daarna `/run/secrets/<naam>`, en pas als laatste de environment-variabele (alleen bedoeld voor lokale ontwikkeling). Het gaat om `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` en het optionele `TOKEN_ENCRYPTION_KEY`.
+### Hoe de Twitch-gegevens beveiligd zijn
+
+- **Opslag:** de gegevens staan nergens in environment-variabelen of bestanden. Je vult ze één keer in op de website, waarna ze AES-256-GCM-versleuteld in de database staan. Het Client Secret wordt nooit meer naar de browser gestuurd.
+- **Controle vooraf:** de wizard controleert de gegevens eerst bij Twitch en slaat ze pas daarna op.
+- **Setup-code:** de wizard werkt alleen met de eenmalige setup-code uit de serverlogs, zodat niemand een verse installatie kan overnemen. Na de setup is de wizard dicht en mag alleen de eigenaar de gegevens nog wijzigen. Pogingen zijn beperkt tot 5 per minuut.
+- **Sleutel apart (optioneel):** de encryptiesleutel wordt standaard in het data-volume aangemaakt. Wil je hem gescheiden van de database houden, zodat een gelekte back-up van het volume onbruikbaar is? Geef hem dan mee als Docker secret `token_encryption_key` (32 bytes, base64: `openssl rand -base64 32`).
+- **Docker secrets (optioneel):** wil je de Twitch-gegevens toch liever als Docker secret beheren, dan hebben die voorrang op de wizard.
+
+De app zoekt elk geheim op deze plekken, in deze volgorde: het bestand uit `<NAAM>_FILE`, daarna `/run/secrets/<naam>`, en pas als laatste de environment-variabele (alleen bedoeld voor lokale ontwikkeling). Het gaat om `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET` en `TOKEN_ENCRYPTION_KEY`, allemaal optioneel.
 
 De database, uploads en encryptiesleutel staan in het Docker-volume `lumio-data`, dus ze blijven bewaard na updates en herstarts.
 
@@ -86,8 +87,6 @@ e2e/                        End-to-end test van de volledige keten
 ```bash
 npm run install:all
 cp .env.example .env
-mkdir -p secrets && printf '%s' 'ID' > secrets/twitch_client_id && printf '%s' 'SECRET' > secrets/twitch_client_secret
-export SECRETS_DIR=$PWD/secrets     # lokaal i.p.v. /run/secrets
 npm run dev:server                 # API op :3000
 npm run dev:web                    # Vite op :5173 (proxy naar :3000)
 ```

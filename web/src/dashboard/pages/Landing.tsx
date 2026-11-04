@@ -2,6 +2,7 @@ import { Navigate, useSearchParams } from 'react-router-dom';
 import { usePoll } from '../hooks';
 import { Logo, Svg } from '../ui';
 import { OverlayPreview } from '../components/OverlayPreview';
+import { TwitchAppForm } from '../components/TwitchAppForm';
 
 const demo = {
   name: 'knuffel',
@@ -16,10 +17,21 @@ const demo = {
 };
 
 export function Landing() {
-  const { data } = usePoll<{ twitchConfigured: boolean; loggedIn: boolean }>('/auth/status');
+  const { data, reload } = usePoll<{ twitchConfigured: boolean; setupRequired: boolean; redirectUri: string; loggedIn: boolean }>('/auth/status');
   const [params] = useSearchParams();
   const error = params.get('error');
   if (data?.loggedIn) return <Navigate to="/dashboard" replace />;
+  if (data?.setupRequired)
+    return (
+      <div className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-6 px-5 py-10">
+        <Logo />
+        <div className="card fade-in p-6">
+          <h1 className="text-2xl font-bold text-white">Eerste installatie</h1>
+          <p className="mt-1 mb-5 text-sm text-zinc-400">Koppel deze installatie aan een Twitch-app. Dit hoeft maar één keer.</p>
+          <TwitchAppForm mode="setup" redirectUri={data.redirectUri} onDone={reload} />
+        </div>
+      </div>
+    );
 
   return (
     <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-5 py-6">
@@ -41,11 +53,6 @@ export function Landing() {
             geluiden, cooldowns en permissies.
           </p>
           {error && <div className="mt-6 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{error}</div>}
-          {data && !data.twitchConfigured && (
-            <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-              Twitch-login is nog niet geconfigureerd op deze server. Zet <code>TWITCH_CLIENT_ID</code> en <code>TWITCH_CLIENT_SECRET</code> in <code>.env</code> (zie README).
-            </div>
-          )}
           <div className="mt-8 flex flex-wrap gap-3">
             <a href="/auth/twitch/login" className="btn-primary px-6 py-3 text-base">
               <Svg i="twitch" /> Koppel je Twitch-account

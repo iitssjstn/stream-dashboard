@@ -33,7 +33,10 @@ export function startFakeTwitch(port) {
       res.writeHead(302, { location: back.toString() }).end();
     } else if (url.pathname === '/oauth2/token' && req.method === 'POST') {
       const p = await body(req);
-      if (!p.get('client_id') || !p.get('client_secret')) return res.writeHead(400).end('{"message":"missing client"}');
+      if (p.get('client_id') !== 'testclient123' || p.get('client_secret') !== 'testsecret456') return res.writeHead(403).end('{"message":"invalid client secret"}');
+      if (p.get('grant_type') === 'client_credentials') {
+        return res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ access_token: 'app_token', expires_in: 5000000, token_type: 'bearer' }));
+      }
       let acct;
       if (p.get('grant_type') === 'authorization_code') acct = p.get('code')?.replace('code_', '');
       else if (p.get('grant_type') === 'refresh_token') acct = state.tokens.get(p.get('refresh_token'));

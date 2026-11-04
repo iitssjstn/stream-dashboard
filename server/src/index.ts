@@ -12,7 +12,9 @@ import { runMigrations } from './db/index.js';
 import { OverlayHub } from './overlay/hub.js';
 import { CommandEngine } from './commands/engine.js';
 import { ChatManager } from './twitch/manager.js';
-import { authRoutes, twitchConfigured } from './auth/routes.js';
+import { authRoutes } from './auth/routes.js';
+import { setupRoutes } from './setup/routes.js';
+import { ensureSetupCode, twitchConfigured } from './settings.js';
 import { apiRoutes } from './api/routes.js';
 import { overlayRoutes } from './overlay/routes.js';
 
@@ -35,6 +37,7 @@ await app.register(rateLimit, { max: 300, timeWindow: '1 minute', allowList: (re
 app.get('/healthz', async () => ({ ok: true }));
 
 await app.register(authRoutes, { chat });
+await app.register(setupRoutes, { chat });
 await app.register(apiRoutes, { prefix: '/api', chat, engine, hub });
 await app.register(overlayRoutes, { hub });
 
@@ -64,7 +67,12 @@ if (fs.existsSync(config.webDist)) {
 }
 
 await app.listen({ port: config.port, host: config.host });
-if (!twitchConfigured()) app.log.warn('TWITCH_CLIENT_ID / TWITCH_CLIENT_SECRET ontbreken: Twitch-login is uitgeschakeld.');
+if (!twitchConfigured()) {
+  const code = ensureSetupCode();
+  const line = '='.repeat(64);
+  // Plain stdout so it is easy to spot with `docker logs stream-dashboard`.
+  console.log(`\n${line}\n  Twitch is nog niet ingesteld. Open ${config.publicUrl}\n  en vul deze eenmalige setup-code in:\n\n      SETUP CODE: ${code}\n\n  (nieuwe code bij elke herstart zolang de setup niet klaar is)\n${line}\n`);
+}
 chat.startAll();
 
 const shutdown = async () => {

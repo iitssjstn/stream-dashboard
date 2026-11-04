@@ -18,16 +18,28 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let failures = 0;
 const check = (cond, msg) => { console.log(`${cond ? '✔' : '✘'} ${msg}`); if (!cond) failures++; };
 
+// The setup code is only printed in the server output, exactly like `docker logs` would show it.
+let setupCode = null;
+function watchOutput(p) {
+  p.stdout.on('data', (d) => {
+    const s = d.toString();
+    process.stderr.write(s);
+    const m = s.match(/SETUP CODE: ([A-F0-9-]+)/);
+    if (m) setupCode = m[1];
+  });
+  return p;
+}
+
 // Set E2E_DOCKER_IMAGE=stream-dashboard:latest to run the same test against the Docker image.
 const IMAGE = process.env.E2E_DOCKER_IMAGE;
 function startApp() {
   if (IMAGE) {
     const name = 'lumio-e2e';
     spawn('docker', ['rm', '-f', name], { stdio: 'ignore' });
-    const env = { PORT: APP_PORT, PUBLIC_URL: APP, LOG_LEVEL: 'warn', TWITCH_CLIENT_ID: 'test-client', TWITCH_CLIENT_SECRET: 'test-secret',
+    const env = { PORT: APP_PORT, PUBLIC_URL: APP, LOG_LEVEL: 'warn',
       TWITCH_ID_BASE: `http://localhost:${TW_PORT}`, TWITCH_API_BASE: `http://localhost:${TW_PORT}`, TWITCH_IRC_URL: `ws://localhost:${TW_PORT}/irc` };
     const args = ['run', '--rm', '--name', name, '--network', 'host', '-v', 'lumio-e2e-data:/data', ...Object.entries(env).flatMap(([k, v]) => ['-e', `${k}=${v}`]), IMAGE];
-    const p = spawn('docker', args, { stdio: ['ignore', 'inherit', 'inherit'] });
+    const p = watchOutput(spawn('docker', args, { stdio: ['ignore', 'pipe', 'inherit'] }));
     const kill = p.kill.bind(p);
     p.kill = () => { spawn('docker', ['stop', name], { stdio: 'ignore' }); return kill('SIGTERM'); };
     return p;
@@ -36,13 +48,12 @@ function startApp() {
     cwd: path.join(ROOT, 'server'),
     env: {
       ...process.env, PORT: String(APP_PORT), PUBLIC_URL: APP, DATA_DIR: DATA, LOG_LEVEL: 'warn',
-      TWITCH_CLIENT_ID: 'test-client', TWITCH_CLIENT_SECRET: 'test-secret',
       TWITCH_ID_BASE: `http://localhost:${TW_PORT}`, TWITCH_API_BASE: `http://localhost:${TW_PORT}`,
       TWITCH_IRC_URL: `ws://localhost:${TW_PORT}/irc`,
     },
-    stdio: ['ignore', 'inherit', 'inherit'],
+    stdio: ['ignore', 'pipe', 'inherit'],
   });
-  return p;
+  return watchOutput(p);
 }
 async function waitFor(fn, ms = 10000, step = 100) {
   const end = Date.now() + ms;
@@ -61,6 +72,27 @@ try {
   const dash = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await dash.newPage();
   await page.goto(APP);
+  // 0. First-run setup wizard: Twitch app credentials entered on the website, guarded by the log-only code
+  await page.getByText('Eerste installatie').waitFor();
+  await waitFor(() => setupCode);
+  check(Boolean(setupCode), 'Setup-code staat alleen in de serverlogs');
+  const fill = async (code, secret) => {
+    await page.getByPlaceholder('XXXX-XXXX-XXXX').fill(code);
+    await page.getByLabel('Client ID').fill('testclient123');
+    await page.getByLabel('Client Secret').fill(secret);
+    await page.getByRole('button', { name: 'Opslaan en doorgaan' }).click();
+  };
+  await fill('AAAA-BBBB-CCCC', 'testsecret456');
+  await page.getByText('Onjuiste setup-code').waitFor();
+  check(true, 'Setup met verkeerde code wordt geweigerd');
+  await fill(setupCode, 'verkeerdsecret99');
+  await page.getByText('Twitch accepteert deze').waitFor();
+  check(true, 'Verkeerd Client Secret wordt bij Twitch gecontroleerd en geweigerd');
+  await fill(setupCode, 'testsecret456');
+  await page.getByRole('link', { name: /Koppel je Twitch-account/ }).waitFor();
+  check(true, 'Twitch-gegevens via de website ingesteld');
+  const again = await fetch(`${APP}/setup/twitch`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: setupCode, clientId: 'evilclient123', clientSecret: 'evilsecret123' }) });
+  check(again.status === 409, 'Setup kan daarna niet opnieuw (ook niet met dezelfde code)');
   await page.getByRole('link', { name: /Koppel je Twitch-account/ }).click();
   await page.waitForURL('**/dashboard');
   await page.getByText('Verbonden met chat').waitFor({ timeout: 10000 });
@@ -161,6 +193,10 @@ try {
   await p1.waitForURL('**/dashboard');
   const acts1 = await p1.evaluate(() => fetch('/api/activity').then((r) => r.json()));
   const statuses = acts1.map((a) => `${a.commandName}:${a.status}`);
+  const owner = await p1.evaluate(() => fetch('/api/admin/twitch-app').then((r) => r.json()));
+  check(owner.source === 'setup' && owner.clientId === 'testclient123' && owner.secretSet && !JSON.stringify(owner).includes('testsecret456'), 'Eigenaar ziet Twitch-app, secret wordt nooit teruggestuurd');
+  const notOwner = await p2.evaluate(() => fetch('/api/admin/twitch-app').then((r) => r.status));
+  check(notOwner === 403, 'Andere streamer mag Twitch-app niet wijzigen');
   check(statuses.includes('knuffel:cooldown') && statuses.filter((s) => s === 'knuffel:triggered').length === 2, `Activiteit: ${statuses.reverse().join(', ')}`);
   await p1.goto(`${APP}/commands/${(await p1.evaluate(() => fetch('/api/commands').then((r) => r.json()))).find((c) => c.name === 'knuffel').id}`);
   await p1.waitForSelector('.lm-scene-hug', { timeout: 5000 });

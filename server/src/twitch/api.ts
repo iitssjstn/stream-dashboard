@@ -1,4 +1,5 @@
 import { config } from '../config.js';
+import { twitchCredentials } from '../settings.js';
 
 export type TokenResponse = {
   access_token: string;
@@ -19,7 +20,7 @@ export class TwitchAuthError extends Error {}
 
 export function authorizeUrl(state: string): string {
   const u = new URL(`${config.twitch.idBase}/oauth2/authorize`);
-  u.searchParams.set('client_id', config.twitch.clientId);
+  u.searchParams.set('client_id', twitchCredentials().clientId);
   u.searchParams.set('redirect_uri', config.twitch.redirectUri);
   u.searchParams.set('response_type', 'code');
   u.searchParams.set('scope', config.twitch.scopes.join(' '));
@@ -33,8 +34,8 @@ async function tokenRequest(params: Record<string, string>): Promise<TokenRespon
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id: config.twitch.clientId,
-      client_secret: config.twitch.clientSecret,
+      client_id: twitchCredentials().clientId,
+      client_secret: twitchCredentials().clientSecret,
       ...params,
     }),
   });
@@ -56,7 +57,7 @@ export function refreshAccessToken(refreshToken: string) {
 
 export async function getUser(accessToken: string): Promise<TwitchUser> {
   const res = await fetch(`${config.twitch.apiBase}/helix/users`, {
-    headers: { authorization: `Bearer ${accessToken}`, 'client-id': config.twitch.clientId },
+    headers: { authorization: `Bearer ${accessToken}`, 'client-id': twitchCredentials().clientId },
   });
   if (res.status === 401) throw new TwitchAuthError('Twitch rejected access token');
   if (!res.ok) throw new Error(`Helix /users failed: ${res.status}`);
@@ -69,6 +70,26 @@ export async function revokeToken(accessToken: string) {
   await fetch(`${config.twitch.idBase}/oauth2/revoke`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: config.twitch.clientId, token: accessToken }),
+    body: new URLSearchParams({ client_id: twitchCredentials().clientId, token: accessToken }),
   }).catch(() => undefined);
+}
+
+/** Checks a client id/secret pair with Twitch (client-credentials grant) without storing anything. */
+export async function verifyAppCredentials(clientId: string, clientSecret: string): Promise<boolean> {
+  const res = await fetch(`${config.twitch.idBase}/oauth2/token`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, grant_type: 'client_credentials' }),
+  });
+  if (res.ok) {
+    const { access_token } = (await res.json()) as { access_token: string };
+    await fetch(`${config.twitch.idBase}/oauth2/revoke`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ client_id: clientId, token: access_token }),
+    }).catch(() => undefined);
+    return true;
+  }
+  if (res.status >= 400 && res.status < 500) return false;
+  throw new Error(`Twitch is niet bereikbaar (${res.status})`);
 }

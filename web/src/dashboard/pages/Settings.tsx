@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { useMe } from '../App';
 import { api } from '../api';
+import { usePoll } from '../hooks';
+import { TwitchAppForm } from '../components/TwitchAppForm';
 import { PageHeader, Svg, Toggle, useToast } from '../ui';
 
 export function Settings() {
@@ -41,6 +43,8 @@ export function Settings() {
           />
         </section>
 
+        {me.isOwner && <TwitchAppSettings />}
+
         <section className="card flex flex-wrap gap-3 p-5">
           <button
             className="btn-ghost"
@@ -64,5 +68,24 @@ export function Settings() {
         </section>
       </div>
     </>
+  );
+}
+
+function TwitchAppSettings() {
+  const { data, reload } = usePoll<{ source: 'secret' | 'setup' | 'none'; clientId: string; secretSet: boolean }>('/api/admin/twitch-app');
+  const { data: status } = usePoll<{ redirectUri: string }>('/auth/status');
+  if (!data || !status) return null;
+  return (
+    <section className="card p-5">
+      <h2 className="font-semibold text-white">Twitch-app (eigenaar)</h2>
+      <p className="mt-1 mb-4 text-sm text-zinc-400">
+        Client ID <code className="text-brand-400">{data.clientId}</code> · secret {data.secretSet ? 'versleuteld opgeslagen' : 'ontbreekt'}. Gelekt? Maak in de Twitch-console een nieuw secret aan en vul het hier in.
+      </p>
+      {data.source === 'secret' ? (
+        <p className="text-sm text-zinc-400">Deze gegevens komen uit Docker secrets en worden daar beheerd.</p>
+      ) : (
+        <TwitchAppForm mode="update" redirectUri={status.redirectUri} initialClientId={data.clientId} onDone={reload} />
+      )}
+    </section>
   );
 }

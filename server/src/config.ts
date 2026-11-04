@@ -17,7 +17,7 @@ function env(name: string, fallback?: string): string {
  *  2. Docker / compose secret at /run/secrets/<name> (lowercase)
  *  3. plain environment variable (only meant for local development)
  */
-function secret(name: string): string {
+export function readSecret(name: string): string {
   const candidates = [process.env[`${name}_FILE`], path.join(process.env.SECRETS_DIR ?? '/run/secrets', name.toLowerCase())];
   for (const file of candidates) {
     if (!file || !fs.existsSync(file)) continue;
@@ -38,7 +38,7 @@ fs.mkdirSync(dataDir, { recursive: true });
  * and persist it inside the data dir so tokens survive restarts.
  */
 function loadSecret(): Buffer {
-  const fromEnv = secret('TOKEN_ENCRYPTION_KEY');
+  const fromEnv = readSecret('TOKEN_ENCRYPTION_KEY');
   if (fromEnv) {
     const buf = Buffer.from(fromEnv, 'base64');
     if (buf.length !== 32) throw new Error('TOKEN_ENCRYPTION_KEY must be 32 bytes, base64 encoded');
@@ -65,8 +65,6 @@ export const config = {
   dbFile: path.join(dataDir, 'lumio.sqlite'),
   encryptionKey: loadSecret(),
   twitch: {
-    clientId: secret('TWITCH_CLIENT_ID'),
-    clientSecret: secret('TWITCH_CLIENT_SECRET'),
     redirectUri: env('TWITCH_REDIRECT_URI', `${publicUrl}/auth/twitch/callback`),
     /** Overridable so the full chain can be exercised against a local Twitch-compatible test server. */
     idBase: env('TWITCH_ID_BASE', 'https://id.twitch.tv'),

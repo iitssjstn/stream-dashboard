@@ -7,12 +7,11 @@ import { authorizeUrl, exchangeCode, getUser, revokeToken } from '../twitch/api.
 import { createSession, currentUser, destroySession } from './session.js';
 import { DEFAULT_COMMANDS } from '../commands/defaults.js';
 import type { ChatManager } from '../twitch/manager.js';
+import { claimOwnerIfUnset, twitchConfigured } from '../settings.js';
 
 const STATE_COOKIE = 'lumio_oauth_state';
 
-export function twitchConfigured() {
-  return Boolean(config.twitch.clientId && config.twitch.clientSecret);
-}
+export { twitchConfigured };
 
 export async function authRoutes(app: FastifyInstance, opts: { chat: ChatManager }) {
   app.get('/auth/twitch/login', async (req, reply) => {
@@ -20,7 +19,7 @@ export async function authRoutes(app: FastifyInstance, opts: { chat: ChatManager
       return reply
         .code(500)
         .type('text/plain; charset=utf-8')
-        .send('Twitch is nog niet geconfigureerd: zet TWITCH_CLIENT_ID en TWITCH_CLIENT_SECRET in .env (zie README).');
+        .send('Twitch is nog niet ingesteld. Open de startpagina en doorloop de setup.');
     }
     const state = randomToken(16);
     reply.setCookie(STATE_COOKIE, state, {
@@ -78,13 +77,19 @@ export async function authRoutes(app: FastifyInstance, opts: { chat: ChatManager
             .run();
         }
       }
+      claimOwnerIfUnset(userId);
       createSession(reply, userId);
       opts.chat.restart(userId);
       return reply.redirect(`${config.appUrl}/dashboard`);
     },
   );
 
-  app.get('/auth/status', async (req) => ({ twitchConfigured: twitchConfigured(), loggedIn: Boolean(currentUser(req)) }));
+  app.get('/auth/status', async (req) => ({
+    twitchConfigured: twitchConfigured(),
+    setupRequired: !twitchConfigured(),
+    redirectUri: config.twitch.redirectUri,
+    loggedIn: Boolean(currentUser(req)),
+  }));
 
   app.post('/auth/logout', async (req, reply) => {
     destroySession(req, reply);
