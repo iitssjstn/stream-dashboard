@@ -48,7 +48,7 @@
 .lm-chibi { width: 100%; height: 100%; display: block; overflow: visible; transform-origin: 50% 95%; }
 .lm-mirror { transform: scaleX(-1); width: 100%; height: 100%; }
 .lm-bob { width: 100%; height: 100%; }
-.lm-arm, .lm-eye { transform-box: view-box; }
+.lm-arm, .lm-eye, .lm-leg { transform-box: view-box; }
 .lm-eye { animation: lm-blink 3.8s infinite; }
 @keyframes lm-blink { 0%, 93%, 100% { transform: none; } 96% { transform: scaleY(.1); } }
 @keyframes lm-hop { 50% { transform: translateY(-16px); } }
@@ -126,6 +126,41 @@
 .lm-style-people.lm-scene-highfive .lm-actor-a { left: 80px; }
 .lm-style-people.lm-scene-highfive .lm-actor-b { left: 230px; }
 .lm-style-people .lm-held-heart { top: 118px; width: 60px; height: 60px; left: 200px; }
+
+/* ---------- walk-in variant: characters walk towards each other first ----------
+   --t0 is the walking time; every action of hug / highfive / dance is shifted by it. */
+.lm-walk { --t0: 1800ms; }
+.lm-scene.lm-walk .lm-actor-a { animation: lm-walk-in-l 1800ms linear both; }
+.lm-scene.lm-walk .lm-actor-b { animation: lm-walk-in-r 1800ms linear both; }
+.lm-walk .lm-leg-l { animation: lm-step 900ms ease-in-out 2; }
+.lm-walk .lm-leg-r { animation: lm-step 900ms ease-in-out 2 reverse; }
+@keyframes lm-walk-in-l { from { transform: translateX(-330px); opacity: 0; } 12% { opacity: 1; } to { transform: none; } }
+@keyframes lm-walk-in-r { from { transform: translateX(330px); opacity: 0; } 12% { opacity: 1; } to { transform: none; } }
+@keyframes lm-step { 0%, 100% { transform: none; } 25% { transform: rotate(17deg); } 75% { transform: rotate(-17deg); } }
+@keyframes lm-swing-l { 0%, 100% { transform: none; } 25% { transform: rotate(-16deg); } 75% { transform: rotate(16deg); } }
+@keyframes lm-swing-r { 0%, 100% { transform: none; } 25% { transform: rotate(16deg); } 75% { transform: rotate(-16deg); } }
+@keyframes lm-walk-bob { 50% { transform: translateY(-5px); } }
+
+.lm-walk.lm-scene-hug { animation-delay: calc(var(--t0) + 500ms); }
+.lm-walk.lm-scene-hug .lm-bob { animation: lm-walk-bob 450ms ease-in-out 4; }
+.lm-walk.lm-scene-hug .lm-chibi { animation: lm-lean 450ms ease-out calc(var(--t0) + 50ms) both; }
+.lm-walk.lm-scene-hug .lm-arm-r { animation: lm-swing-r 900ms ease-in-out 2, lm-arm-hug-r 420ms ease-out calc(var(--t0) + 20ms) forwards; }
+.lm-walk.lm-scene-hug .lm-arm-l { animation: lm-swing-l 900ms ease-in-out 2, lm-arm-hug-l 420ms ease-out calc(var(--t0) + 80ms) forwards; }
+.lm-walk.lm-scene-hug .lm-eyes-open,
+.lm-walk.lm-scene-hug .lm-eyes-happy { animation-delay: calc(var(--t0) + 150ms); }
+.lm-walk.lm-scene-hug .lm-pop-icon { animation-delay: calc(var(--t0) + 200ms), calc(var(--t0) + 800ms); }
+
+.lm-walk.lm-scene-highfive .lm-bob { animation: lm-walk-bob 450ms ease-in-out 4, lm-lunge 420ms ease-out calc(var(--t0) + 280ms); }
+.lm-walk.lm-scene-highfive .lm-arm-l { animation: lm-swing-l 900ms ease-in-out 2; }
+.lm-walk.lm-scene-highfive .lm-arm-r { animation: lm-swing-r 900ms ease-in-out 2, lm-arm-up 300ms ease-out var(--t0) forwards; }
+.lm-walk.lm-scene-highfive .lm-eyes-open,
+.lm-walk.lm-scene-highfive .lm-eyes-happy { animation-delay: calc(var(--t0) + 350ms); }
+.lm-walk.lm-scene-highfive .lm-clap { animation-delay: calc(var(--t0) + 380ms); }
+
+.lm-walk.lm-scene-dance .lm-bob { animation: lm-walk-bob 450ms ease-in-out 4, lm-dance 560ms ease-in-out var(--t0) infinite alternate; }
+.lm-walk.lm-scene-dance .lm-actor-b .lm-bob { animation-delay: 0ms, calc(var(--t0) + 280ms); }
+.lm-walk.lm-scene-dance .lm-arm-l { animation: lm-swing-l 900ms ease-in-out 2, lm-pump-l 560ms ease-in-out var(--t0) infinite alternate; }
+.lm-walk.lm-scene-dance .lm-arm-r { animation: lm-swing-r 900ms ease-in-out 2, lm-pump-r 560ms ease-in-out calc(var(--t0) + 280ms) infinite alternate; }
 
 /* ---------- particles ---------- */
 .lm-particles { position: absolute; left: -40px; right: -40px; top: -40px; bottom: 30px; pointer-events: none; }

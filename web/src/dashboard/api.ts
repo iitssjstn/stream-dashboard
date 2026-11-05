@@ -6,6 +6,7 @@ export type Command = {
   enabled: boolean;
   animation: string;
   characterStyle: 'anime' | 'people';
+  walkIn: boolean;
   imageUrl: string | null;
   soundUrl: string | null;
   soundVolume: number;

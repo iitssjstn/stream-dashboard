@@ -67,6 +67,8 @@ export const commands = sqliteTable(
     animation: text('animation').notNull(),
     /** anime = chibi characters, people = human-proportioned figures */
     characterStyle: text('character_style').notNull().default('anime'),
+    /** hug / highfive / dance: characters walk towards each other first */
+    walkIn: integer('walk_in', { mode: 'boolean' }).notNull().default(false),
     imageUrl: text('image_url'),
     soundUrl: text('sound_url'),
     soundVolume: integer('sound_volume').notNull().default(70),

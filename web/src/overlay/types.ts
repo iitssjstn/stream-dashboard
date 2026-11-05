@@ -19,6 +19,8 @@ export type OverlayEvent = {
   animation: string;
   /** anime = chibi characters (default), people = human-proportioned figures */
   characterStyle?: 'anime' | 'people';
+  /** hug / highfive / dance: characters walk towards each other first */
+  walkIn?: boolean;
   imageUrl: string | null;
   soundUrl: string | null;
   soundVolume: number;

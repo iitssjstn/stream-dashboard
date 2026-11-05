@@ -5,6 +5,7 @@ import { usePoll } from '../hooks';
 import { useMe } from '../App';
 import { PageHeader, Svg, Toggle, useToast } from '../ui';
 import { figure } from '../../overlay/characters';
+import { WALKABLE } from '../../overlay/renderer';
 import '../../overlay/overlay.css';
 
 type View = 'grid' | 'list';
@@ -142,6 +143,7 @@ function Chips({ c }: { c: Command }) {
       <span className="chip bg-white/[.06] text-zinc-300">{LABELS.permission[c.permission]}</span>
       <span className="chip bg-white/[.06] text-zinc-300">{(c.durationMs / 1000).toFixed(1)}s</span>
       <span className="chip bg-white/[.06] text-zinc-300">⏱ {c.userCooldownSec}s / {c.globalCooldownSec}s</span>
+      {c.walkIn && WALKABLE.has(c.animation) && <span className="chip bg-white/[.06] text-zinc-300">🚶 aanlopen</span>}
       {c.targetMode === 'required' && <span className="chip bg-white/[.06] text-zinc-300">@naam verplicht</span>}
       {c.soundUrl && <span className="chip bg-white/[.06] text-zinc-300">🔊 geluid</span>}
     </>

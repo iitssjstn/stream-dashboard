@@ -24,8 +24,10 @@ function el(tag: string, cls: string, html = '') {
   return e;
 }
 
-function scene(animation: string, accent: string, style: CharacterStyle = 'anime'): HTMLElement {
-  const s = el('div', `lm-scene lm-scene-${animation} lm-style-${style}`);
+export const WALKABLE = new Set(['hug', 'highfive', 'dance']);
+
+function scene(animation: string, accent: string, style: CharacterStyle = 'anime', walk = false): HTMLElement {
+  const s = el('div', `lm-scene lm-scene-${animation} lm-style-${style}${walk && WALKABLE.has(animation) ? ' lm-walk' : ''}`);
   const A = figure(style, 0);
   const B = figure(style, 1);
   const heart = shape(HEART_PATH, accent, 'lm-big-heart');
@@ -140,7 +142,7 @@ export function playEvent(stage: HTMLElement, ev: OverlayEvent, opts: PlayOption
     img.alt = '';
     fx.appendChild(img);
   } else {
-    fx.appendChild(scene(ev.animation, st.accentColor, ev.characterStyle));
+    fx.appendChild(scene(ev.animation, st.accentColor, ev.characterStyle, ev.walkIn));
     if (ev.imageUrl) {
       const img = document.createElement('img');
       img.className = 'lm-image lm-image-small';

@@ -1,0 +1,1 @@
+ALTER TABLE `commands` ADD `walk_in` integer DEFAULT false NOT NULL;

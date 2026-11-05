@@ -233,6 +233,19 @@ try {
   check((await overlay.locator('.lm-scene-hug .lm-person').count()) === 2, 'Overlay toont de knuffel met twee "Mensen"-poppetjes');
   await sleep(1700);
   await overlay.screenshot({ path: path.join(OUT, '11-overlay-mensen.png'), omitBackground: true });
+
+  // Walk-in: characters walk towards each other before the high five
+  const hf = cmds.find((c) => c.name === 'highfive');
+  const walking = await p1.evaluate((c) => fetch(`/api/commands/${c.id}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...c, walkIn: true, durationMs: 7000, userCooldownSec: 0, globalCooldownSec: 0 }) }).then((r) => r.json()), hf);
+  check(walking.walkIn === true, '"Naar elkaar toe lopen" instellen per command');
+  await waitFor(async () => (await overlay.locator('.lm-item').count()) === 0, 10000);
+  tw.chat('knuffelstreamer', { login: 'loper', display: 'Loper', userId: '5013', id: 'msg-13', text: '!highfive @Vriend' });
+  await overlay.waitForSelector('.lm-scene-highfive.lm-walk', { timeout: 3000 });
+  await sleep(700);
+  const clapEarly = await overlay.evaluate(() => getComputedStyle(document.querySelector('.lm-clap')).opacity);
+  await sleep(2100);
+  const clapLate = await overlay.evaluate(() => getComputedStyle(document.querySelector('.lm-clap')).opacity);
+  check(clapEarly === '0' && Number(clapLate) > 0.9, `Eerst lopen, daarna high five (ster ${clapEarly} → ${clapLate})`);
   await p1.goto(`${APP}/commands/${hug.id}`);
   await p1.getByRole('button', { name: /Mensen/ }).waitFor();
   check((await p1.getByRole('button', { name: /Mensen/ }).getAttribute('aria-pressed')) === 'true', 'Editor toont gekozen stijl "Mensen"');

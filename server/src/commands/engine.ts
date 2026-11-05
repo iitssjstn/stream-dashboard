@@ -114,6 +114,7 @@ export class CommandEngine {
       command: cmd.name,
       animation: cmd.animation,
       characterStyle: cmd.characterStyle,
+      walkIn: cmd.walkIn,
       imageUrl: cmd.imageUrl,
       soundUrl: cmd.soundUrl,
       soundVolume: cmd.soundVolume,

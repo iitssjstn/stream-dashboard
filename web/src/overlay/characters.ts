@@ -46,10 +46,14 @@ export function chibi(look: Look, extraClass = '') {
     </defs>
     <path class="lm-hair-back" d="M34 110 Q30 38 100 30 Q170 38 166 110 L170 196 Q150 206 142 172 L58 172 Q50 206 30 196 Z" fill="${look.hairShade}"/>
     <g class="lm-legs">
-      <rect x="80" y="244" width="17" height="40" rx="8.5" fill="${SKIN}"/>
-      <rect x="103" y="244" width="17" height="40" rx="8.5" fill="${SKIN}"/>
-      <ellipse cx="88" cy="286" rx="13" ry="7" fill="#3b2a55"/>
-      <ellipse cx="112" cy="286" rx="13" ry="7" fill="#3b2a55"/>
+      <g class="lm-leg lm-leg-l" style="transform-origin:88px 246px">
+        <rect x="80" y="244" width="17" height="40" rx="8.5" fill="${SKIN}"/>
+        <ellipse cx="88" cy="286" rx="13" ry="7" fill="#3b2a55"/>
+      </g>
+      <g class="lm-leg lm-leg-r" style="transform-origin:112px 246px">
+        <rect x="103" y="244" width="17" height="40" rx="8.5" fill="${SKIN}"/>
+        <ellipse cx="112" cy="286" rx="13" ry="7" fill="#3b2a55"/>
+      </g>
     </g>
     <g class="lm-arm lm-arm-l" style="transform-origin:72px 190px">
       <rect x="62" y="182" width="19" height="54" rx="9.5" fill="${look.outfitShade}"/>
@@ -143,10 +147,14 @@ export function person(look: PersonLook, extraClass = '') {
     ${backHair}
     ${arm('l')}
     <g class="lm-legs">
-      <rect x="80" y="178" width="19" height="100" rx="8" fill="${look.pants}"/>
-      <rect x="101" y="178" width="19" height="100" rx="8" fill="${look.pants}"/>
-      <ellipse cx="88" cy="284" rx="14" ry="6.5" fill="${look.shoes}"/>
-      <ellipse cx="112" cy="284" rx="14" ry="6.5" fill="${look.shoes}"/>
+      <g class="lm-leg lm-leg-l" style="transform-origin:89px 182px">
+        <rect x="80" y="178" width="19" height="100" rx="8" fill="${look.pants}"/>
+        <ellipse cx="88" cy="284" rx="14" ry="6.5" fill="${look.shoes}"/>
+      </g>
+      <g class="lm-leg lm-leg-r" style="transform-origin:111px 182px">
+        <rect x="101" y="178" width="19" height="100" rx="8" fill="${look.pants}"/>
+        <ellipse cx="112" cy="284" rx="14" ry="6.5" fill="${look.shoes}"/>
+      </g>
     </g>
     <path class="lm-body" d="M74 104 Q100 96 126 104 L131 188 Q100 196 69 188 Z" fill="url(#shirt-${id})"/>
     <path d="M92 101 Q100 110 108 101" fill="none" stroke="${look.shirtShade}" stroke-width="3" stroke-linecap="round"/>

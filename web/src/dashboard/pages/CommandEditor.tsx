@@ -4,6 +4,7 @@ import { api, FONTS, LABELS, type Command } from '../api';
 import { useMe } from '../App';
 import { OverlayPreview } from '../components/OverlayPreview';
 import { figure } from '../../overlay/characters';
+import { WALKABLE } from '../../overlay/renderer';
 import { MediaPicker } from '../components/Shared';
 import { Field, PageHeader, Svg, Toggle, useToast } from '../ui';
 
@@ -21,6 +22,7 @@ const blank: Draft = {
   enabled: true,
   animation: 'hug',
   characterStyle: 'anime',
+  walkIn: false,
   imageUrl: null,
   soundUrl: null,
   soundVolume: 70,
@@ -186,6 +188,21 @@ export function CommandEditor() {
                   ))}
                 </div>
               </div>
+              {WALKABLE.has(d.animation) && (
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-white/10 px-4 py-3">
+                  <div>
+                    <div className="text-sm font-medium text-white">Naar elkaar toe lopen</div>
+                    <div className="text-xs text-zinc-500">
+                      De personages lopen eerst vanaf de zijkanten naar elkaar toe en {d.animation === 'hug' ? 'knuffelen' : d.animation === 'highfive' ? 'geven dan een high five' : 'gaan dan samen dansen'}. Duurt ca. 2 seconden extra.
+                    </div>
+                  </div>
+                  <Toggle
+                    checked={d.walkIn}
+                    label="Naar elkaar toe lopen"
+                    onChange={(v) => setD({ ...d, walkIn: v, durationMs: v && d.durationMs < 7000 ? 7000 : d.durationMs })}
+                  />
+                </div>
+              )}
               {d.animation !== 'image' && (
                 <div>
                   <span className="label">Stijl van de personages</span>
