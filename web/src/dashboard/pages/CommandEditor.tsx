@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, FONTS, LABELS, type Command } from '../api';
 import { useMe } from '../App';
@@ -49,7 +50,39 @@ export function CommandEditor() {
   const [replay, setReplay] = useState(0);
   const [tab, setTab] = useState<'visual' | 'text' | 'rules' | 'sound'>('visual');
   const [savedPrint, setSavedPrint] = useState(isNew ? fingerprint(blank) : '');
+  const [savedDraft, setSavedDraft] = useState<Draft | null>(isNew ? blank : null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const dirty = d !== null && fingerprint(d) !== savedPrint;
+  const saveRef = useRef<() => Promise<void>>(async () => undefined);
+
+  // Ctrl/Cmd+S saves.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        void saveRef.current();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Ask before leaving via any in-app link (sidebar, buttons) while there are unsaved changes.
+  useEffect(() => {
+    if (!dirty) return;
+    const onClick = (e: MouseEvent) => {
+      const a = (e.target as HTMLElement).closest('a[href]') as HTMLAnchorElement | null;
+      if (!a || a.target === '_blank' || e.defaultPrevented) return;
+      const url = new URL(a.href, location.href);
+      if (url.origin !== location.origin || url.pathname === location.pathname) return;
+      if (!confirm('Je hebt wijzigingen die nog niet zijn opgeslagen. Weet je zeker dat je deze pagina wilt verlaten?')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener('click', onClick, true);
+    return () => document.removeEventListener('click', onClick, true);
+  }, [dirty]);
 
   // Warn before closing/refreshing the tab with unsaved changes.
   useEffect(() => {
@@ -70,6 +103,7 @@ export function CommandEditor() {
       const c = all.find((x) => x.id === Number(id));
       if (c) {
         setD(c);
+        setSavedDraft(c);
         setSavedPrint(fingerprint(c));
       }
       else nav('/commands');
@@ -83,19 +117,23 @@ export function CommandEditor() {
 
   const save = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
       const saved = await api<Command>(isNew ? '/api/commands' : `/api/commands/${id}`, { method: isNew ? 'POST' : 'PUT', json: d });
       toast(`!${saved.name} opgeslagen`);
       void reload();
       setSavedPrint(fingerprint(saved));
+      setSavedDraft(saved);
       if (isNew) nav(`/commands/${saved.id}`, { replace: true });
       else setD(saved);
     } catch (e) {
-      toast((e as Error).message, 'error');
+      setSaveError((e as Error).message);
+      toast(`Niet opgeslagen: ${(e as Error).message}`, 'error');
     } finally {
       setSaving(false);
     }
   };
+  saveRef.current = save;
 
   const tabs = [
     ['visual', 'Animatie'],
@@ -398,6 +436,45 @@ export function CommandEditor() {
           </div>
         </div>
       </div>
+      {dirty && <div className="h-24" aria-hidden="true" />}
+      {dirty &&
+        createPortal(
+        <div
+          role="status"
+          aria-live="polite"
+          className="fade-in fixed inset-x-3 bottom-3 z-40 mx-auto flex max-w-3xl flex-col gap-3 rounded-2xl border border-amber-400/50 bg-ink-900/95 p-3 pl-4 shadow-[0_0_30px_-8px_rgb(251_191_36/.6),0_20px_40px_-12px_rgb(0_0_0/.8)] backdrop-blur-xl sm:flex-row sm:items-center lg:left-64"
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-amber-400/15 text-lg text-amber-300" aria-hidden="true">
+              !
+            </span>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-amber-200">Niet opgeslagen wijzigingen</div>
+              <div className="truncate text-xs text-zinc-400">
+                {saveError ? <span className="text-rose-300">Opslaan mislukt: {saveError}</span> : <>Nog niet actief in je stream. Opslaan kan ook met Ctrl+S.</>}
+              </div>
+            </div>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            {savedDraft && (
+              <button
+                className="btn-ghost flex-1 py-2 sm:flex-none"
+                onClick={() => {
+                  setD(savedDraft);
+                  setSaveError(null);
+                }}
+              >
+                Ongedaan maken
+              </button>
+            )}
+            <button className="btn-primary flex-1 py-2 sm:flex-none" disabled={saving} onClick={save}>
+              {saving ? 'Opslaan…' : 'Opslaan'}
+            </button>
+          </div>
+        </div>,
+          // Portal: an animated ancestor would otherwise turn position:fixed into page-relative.
+          document.body,
+        )}
     </>
   );
 }
