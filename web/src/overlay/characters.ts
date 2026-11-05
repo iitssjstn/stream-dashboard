@@ -86,3 +86,95 @@ export const SPARKLE_PATH = 'M12 0C12.8 7 17 11.2 24 12 17 12.8 12.8 17 12 24 11
 
 export const shape = (path: string, color: string, cls = '') =>
   `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="${path}" fill="${color}"/></svg>`;
+
+// ---------------------------------------------------------------------------
+// "Mensen": flat-illustration people with human proportions. Same viewBox and the
+// same animatable groups (lm-arm-l/-r, lm-eye, lm-eyes-open/-happy) as the chibis,
+// so every animation works with both styles.
+// ---------------------------------------------------------------------------
+export type PersonLook = {
+  skin: string;
+  skinShade: string;
+  hair: string;
+  longHair: boolean;
+  shirt: string;
+  shirtShade: string;
+  pants: string;
+  shoes: string;
+};
+
+export const PEOPLE: Record<'sam' | 'jay', PersonLook> = {
+  // Long dark hair, teal top
+  sam: { skin: '#f1c27d', skinShade: '#d9a066', hair: '#3b2417', longHair: true, shirt: '#2dd4bf', shirtShade: '#0f766e', pants: '#1e293b', shoes: '#f8fafc' },
+  // Short hair, orange hoodie
+  jay: { skin: '#8d5524', skinShade: '#6b3e1a', hair: '#111827', longHair: false, shirt: '#fb923c', shirtShade: '#c2410c', pants: '#334155', shoes: '#111827' },
+};
+
+export function person(look: PersonLook, extraClass = '') {
+  const id = `p${++uid}`;
+  const eye = (cx: number) => `
+      <g class="lm-eye" style="transform-origin:${cx}px 64px">
+        <ellipse cx="${cx}" cy="64" rx="3.3" ry="4.2" fill="${INK}"/>
+        <circle cx="${cx + 1.1}" cy="62.4" r="1.2" fill="#fff"/>
+      </g>`;
+  const arm = (side: 'l' | 'r') => {
+    const x = side === 'l' ? 62 : 120;
+    const ox = side === 'l' ? 76 : 124;
+    return `
+    <g class="lm-arm lm-arm-${side}" style="transform-origin:${ox}px 112px">
+      <rect x="${x}" y="104" width="18" height="52" rx="9" fill="${side === 'l' ? look.shirtShade : look.shirt}"/>
+      <rect x="${x + 2}" y="148" width="14" height="38" rx="7" fill="${look.skin}"/>
+      <circle cx="${x + 9}" cy="188" r="8" fill="${look.skin}"/>
+    </g>`;
+  };
+  const backHair = look.longHair
+    ? `<path d="M70 62 Q68 26 100 24 Q132 26 130 62 L134 132 Q116 140 100 134 Q84 140 66 132 Z" fill="${look.hair}"/>`
+    : '';
+  const frontHair = look.longHair
+    ? `<path d="M72 68 Q68 28 100 28 Q132 28 128 68 Q124 46 112 41 Q103 52 84 48 Q76 54 72 68 Z" fill="${look.hair}"/>`
+    : `<path d="M72 60 Q70 28 100 28 Q130 28 128 60 Q124 44 110 41 Q98 49 80 47 Q74 51 72 60 Z" fill="${look.hair}"/>`;
+  return `
+  <svg class="lm-chibi lm-person ${extraClass}" viewBox="0 0 200 300" aria-hidden="true">
+    <defs>
+      <linearGradient id="shirt-${id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="${look.shirt}"/><stop offset="1" stop-color="${look.shirtShade}"/>
+      </linearGradient>
+    </defs>
+    ${backHair}
+    ${arm('l')}
+    <g class="lm-legs">
+      <rect x="80" y="178" width="19" height="100" rx="8" fill="${look.pants}"/>
+      <rect x="101" y="178" width="19" height="100" rx="8" fill="${look.pants}"/>
+      <ellipse cx="88" cy="284" rx="14" ry="6.5" fill="${look.shoes}"/>
+      <ellipse cx="112" cy="284" rx="14" ry="6.5" fill="${look.shoes}"/>
+    </g>
+    <path class="lm-body" d="M74 104 Q100 96 126 104 L131 188 Q100 196 69 188 Z" fill="url(#shirt-${id})"/>
+    <path d="M92 101 Q100 110 108 101" fill="none" stroke="${look.shirtShade}" stroke-width="3" stroke-linecap="round"/>
+    <g class="lm-head">
+      <rect x="92" y="84" width="16" height="20" rx="6" fill="${look.skinShade}"/>
+      <circle cx="73" cy="65" r="6" fill="${look.skin}"/>
+      <circle cx="127" cy="65" r="6" fill="${look.skin}"/>
+      <ellipse cx="100" cy="62" rx="27" ry="30" fill="${look.skin}"/>
+      <path d="M84 55 Q90 51.5 96 55" stroke="${look.hair}" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      <path d="M104 55 Q110 51.5 116 55" stroke="${look.hair}" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      <g class="lm-eyes-open">${eye(90)}${eye(110)}</g>
+      <g class="lm-eyes-happy" opacity="0">
+        <path d="M85 66 Q90 60.5 95 66" stroke="${INK}" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+        <path d="M105 66 Q110 60.5 115 66" stroke="${INK}" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      </g>
+      <path d="M100 66 Q103 72 99 74" stroke="${look.skinShade}" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <ellipse class="lm-blush" cx="83" cy="74" rx="5" ry="2.6" fill="#f472b6" opacity=".22"/>
+      <ellipse class="lm-blush" cx="117" cy="74" rx="5" ry="2.6" fill="#f472b6" opacity=".22"/>
+      <path class="lm-mouth" d="M93 79 Q100 85 107 79" stroke="#7a3b3b" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+      ${frontHair}
+    </g>
+    ${arm('r')}
+  </svg>`;
+}
+
+export type CharacterStyle = 'anime' | 'people';
+
+/** First / second character of a scene in the requested style. */
+export function figure(style: CharacterStyle | undefined, which: 0 | 1) {
+  return style === 'people' ? person(which === 0 ? PEOPLE.sam : PEOPLE.jay) : chibi(which === 0 ? LOOKS.miko : LOOKS.ren);
+}

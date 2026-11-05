@@ -120,6 +120,13 @@
 .lm-scene-wave .lm-arm-r { animation: lm-wave 380ms ease-in-out 400ms infinite alternate; }
 @keyframes lm-wave { from { transform: rotate(-165deg); } to { transform: rotate(-120deg); } }
 
+/* "Mensen" style: longer bodies, so huggers stand a little closer and the heart sits at chest height */
+.lm-style-people.lm-scene-hug .lm-actor-a { left: 106px; }
+.lm-style-people.lm-scene-hug .lm-actor-b { left: 204px; }
+.lm-style-people.lm-scene-highfive .lm-actor-a { left: 80px; }
+.lm-style-people.lm-scene-highfive .lm-actor-b { left: 230px; }
+.lm-style-people .lm-held-heart { top: 118px; width: 60px; height: 60px; left: 200px; }
+
 /* ---------- particles ---------- */
 .lm-particles { position: absolute; left: -40px; right: -40px; top: -40px; bottom: 30px; pointer-events: none; }
 .lm-p { position: absolute; left: var(--x); bottom: 0; width: 26px; height: 26px; opacity: 0; animation: lm-rise var(--t) ease-out var(--d) infinite; }

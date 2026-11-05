@@ -4,7 +4,7 @@ import { api, LABELS, type Command } from '../api';
 import { usePoll } from '../hooks';
 import { useMe } from '../App';
 import { PageHeader, Svg, Toggle, useToast } from '../ui';
-import { chibi, LOOKS } from '../../overlay/characters';
+import { figure } from '../../overlay/characters';
 import '../../overlay/overlay.css';
 
 type View = 'grid' | 'list';
@@ -122,14 +122,16 @@ function CommandHero({ c }: { c: Command }) {
         <img src={c.imageUrl} alt="" loading="lazy" className="absolute inset-0 m-auto max-h-[88%] max-w-[88%] object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,.45)] transition duration-300 group-hover:scale-105" />
       ) : (
         <div className="flex h-[92%] items-end transition duration-300 group-hover:scale-105">
-          <div className="h-full" style={{ aspectRatio: '200 / 300' }} dangerouslySetInnerHTML={{ __html: chibi(c.animation === 'highfive' ? LOOKS.ren : LOOKS.miko) }} />
+          <div className="h-full" style={{ aspectRatio: '200 / 300' }} dangerouslySetInnerHTML={{ __html: figure(c.characterStyle, c.animation === 'highfive' ? 1 : 0) }} />
           {TWO_ACTORS.has(c.animation) && (
-            <div className="-ml-[6%] h-full" style={{ aspectRatio: '200 / 300', transform: 'scaleX(-1)' }} dangerouslySetInnerHTML={{ __html: chibi(c.animation === 'highfive' ? LOOKS.miko : LOOKS.ren) }} />
+            <div className="-ml-[6%] h-full" style={{ aspectRatio: '200 / 300', transform: 'scaleX(-1)' }} dangerouslySetInnerHTML={{ __html: figure(c.characterStyle, c.animation === 'highfive' ? 0 : 1) }} />
           )}
           {showImage && c.animation !== 'image' && <img src={c.imageUrl!} alt="" className="absolute top-3 right-3 h-16 w-16 rounded-lg object-cover ring-2 ring-white/20" />}
         </div>
       )}
-      <span className="absolute top-3 left-3 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur">{LABELS.animation[c.animation] ?? c.animation}</span>
+      <span className="absolute top-3 left-3 rounded-full bg-black/45 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur">{LABELS.animation[c.animation] ?? c.animation}
+        {c.animation !== 'image' && ` · ${LABELS.style[c.characterStyle] ?? 'Anime'}`}
+      </span>
     </div>
   );
 }
@@ -212,7 +214,10 @@ function CommandList({ commands, actions }: { commands: Command[]; actions: Acti
                 <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: c.style.accentColor }} aria-hidden="true" />
                 !{c.name}
               </Link>
-              <div className="truncate text-xs text-zinc-500">{LABELS.animation[c.animation] ?? c.animation}</div>
+              <div className="truncate text-xs text-zinc-500">
+                {LABELS.animation[c.animation] ?? c.animation}
+                {c.animation !== 'image' && ` · ${LABELS.style[c.characterStyle] ?? 'Anime'}`}
+              </div>
             </div>
             <p className={`col-span-3 truncate text-sm md:col-span-1 ${c.showText ? 'text-zinc-300' : 'text-zinc-500 italic'}`}>{textOf(c)}</p>
             <div className="col-span-3 flex flex-wrap gap-1.5 md:col-span-1">

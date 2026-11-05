@@ -17,6 +17,8 @@ export type OverlayEvent = {
   createdAt: number;
   command: string;
   animation: string;
+  /** anime = chibi characters (default), people = human-proportioned figures */
+  characterStyle?: 'anime' | 'people';
   imageUrl: string | null;
   soundUrl: string | null;
   soundVolume: number;

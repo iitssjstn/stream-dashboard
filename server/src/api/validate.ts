@@ -1,4 +1,4 @@
-import { ANIMATIONS, EFFECTS, PARTICLES, PERMISSIONS, TARGET_MODES } from '../commands/defaults.js';
+import { ANIMATIONS, CHARACTER_STYLES, EFFECTS, PARTICLES, PERMISSIONS, TARGET_MODES } from '../commands/defaults.js';
 import type { CommandStyle } from '../db/schema.js';
 
 export class ValidationError extends Error {}
@@ -53,6 +53,7 @@ export function validateCommand(body: any) {
     name,
     enabled: body.enabled !== false,
     animation,
+    characterStyle: oneOf(body.characterStyle ?? 'anime', CHARACTER_STYLES, 'stijl'),
     imageUrl,
     soundUrl: mediaUrl(body.soundUrl, 'Geluid'),
     soundVolume: int(body.soundVolume ?? 70, 'Volume', 0, 100),

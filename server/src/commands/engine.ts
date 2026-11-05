@@ -113,6 +113,7 @@ export class CommandEngine {
     const res = this.hub.emit(userId, {
       command: cmd.name,
       animation: cmd.animation,
+      characterStyle: cmd.characterStyle,
       imageUrl: cmd.imageUrl,
       soundUrl: cmd.soundUrl,
       soundVolume: cmd.soundVolume,

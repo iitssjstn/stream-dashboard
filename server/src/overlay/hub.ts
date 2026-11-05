@@ -8,6 +8,7 @@ export type OverlayCommandEvent = {
   createdAt: number;
   command: string;
   animation: string;
+  characterStyle: string;
   imageUrl: string | null;
   soundUrl: string | null;
   soundVolume: number;

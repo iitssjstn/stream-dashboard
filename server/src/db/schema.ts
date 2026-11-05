@@ -65,6 +65,8 @@ export const commands = sqliteTable(
     enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
     /** Built-in animation id ('hug', 'highfive', ...) or 'image' for a custom image/GIF */
     animation: text('animation').notNull(),
+    /** anime = chibi characters, people = human-proportioned figures */
+    characterStyle: text('character_style').notNull().default('anime'),
     imageUrl: text('image_url'),
     soundUrl: text('sound_url'),
     soundVolume: integer('sound_volume').notNull().default(70),

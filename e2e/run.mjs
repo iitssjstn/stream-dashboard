@@ -223,6 +223,22 @@ try {
   await overlay.waitForSelector('.lm-scene-dance', { timeout: 3000 });
   check((await overlay.locator('.lm-text').count()) === 0, 'Zonder tekst: alleen de animatie in de overlay');
 
+  // Character style "Mensen": human-proportioned figures instead of chibis
+  const hug = cmds.find((c) => c.name === 'hug');
+  const people = await p1.evaluate((c) => fetch(`/api/commands/${c.id}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...c, characterStyle: 'people', userCooldownSec: 0, globalCooldownSec: 0 }) }).then((r) => r.json()), hug);
+  check(people.characterStyle === 'people', 'Stijl "Mensen" instellen per command');
+  await waitFor(async () => (await overlay.locator('.lm-item').count()) === 0, 10000);
+  tw.chat('knuffelstreamer', { login: 'mens', display: 'Mens', userId: '5012', id: 'msg-12', text: '!hug' });
+  await overlay.waitForSelector('.lm-scene-hug', { timeout: 3000 });
+  check((await overlay.locator('.lm-scene-hug .lm-person').count()) === 2, 'Overlay toont de knuffel met twee "Mensen"-poppetjes');
+  await sleep(1700);
+  await overlay.screenshot({ path: path.join(OUT, '11-overlay-mensen.png'), omitBackground: true });
+  await p1.goto(`${APP}/commands/${hug.id}`);
+  await p1.getByRole('button', { name: /Mensen/ }).waitFor();
+  check((await p1.getByRole('button', { name: /Mensen/ }).getAttribute('aria-pressed')) === 'true', 'Editor toont gekozen stijl "Mensen"');
+  await sleep(1800);
+  await p1.screenshot({ path: path.join(OUT, '12-editor-mensen.png') });
+
   await p1.goto(`${APP}/commands/${(await p1.evaluate(() => fetch('/api/commands').then((r) => r.json()))).find((c) => c.name === 'knuffel').id}`);
   await p1.waitForSelector('.lm-scene-hug', { timeout: 5000 });
   await sleep(1800);

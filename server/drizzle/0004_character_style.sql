@@ -1,0 +1,1 @@
+ALTER TABLE `commands` ADD `character_style` text DEFAULT 'anime' NOT NULL;

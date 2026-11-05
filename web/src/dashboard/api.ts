@@ -5,6 +5,7 @@ export type Command = {
   name: string;
   enabled: boolean;
   animation: string;
+  characterStyle: 'anime' | 'people';
   imageUrl: string | null;
   soundUrl: string | null;
   soundVolume: number;
@@ -54,11 +55,11 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
 
 export const LABELS = {
   animation: {
-    hug: 'Knuffel (anime)',
-    highfive: 'High five (anime)',
-    love: 'Liefde (anime)',
-    dance: 'Dansen (anime)',
-    wave: 'Zwaaien (anime)',
+    hug: 'Knuffel',
+    highfive: 'High five',
+    love: 'Liefde',
+    dance: 'Dansen',
+    wave: 'Zwaaien',
     image: 'Eigen afbeelding / GIF',
   } as Record<string, string>,
   permission: {
@@ -77,6 +78,7 @@ export const LABELS = {
     zoom: 'Inzoomen',
     spin: 'Draaien',
   } as Record<string, string>,
+  style: { anime: 'Anime', people: 'Mensen' } as Record<string, string>,
   particles: { none: 'Geen', hearts: 'Hartjes', stars: 'Sterren', confetti: 'Confetti', sparkles: 'Glinsters' } as Record<string, string>,
 };
 

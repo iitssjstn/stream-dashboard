@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api, FONTS, LABELS, type Command } from '../api';
 import { useMe } from '../App';
 import { OverlayPreview } from '../components/OverlayPreview';
+import { figure } from '../../overlay/characters';
 import { MediaPicker } from '../components/Shared';
 import { Field, PageHeader, Svg, Toggle, useToast } from '../ui';
 
@@ -19,6 +20,7 @@ const blank: Draft = {
   name: '',
   enabled: true,
   animation: 'hug',
+  characterStyle: 'anime',
   imageUrl: null,
   soundUrl: null,
   soundVolume: 70,
@@ -184,6 +186,30 @@ export function CommandEditor() {
                   ))}
                 </div>
               </div>
+              {d.animation !== 'image' && (
+                <div>
+                  <span className="label">Stijl van de personages</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['anime', 'people'] as const).map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        aria-pressed={d.characterStyle === k}
+                        onClick={() => set('characterStyle', k)}
+                        className={`flex cursor-pointer items-center gap-3 rounded-xl border p-2 pr-3 text-left transition ${
+                          d.characterStyle === k ? 'border-brand-500 bg-brand-500/10 text-white' : 'border-white/10 text-zinc-300 hover:bg-white/[.04]'
+                        }`}
+                      >
+                        <span className="h-14 w-10 shrink-0" dangerouslySetInnerHTML={{ __html: figure(k, 0) }} />
+                        <span>
+                          <span className="block text-sm font-semibold">{LABELS.style[k]}</span>
+                          <span className="block text-xs text-zinc-500">{k === 'anime' ? 'Schattige chibi-figuurtjes' : 'Poppetjes met echte verhoudingen'}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div>
                 <span className="label">{d.animation === 'image' ? 'Afbeelding of GIF' : 'Extra afbeelding / GIF (optioneel)'}</span>
                 <MediaPicker kind="image" value={d.imageUrl} onChange={(v) => set('imageUrl', v)} />

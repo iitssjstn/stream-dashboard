@@ -1,4 +1,4 @@
-import { chibi, LOOKS, HEART_PATH, STAR_PATH, SPARKLE_PATH, shape } from './characters';
+import { figure, HEART_PATH, STAR_PATH, SPARKLE_PATH, shape, type CharacterStyle } from './characters';
 import type { OverlayEvent } from './types';
 import './overlay.css';
 
@@ -24,34 +24,36 @@ function el(tag: string, cls: string, html = '') {
   return e;
 }
 
-function scene(animation: string, accent: string): HTMLElement {
-  const s = el('div', `lm-scene lm-scene-${animation}`);
+function scene(animation: string, accent: string, style: CharacterStyle = 'anime'): HTMLElement {
+  const s = el('div', `lm-scene lm-scene-${animation} lm-style-${style}`);
+  const A = figure(style, 0);
+  const B = figure(style, 1);
   const heart = shape(HEART_PATH, accent, 'lm-big-heart');
   switch (animation) {
     case 'hug': {
-      const a = el('div', 'lm-actor lm-actor-a', `<div class="lm-bob">${chibi(LOOKS.miko)}</div>`);
-      const b = el('div', 'lm-actor lm-actor-b', `<div class="lm-bob"><div class="lm-mirror">${chibi(LOOKS.ren)}</div></div>`);
+      const a = el('div', 'lm-actor lm-actor-a', `<div class="lm-bob">${A}</div>`);
+      const b = el('div', 'lm-actor lm-actor-b', `<div class="lm-bob"><div class="lm-mirror">${B}</div></div>`);
       s.append(a, b, el('div', 'lm-pop-icon', heart));
       break;
     }
     case 'highfive': {
-      const a = el('div', 'lm-actor lm-actor-a', `<div class="lm-bob">${chibi(LOOKS.ren)}</div>`);
-      const b = el('div', 'lm-actor lm-actor-b', `<div class="lm-bob"><div class="lm-mirror">${chibi(LOOKS.miko)}</div></div>`);
+      const a = el('div', 'lm-actor lm-actor-a', `<div class="lm-bob">${B}</div>`);
+      const b = el('div', 'lm-actor lm-actor-b', `<div class="lm-bob"><div class="lm-mirror">${A}</div></div>`);
       s.append(a, b, el('div', 'lm-clap', shape(STAR_PATH, '#fde047') + shape(SPARKLE_PATH, '#fff', 'lm-clap-spark')));
       break;
     }
     case 'love':
-      s.append(el('div', 'lm-actor lm-actor-solo', `<div class="lm-bob">${chibi(LOOKS.miko)}</div>`), el('div', 'lm-held-heart', heart));
+      s.append(el('div', 'lm-actor lm-actor-solo', `<div class="lm-bob">${A}</div>`), el('div', 'lm-held-heart', heart));
       break;
     case 'dance':
       s.append(
-        el('div', 'lm-actor lm-actor-a', `<div class="lm-bob">${chibi(LOOKS.miko)}</div>`),
-        el('div', 'lm-actor lm-actor-b', `<div class="lm-bob"><div class="lm-mirror">${chibi(LOOKS.ren)}</div></div>`),
+        el('div', 'lm-actor lm-actor-a', `<div class="lm-bob">${A}</div>`),
+        el('div', 'lm-actor lm-actor-b', `<div class="lm-bob"><div class="lm-mirror">${B}</div></div>`),
       );
       break;
     case 'wave':
     default:
-      s.append(el('div', 'lm-actor lm-actor-solo', `<div class="lm-bob">${chibi(LOOKS.ren)}</div>`));
+      s.append(el('div', 'lm-actor lm-actor-solo', `<div class="lm-bob">${B}</div>`));
   }
   return s;
 }
@@ -138,7 +140,7 @@ export function playEvent(stage: HTMLElement, ev: OverlayEvent, opts: PlayOption
     img.alt = '';
     fx.appendChild(img);
   } else {
-    fx.appendChild(scene(ev.animation, st.accentColor));
+    fx.appendChild(scene(ev.animation, st.accentColor, ev.characterStyle));
     if (ev.imageUrl) {
       const img = document.createElement('img');
       img.className = 'lm-image lm-image-small';
