@@ -5,6 +5,14 @@ import http from 'node:http';
 import { createRequire } from 'node:module';
 const require = createRequire(new URL('../server/package.json', import.meta.url));
 const { WebSocketServer } = require('ws');
+const { createCanvas } = require('@napi-rs/canvas');
+const solidPng = (color) => {
+  const c = createCanvas(256, 256);
+  const x = c.getContext('2d');
+  x.fillStyle = color;
+  x.fillRect(0, 0, 256, 256);
+  return c.toBuffer('image/png');
+};
 
 export function startFakeTwitch(port) {
   const accounts = {
@@ -70,6 +78,14 @@ export function startFakeTwitch(port) {
       for await (const c of req) b += c;
       state.subs.push(JSON.parse(b));
       res.writeHead(202, { 'content-type': 'application/json' }).end('{"data":[]}');
+    } else if (url.pathname.startsWith('/discord-cdn/')) {
+      // TEST-ONLY stand-in for cdn.discordapp.com, which (like the real one) may redirect
+      state.cdnHits = (state.cdnHits ?? 0) + 1;
+      if (url.pathname === '/discord-cdn/avatars/555000000000000002/abc123.png') return res.writeHead(302, { location: '/discord-cdn/stored/abc123.png' }).end();
+      if (url.pathname === '/discord-cdn/stored/abc123.png') return res.writeHead(200, { 'content-type': 'image/png' }).end(solidPng('#00ff00'));
+      if (url.pathname === '/discord-cdn/guilds/999000111222333444/users/555000000000000003/avatars/srv789.png') return res.writeHead(200, { 'content-type': 'image/png' }).end(solidPng('#0000ff'));
+      if (url.pathname.startsWith('/discord-cdn/embed/avatars/')) return res.writeHead(200, { 'content-type': 'image/png' }).end(solidPng('#ff0000'));
+      res.writeHead(404).end();
     } else if (url.pathname === '/discord/oauth2/authorize') {
       // TEST-ONLY stand-in for Discord's "add bot to server" consent screen
       const back = new URL(url.searchParams.get('redirect_uri'));

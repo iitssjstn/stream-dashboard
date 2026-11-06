@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import { db, schema } from '../db/index.js';
 import { discordApp } from '../settings.js';
-import { avatarUrl, gatewayUrl, getBotUser, sendWelcome, type DiscordUser } from './api.js';
+import { avatarUrl, gatewayUrl, getBotUser, memberAvatarCandidates, sendWelcome, type DiscordUser } from './api.js';
 import { renderCard } from './card.js';
 
 export type BotStatus = { status: 'off' | 'connecting' | 'connected' | 'error'; botName: string | null; error: string | null; guilds: number };
@@ -174,13 +174,13 @@ export class DiscordBot {
         break;
       case 'GUILD_MEMBER_ADD':
         this.memberCounts.set(d.guild_id, this.memberCount(d.guild_id) + 1);
-        void this.welcome(d.guild_id, d.user as DiscordUser);
+        void this.welcome(d.guild_id, d.user as DiscordUser, { memberAvatar: d.avatar ?? null }).catch((e) => this.log.warn(`discord welcome failed: ${(e as Error).message}`));
         break;
     }
   }
 
   /** Posts the welcome image for a new member (or a test for the streamer). */
-  async welcome(guildId: string, user: DiscordUser, opts: { test?: boolean } = {}) {
+  async welcome(guildId: string, user: DiscordUser, opts: { test?: boolean; memberAvatar?: string | null } = {}) {
     const g = db.select().from(schema.discordGuilds).where(eq(schema.discordGuilds.guildId, guildId)).get();
     if (!g || !g.channelId || (!g.enabled && !opts.test) || user.bot) return false;
     const key = `${guildId}:${user.id}`;
@@ -189,7 +189,9 @@ export class DiscordBot {
     if (this.recent.size > 5000) this.recent.clear();
     const name = user.global_name || user.username;
     const count = this.memberCount(guildId);
-    const png = await renderCard(g.card, { name, server: g.guildName, count, avatar: avatarUrl(user) });
+    const png = await renderCard(g.card, { name, server: g.guildName, count, avatar: memberAvatarCandidates(guildId, user, opts.memberAvatar) }, (reason) =>
+      this.log.warn({ guildId }, `welkomstplaatje: profielfoto niet geladen (${reason})`),
+    );
     // A test has no real Discord member to mention.
     const content = welcomeMessage(g.message, { mention: opts.test ? `**${name}**` : `<@${user.id}>`, name, server: g.guildName, count });
     await sendWelcome(g.channelId, content, png, opts.test ? null : user.id);

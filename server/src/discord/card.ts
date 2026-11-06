@@ -23,6 +23,9 @@ const MAX_BYTES = 8 * 1024 * 1024;
 const ALLOWED_HOST = /^(?:media\d*\.giphy\.com|i\.giphy\.com|cdn\.streamelements\.com|cdn\.discordapp\.com|media\.discordapp\.net)$/;
 
 /** Reads an upload from disk or downloads from an allowed media host. */
+/** Why the last remote image could not be loaded (shown in the server log). */
+export let lastMediaError: string | null = null;
+
 export async function loadMediaBytes(src: string | null): Promise<Buffer | null> {
   if (!src) return null;
   try {
@@ -30,13 +33,38 @@ export async function loadMediaBytes(src: string | null): Promise<Buffer | null>
       const buf = await fs.promises.readFile(path.join(config.uploadDir, path.basename(src)));
       return buf.length <= MAX_BYTES ? buf : null;
     }
-    const url = new URL(src);
-    if (url.protocol !== 'https:' || !ALLOWED_HOST.test(url.hostname)) return null;
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000), redirect: 'error' });
-    if (!res.ok || Number(res.headers.get('content-length') ?? 0) > MAX_BYTES) return null;
-    const buf = Buffer.from(await res.arrayBuffer());
-    return buf.length <= MAX_BYTES ? buf : null;
-  } catch {
+    // Follow at most 3 redirects ourselves, re-checking every hop against the allowed hosts.
+    let url = new URL(src);
+    for (let hop = 0; hop < 4; hop++) {
+      const isCdn = url.origin === new URL(config.discord.cdnBase).origin;
+      if (!isCdn && (url.protocol !== 'https:' || !ALLOWED_HOST.test(url.hostname))) {
+        lastMediaError = `host niet toegestaan: ${url.hostname}`;
+        return null;
+      }
+      const res = await fetch(url, {
+        signal: AbortSignal.timeout(8000),
+        redirect: 'manual',
+        headers: { 'user-agent': 'LumioBot/1.0 (+https://github.com/iitssjstn/stream-dashboard)', accept: 'image/png,image/*;q=0.8' },
+      });
+      if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
+        url = new URL(res.headers.get('location')!, url);
+        continue;
+      }
+      if (!res.ok) {
+        lastMediaError = `HTTP ${res.status} van ${url.hostname}`;
+        return null;
+      }
+      if (Number(res.headers.get('content-length') ?? 0) > MAX_BYTES) {
+        lastMediaError = 'bestand te groot';
+        return null;
+      }
+      const buf = Buffer.from(await res.arrayBuffer());
+      return buf.length <= MAX_BYTES ? buf : null;
+    }
+    lastMediaError = 'te veel omleidingen';
+    return null;
+  } catch (e) {
+    lastMediaError = (e as Error).message;
     return null;
   }
 }
@@ -90,7 +118,11 @@ function fitText(ctx: SKRSContext2D, text: string, weight: number, maxSize: numb
 }
 
 /** Renders the welcome image as PNG. */
-export async function renderCard(card: WelcomeCard, v: { name: string; server: string; count: number; avatar: string | null }) {
+export async function renderCard(
+  card: WelcomeCard,
+  v: { name: string; server: string; count: number; avatar: string | string[] | null },
+  onAvatarError?: (reason: string) => void,
+) {
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext('2d');
 
@@ -121,7 +153,13 @@ export async function renderCard(card: WelcomeCard, v: { name: string; server: s
   ctx.fillStyle = card.accentColor;
   ctx.fill();
   ctx.restore();
-  const avatar = await fetchImage(v.avatar);
+  // Try each candidate (server profile photo, account photo, Discord default) until one loads.
+  let avatar: Image | null = null;
+  for (const candidate of Array.isArray(v.avatar) ? v.avatar : v.avatar ? [v.avatar] : []) {
+    avatar = await fetchImage(candidate);
+    if (avatar) break;
+    onAvatarError?.(`${candidate.replace(/\?.*$/, '')}: ${lastMediaError ?? 'onbekende fout'}`);
+  }
   ctx.save();
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);

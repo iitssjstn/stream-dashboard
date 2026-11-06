@@ -71,8 +71,24 @@ export const modifyCurrentMember = (guildId: string, body: { nick: string | null
 
 export const leaveGuild = (guildId: string) => discordRest(`/users/@me/guilds/${guildId}`, { method: 'DELETE' });
 
+export function defaultAvatarUrl(id: string) {
+  const idx = Number((BigInt(/^\d+$/.test(id) ? id : '0') >> 22n) % 6n);
+  return `${config.discord.cdnBase}/embed/avatars/${idx}.png`;
+}
+
 export function avatarUrl(u: Pick<DiscordUser, 'id' | 'avatar'>) {
-  if (u.avatar) return `https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png?size=256`;
-  const idx = Number((BigInt(u.id) >> 22n) % 6n);
-  return `https://cdn.discordapp.com/embed/avatars/${idx}.png`;
+  if (u.avatar) return `${config.discord.cdnBase}/avatars/${u.id}/${u.avatar}.png?size=256`;
+  return defaultAvatarUrl(u.id);
+}
+
+/**
+ * Avatar candidates for a member who just joined, best first: their profile photo for this
+ * server, their account photo, Discord's default avatar.
+ */
+export function memberAvatarCandidates(guildId: string, user: Pick<DiscordUser, 'id' | 'avatar'>, memberAvatar?: string | null) {
+  const list: string[] = [];
+  if (memberAvatar) list.push(`${config.discord.cdnBase}/guilds/${guildId}/users/${user.id}/avatars/${memberAvatar}.png?size=256`);
+  if (user.avatar) list.push(`${config.discord.cdnBase}/avatars/${user.id}/${user.avatar}.png?size=256`);
+  list.push(defaultAvatarUrl(user.id));
+  return list;
 }

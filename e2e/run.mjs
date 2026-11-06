@@ -30,7 +30,7 @@ function watchOutput(p) {
   return p;
 }
 
-const discordEnv = { DISCORD_API_BASE: `http://localhost:${TW_PORT}/discord/api`, DISCORD_AUTHORIZE_URL: `http://localhost:${TW_PORT}/discord/oauth2/authorize`, DISCORD_GATEWAY_URL: `ws://localhost:${TW_PORT}/discord-gw` };
+const discordEnv = { DISCORD_API_BASE: `http://localhost:${TW_PORT}/discord/api`, DISCORD_AUTHORIZE_URL: `http://localhost:${TW_PORT}/discord/oauth2/authorize`, DISCORD_GATEWAY_URL: `ws://localhost:${TW_PORT}/discord-gw`, DISCORD_CDN_BASE: `http://localhost:${TW_PORT}/discord-cdn` };
 
 // Set E2E_DOCKER_IMAGE=stream-dashboard:latest to run the same test against the Docker image.
 const IMAGE = process.env.E2E_DOCKER_IMAGE;
@@ -497,6 +497,29 @@ try {
   await guildBox.getByRole('button', { name: 'Test sturen' }).click();
   await p1.getByText('Testbericht verstuurd in Discord').waitFor();
   check(tw.state.discordPosts[1]?.payload.content === 'Welkom **KnuffelStreamer** in Knuffel Discord! 🎉' && tw.state.discordPosts[1].payload.allowed_mentions.users.length === 0, 'Test sturen werkt (zonder echte vermelding)');
+  // Profile photos of new members: account photo (behind a CDN redirect), server photo, default avatar
+  const { loadImage, createCanvas } = createRequire(new URL('../server/package.json', import.meta.url))('@napi-rs/canvas');
+  const avatarPixel = async (png) => {
+    const img = await loadImage(png);
+    const c = createCanvas(img.width, img.height);
+    const x = c.getContext('2d');
+    x.drawImage(img, 0, 0);
+    const d = x.getImageData(550, 140, 1, 1).data; // centre of the avatar circle
+    return [d[0], d[1], d[2]];
+  };
+  const isColor = ([r, g, b], [er, eg, eb]) => Math.abs(r - er) < 40 && Math.abs(g - eg) < 40 && Math.abs(b - eb) < 40;
+  const firstPx = await avatarPixel(tw.state.discordPosts[0].file);
+  check(isColor(firstPx, [255, 0, 0]), `Lid zonder eigen foto: Discord-standaardavatar op het plaatje (pixel ${firstPx})`);
+  tw.discordJoin({ id: '555000000000000002', username: 'metfoto', global_name: 'MetFoto', avatar: 'abc123' });
+  await waitFor(() => tw.state.discordPosts.length === 3, 8000);
+  const px2 = await avatarPixel(tw.state.discordPosts[2].file);
+  check(isColor(px2, [0, 255, 0]), `Profielfoto van het nieuwe lid staat op het plaatje, ook via een CDN-omleiding (pixel ${px2})`);
+  for (const ws of tw.state.discordGw) ws.send(JSON.stringify({ op: 0, s: 900, t: 'GUILD_MEMBER_ADD', d: { guild_id: '999000111222333444', avatar: 'srv789', user: { id: '555000000000000003', username: 'serverfoto', global_name: 'ServerFoto', avatar: 'abc123' } } }));
+  await waitFor(() => tw.state.discordPosts.length === 4, 8000);
+  const px3 = await avatarPixel(tw.state.discordPosts[3].file);
+  check(isColor(px3, [0, 0, 255]), `Eigen server-profielfoto heeft voorrang (pixel ${px3})`);
+  fs.writeFileSync(path.join(OUT, '17b-discord-welkom-met-foto.png'), tw.state.discordPosts[2].file);
+
   const gNow = (await api1('/api/discord')).json.guilds[0];
   await api1(`/api/discord/guilds/${gNow.id}`, 'PUT', { ...gNow, message: 'Hallo {user},\r\n\r\nWelkom in {server}!\nLees de regels.' });
   await api1(`/api/discord/guilds/${gNow.id}/test`, 'POST');

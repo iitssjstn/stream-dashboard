@@ -80,6 +80,8 @@ export const config = {
   discord: {
     apiBase: env('DISCORD_API_BASE', 'https://discord.com/api/v10'),
     authorizeUrl: env('DISCORD_AUTHORIZE_URL', 'https://discord.com/oauth2/authorize'),
+    /** Avatar CDN (overridable for tests only). */
+    cdnBase: env('DISCORD_CDN_BASE', 'https://cdn.discordapp.com').replace(/\/$/, ''),
     /** Normally discovered via GET /gateway/bot; override only for tests. */
     gatewayUrl: env('DISCORD_GATEWAY_URL', ''),
     redirectUri: env('DISCORD_REDIRECT_URI', `${publicUrl}/auth/discord/callback`),
