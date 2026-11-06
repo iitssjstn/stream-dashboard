@@ -1,6 +1,6 @@
 {
   "name": "@lumio/server",
-  "version": "0.8.1",
+  "version": "1.0.0",
   "scripts": {
     "dev": "node --env-file-if-exists=../.env --import tsx --watch src/index.ts",
     "start": "node --import tsx src/index.ts",

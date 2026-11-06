@@ -10,6 +10,8 @@ Nieuwe wijzigingen komen eerst onder **[Unreleased]**. Bij een release krijgen z
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-06
+
 ### Toegevoegd
 - Versienummers: changelog, versie zichtbaar in het dashboard (boven je naam) en in `/healthz`, een Docker-image per versie en automatische GitHub Releases.
 
