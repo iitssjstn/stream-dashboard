@@ -156,8 +156,16 @@ function GuildEditor({ guild, onChange }: { guild: Guild; onChange: () => void }
               ))}
             </select>
           </Field>
-          <Field label="Bericht" hint="{user} = vermelding van het nieuwe lid, {name} = naam, {server}, {count} = aantal leden">
-            <input className="input" maxLength={500} value={g.message} onChange={(e) => setG({ ...g, message: e.target.value })} />
+          <Field label="Bericht" hint="Enter = nieuwe regel. {user} = vermelding van het nieuwe lid, {name} = naam, {server}, {count} = aantal leden. Discord-opmaak werkt ook: **vet**, *schuin*, > citaat.">
+            <textarea
+              className="input min-h-36 resize-y leading-relaxed"
+              rows={6}
+              maxLength={1500}
+              value={g.message}
+              placeholder={'Hallo {user},\n\nWelkom in {server}! Lees even de regels in #regels.'}
+              onChange={(e) => setG({ ...g, message: e.target.value })}
+            />
+            <span className="mt-1 block text-right text-xs text-zinc-500">{g.message.length}/1500</span>
           </Field>
           <div>
             <span className="label">Achtergrond (leeg = kleurverloop)</span>
@@ -185,7 +193,7 @@ function GuildEditor({ guild, onChange }: { guild: Guild; onChange: () => void }
         <div className="xl:sticky xl:top-6 xl:self-start">
           <span className="label">Voorbeeld</span>
           <div className="overflow-hidden rounded-xl border border-white/10 bg-[#313338] p-3">
-            <div className="mb-2 text-sm text-zinc-200">
+            <div className="mb-2 text-sm whitespace-pre-wrap text-zinc-200">
               {g.message.replace(/\{user\}/gi, '@NieuwLid').replace(/\{name\}/gi, 'NieuwLid').replace(/\{server\}/gi, g.guildName).replace(/\{count\}/gi, String(g.memberCount || 1234))}
             </div>
             {preview ? <img src={preview} alt="Voorbeeld van het welkomstplaatje" className="w-full rounded-lg" /> : <div className="aspect-[1100/420] animate-pulse rounded-lg bg-white/5" />}
@@ -381,7 +389,7 @@ function BotProfileEditor({ guild, bot, onChange }: { guild: Guild; bot: BotStat
               <div>
                 <span className="font-semibold text-white">{name}</span> <span className="rounded bg-[#5865f2] px-1 text-[10px] font-bold text-white">APP</span>
               </div>
-              <div className="truncate text-zinc-300">{guild.message.replace(/\{user\}/gi, '@NieuwLid').replace(/\{name\}/gi, 'NieuwLid').replace(/\{server\}/gi, guild.guildName).replace(/\{count\}/gi, String(guild.memberCount || 1234))}</div>
+              <div className="whitespace-pre-wrap text-zinc-300">{guild.message.replace(/\{user\}/gi, '@NieuwLid').replace(/\{name\}/gi, 'NieuwLid').replace(/\{server\}/gi, guild.guildName).replace(/\{count\}/gi, String(guild.memberCount || 1234))}</div>
             </div>
           </div>
         </div>

@@ -25,6 +25,8 @@ export const defaultCard = (): WelcomeCard => ({
 
 const hex = (v: unknown, d: string) => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : d);
 const text = (v: unknown, max: number) => String(v ?? '').replace(/[\r\n]+/g, ' ').slice(0, max);
+/** Discord messages may span several lines; keep at most two empty lines in a row. */
+const multiline = (v: unknown, max: number) => String(v ?? '').replace(/\r\n?/g, '\n').replace(/\n{4,}/g, '\n\n\n').trim().slice(0, max);
 
 function validateCard(b: any): WelcomeCard {
   const bg = b?.background;
@@ -121,7 +123,7 @@ export async function discordRoutes(app: FastifyInstance, { bot }: { bot: Discor
       if (channelId && !(await textChannels(g.guildId)).some((c) => c.id === channelId)) return reply.code(400).send({ error: 'Kies een tekstkanaal van deze server' });
       const row = db
         .update(schema.discordGuilds)
-        .set({ enabled: b.enabled !== false, channelId, message: text(b.message, 500), card: validateCard(b.card), updatedAt: Date.now() })
+        .set({ enabled: b.enabled !== false, channelId, message: multiline(b.message, 1500), card: validateCard(b.card), updatedAt: Date.now() })
         .where(eq(schema.discordGuilds.id, g.id))
         .returning()
         .get();

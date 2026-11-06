@@ -497,6 +497,13 @@ try {
   await guildBox.getByRole('button', { name: 'Test sturen' }).click();
   await p1.getByText('Testbericht verstuurd in Discord').waitFor();
   check(tw.state.discordPosts[1]?.payload.content === 'Welkom **KnuffelStreamer** in Knuffel Discord! 🎉' && tw.state.discordPosts[1].payload.allowed_mentions.users.length === 0, 'Test sturen werkt (zonder echte vermelding)');
+  const gNow = (await api1('/api/discord')).json.guilds[0];
+  await api1(`/api/discord/guilds/${gNow.id}`, 'PUT', { ...gNow, message: 'Hallo {user},\r\n\r\nWelkom in {server}!\nLees de regels.' });
+  await api1(`/api/discord/guilds/${gNow.id}/test`, 'POST');
+  check(tw.state.discordPosts.at(-1)?.payload.content === 'Hallo **KnuffelStreamer**,\n\nWelkom in Knuffel Discord!\nLees de regels.', 'Welkomstbericht over meerdere regels blijft netjes behouden');
+  await p1.reload();
+  await p1.getByRole('region', { name: 'Discord-server Knuffel Discord' }).waitFor();
+  check((await p1.getByRole('region', { name: 'Discord-server Knuffel Discord' }).locator('textarea').first().inputValue()) === 'Hallo {user},\n\nWelkom in {server}!\nLees de regels.', 'Berichtveld toont de meerdere regels');
   check((await p2.evaluate(() => fetch('/api/discord').then((r) => r.json()))).guilds.length === 0, 'Andere streamer ziet jouw Discord-server niet');
 
   // Own bot look on this server: name, profile photo, bio
