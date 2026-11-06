@@ -186,9 +186,15 @@ export async function playEvent(stage: HTMLElement, ev: OverlayEvent, opts: Play
   }
 
   let duration = Math.max(1500, ev.durationMs);
+  /** Video length unknown up front (e.g. WebM recorded in a browser has no duration header): end on 'ended'. */
+  let endOnVideoEnd = false;
   if (ev.useVideoLength && media instanceof HTMLVideoElement) {
     const len = await videoLength(media);
     if (len) duration = Math.min(60_000, Math.max(1500, Math.round(len)));
+    else {
+      endOnVideoEnd = true;
+      duration = 60_000; // safety cap
+    }
   }
 
   const item = el('div', 'lm-item');
@@ -220,7 +226,11 @@ export async function playEvent(stage: HTMLElement, ev: OverlayEvent, opts: Play
   }
 
   return new Promise((resolve) => {
-    setTimeout(() => {
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
       item.remove();
       if (media instanceof HTMLVideoElement) {
         media.pause();
@@ -232,7 +242,20 @@ export async function playEvent(stage: HTMLElement, ev: OverlayEvent, opts: Play
         audio.src = '';
       }
       resolve();
-    }, duration);
+    };
+    const timer = setTimeout(finish, duration);
+    if (endOnVideoEnd && media instanceof HTMLVideoElement) {
+      // Play the normal exit animation as soon as the video has really finished.
+      media.addEventListener(
+        'ended',
+        () => {
+          fx.style.animation = `lm-out ${EXIT_MS}ms ease-in forwards`;
+          setTimeout(finish, EXIT_MS);
+        },
+        { once: true },
+      );
+      media.addEventListener('error', () => setTimeout(finish, 1500), { once: true });
+    }
   });
 }
 
