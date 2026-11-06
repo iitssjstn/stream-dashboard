@@ -21,6 +21,8 @@ export type OverlayEvent = {
   characterStyle?: 'anime' | 'people';
   /** hug / highfive / dance: characters walk towards each other first */
   walkIn?: boolean;
+  /** Video: show for exactly the video's own length */
+  useVideoLength?: boolean;
   imageUrl: string | null;
   soundUrl: string | null;
   soundVolume: number;

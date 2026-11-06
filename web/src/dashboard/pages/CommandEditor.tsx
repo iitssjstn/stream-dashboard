@@ -5,7 +5,7 @@ import { ALERT_TYPES, api, FONTS, LABELS, type Command, type Trigger } from '../
 import { useMe } from '../App';
 import { OverlayPreview } from '../components/OverlayPreview';
 import { figure } from '../../overlay/characters';
-import { WALKABLE } from '../../overlay/renderer';
+import { isVideo, WALKABLE } from '../../overlay/renderer';
 import { MediaPicker } from '../components/Shared';
 import { Field, PageHeader, Svg, Toggle, useToast } from '../ui';
 
@@ -28,6 +28,7 @@ const blank: Draft = {
   animation: 'hug',
   characterStyle: 'anime',
   walkIn: false,
+  useVideoLength: false,
   imageUrl: null,
   soundUrl: null,
   soundVolume: 70,
@@ -310,7 +311,7 @@ export function CommandEditor() {
                 </div>
               )}
               <div>
-                <span className="label">{d.animation === 'image' ? 'Afbeelding of GIF' : 'Extra afbeelding / GIF (optioneel)'}</span>
+                <span className="label">{d.animation === 'image' ? 'Afbeelding, GIF of video' : 'Extra afbeelding / GIF / video (optioneel)'}</span>
                 <MediaPicker kind="image" value={d.imageUrl} onChange={(v) => set('imageUrl', v)} />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -324,8 +325,17 @@ export function CommandEditor() {
                     {Object.entries(LABELS.particles).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                   </select>
                 </Field>
-                <Field label={`Zichtbaar: ${(d.durationMs / 1000).toFixed(1)} seconden`}>
-                  <input type="range" className="w-full" min={1500} max={20000} step={500} value={d.durationMs} onChange={(e) => set('durationMs', Number(e.target.value))} />
+                {isVideo(d.imageUrl) && (
+                  <div className="flex items-center justify-between gap-4 rounded-xl border border-white/10 px-4 py-3 sm:col-span-2">
+                    <div>
+                      <div className="text-sm font-medium text-white">Duur = lengte van de video</div>
+                      <div className="text-xs text-zinc-500">Uit: de video herhaalt zich tot de ingestelde duur voorbij is. Geluid: de video speelt zijn eigen geluid af, tenzij je bij Geluid iets anders kiest.</div>
+                    </div>
+                    <Toggle checked={d.useVideoLength} onChange={(v) => set('useVideoLength', v)} label="Duur = lengte van de video" />
+                  </div>
+                )}
+                <Field label={d.useVideoLength && isVideo(d.imageUrl) ? 'Zichtbaar: zo lang als de video' : `Zichtbaar: ${(d.durationMs / 1000).toFixed(1)} seconden`}>
+                  <input type="range" className="w-full disabled:opacity-40" disabled={d.useVideoLength && isVideo(d.imageUrl)} min={1500} max={20000} step={500} value={d.durationMs} onChange={(e) => set('durationMs', Number(e.target.value))} />
                 </Field>
                 <Field label={`Grootte: ${Math.round(d.style.scale * 100)}%`}>
                   <input type="range" className="w-full" min={0.3} max={2.5} step={0.05} value={d.style.scale} onChange={(e) => style('scale', Number(e.target.value))} />

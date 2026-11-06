@@ -1,0 +1,2 @@
+ALTER TABLE `commands` ADD `use_video_length` integer DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE `discord_guilds` ADD `bot_profile` text DEFAULT '{"nick":null,"avatar":null,"bio":null}' NOT NULL;

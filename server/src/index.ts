@@ -51,7 +51,8 @@ for (const u of db.select({ id: schema.users.id }).from(schema.users).all()) see
 
 await app.register(cookie, { secret: createHash('sha256').update(config.encryptionKey).update('cookie').digest('hex') });
 await app.register(websocket, { options: { maxPayload: 64 * 1024 } });
-await app.register(multipart, { limits: { fileSize: 15 * 1024 * 1024, files: 1 } });
+// Videos may be up to 60 MB; images and audio are limited to 15 MB in the upload route.
+await app.register(multipart, { limits: { fileSize: 60 * 1024 * 1024, files: 1 } });
 await app.register(rateLimit, { max: 300, timeWindow: '1 minute', allowList: (req) => req.url.startsWith('/assets/') });
 
 app.get('/healthz', async () => ({ ok: true }));

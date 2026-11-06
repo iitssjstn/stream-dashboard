@@ -57,6 +57,13 @@
       "when": 1793989793765,
       "tag": "0007_discord",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793991907331,
+      "tag": "0008_video_bot_profile",
+      "breakpoints": true
     }
   ]
 }

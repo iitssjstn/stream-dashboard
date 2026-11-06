@@ -10,6 +10,7 @@ export type OverlayCommandEvent = {
   animation: string;
   characterStyle: string;
   walkIn: boolean;
+  useVideoLength: boolean;
   imageUrl: string | null;
   soundUrl: string | null;
   soundVolume: number;

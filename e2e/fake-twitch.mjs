@@ -91,6 +91,12 @@ export function startFakeTwitch(port) {
       if (auth !== `Bot ${'d'.repeat(30)}.discord.${'t'.repeat(30)}`) return json(401, { message: '401: Unauthorized' });
       if (p === '/users/@me') return json(200, { id: '123456789012345678', username: 'LumioBot', global_name: 'LumioBot', avatar: null, bot: true });
       if (p === '/guilds/999000111222333444/channels') return json(200, [{ id: '111', name: 'welkom', type: 0, position: 1 }, { id: '113', name: 'algemeen', type: 0, position: 0 }, { id: '112', name: 'Voice', type: 2, position: 2 }]);
+      if (p === '/guilds/999000111222333444/members/@me' && req.method === 'PATCH') {
+        let b = '';
+        for await (const c of req) b += c;
+        state.discordProfile = JSON.parse(b);
+        return json(200, { nick: state.discordProfile.nick });
+      }
       if (p === '/users/@me/guilds/999000111222333444' && req.method === 'DELETE') return state.discordLeft.push('999000111222333444'), json(204);
       const m = /^\/channels\/(\d+)\/messages$/.exec(p);
       if (m && req.method === 'POST') {

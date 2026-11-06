@@ -420,7 +420,7 @@ try {
   await p1.getByRole('button', { name: 'Ophalen' }).click();
   await p1.getByText('!socials').waitFor();
   check(await p1.getByText('Variabelen niet ondersteund (blijven als tekst staan): ${uptime}').isVisible(), 'Import: niet-ondersteunde variabelen worden gemeld');
-  check(await p1.getByText('Video wordt niet ondersteund').isVisible(), 'Import: video-alert wordt gemeld');
+  check(!(await p1.getByText('Video wordt niet ondersteund').isVisible()), 'Import: video-alerts worden gewoon overgenomen (geen waarschuwing meer)');
   check(await p1.getByText('Twitch heeft hosts afgeschaft').isVisible(), 'Import: host-alert overgeslagen met uitleg');
   await sleep(300);
   await p1.screenshot({ path: path.join(OUT, '14-import-preview.png'), fullPage: true });
@@ -439,6 +439,7 @@ try {
   check(imported.some((c) => c.trigger === 'resub' && c.minAmount === 2) && imported.some((c) => c.trigger === 'gift' && c.text === '{user} gifted de chat a subscription!'), 'Sub-variaties: resub (vanaf 2 maanden) en gift overgenomen');
   check(imported.some((c) => c.trigger === 'raid' && c.minAmount === 5), 'Raid minimum (5 kijkers) overgenomen');
   check(imported.find((c) => c.name === 'mega-cheer')?.enabled === true, 'Zelfgemaakte alert-varianten blijven aan na import');
+  check(imported.find((c) => c.name === 'se-cheer-0')?.imageUrl === 'https://cdn.example.com/cheer.webm' && imported.find((c) => c.name === 'se-cheer-0')?.animation === 'image', 'Video-alert (WebM) uit StreamElements overgenomen');
   tw.chat('knuffelstreamer', { login: 'fan9', display: 'Fan9', userId: '7009', id: 'msg-i1', text: '!links' });
   check(await sentIncludes('Socials van knuffelstreamer: discord.gg/test (aangeroepen door Fan9)'), 'Geïmporteerd command werkt in de chat (via alias !links)');
   tw.event('channel.follow', { user_name: 'ImportVolger' }, 'follow-2');
@@ -497,8 +498,80 @@ try {
   await p1.getByText('Testbericht verstuurd in Discord').waitFor();
   check(tw.state.discordPosts[1]?.payload.content === 'Welkom **KnuffelStreamer** in Knuffel Discord! 🎉' && tw.state.discordPosts[1].payload.allowed_mentions.users.length === 0, 'Test sturen werkt (zonder echte vermelding)');
   check((await p2.evaluate(() => fetch('/api/discord').then((r) => r.json()))).guilds.length === 0, 'Andere streamer ziet jouw Discord-server niet');
+
+  // Own bot look on this server: name, profile photo, bio
+  const pngUpload = await p1.evaluate(async () => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 300;
+    const x = c.getContext('2d');
+    x.fillStyle = '#ec4899';
+    x.fillRect(0, 0, 300, 300);
+    x.fillStyle = '#fff';
+    x.font = 'bold 160px sans-serif';
+    x.fillText('K', 90, 210);
+    const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
+    const fd = new FormData();
+    fd.append('file', new File([blob], 'botfoto.png', { type: 'image/png' }));
+    return (await fetch('/api/uploads', { method: 'POST', body: fd })).json();
+  });
+  await p1.reload();
+  const profileBox = p1.getByRole('region', { name: 'Bot-profiel op Knuffel Discord' });
+  await profileBox.waitFor();
+  await profileBox.getByLabel('Naam van de bot').fill('KnuffelBot');
+  await profileBox.getByTitle('botfoto.png').click();
+  await profileBox.getByLabel('Over mij').fill('De officiële bot van KnuffelStreamer 💜');
+  await profileBox.getByRole('button', { name: 'Bot-profiel opslaan' }).click();
+  await p1.getByText('Bot-profiel op Knuffel Discord bijgewerkt').waitFor();
+  const prof = tw.state.discordProfile;
+  check(prof?.nick === 'KnuffelBot' && prof.bio === 'De officiële bot van KnuffelStreamer 💜' && prof.avatar?.startsWith('data:image/png;base64,'), 'Eigen botnaam, profielfoto en bio naar Discord gestuurd (alleen voor deze server)');
+  check((await api1('/api/discord')).json.guilds[0].botProfile.avatar === pngUpload.url, 'Bot-profiel bewaard');
+
   await sleep(400);
   await p1.screenshot({ path: path.join(OUT, '18-discord.png'), fullPage: true });
+
+  // ===== 19. Video: upload a real WebM clip and play it via a chat command, for exactly its own length =====
+  const vid = await p1.evaluate(async () => {
+    const c = document.createElement('canvas');
+    c.width = 320;
+    c.height = 180;
+    const x = c.getContext('2d');
+    const rec = new MediaRecorder(c.captureStream(30), { mimeType: 'video/webm' });
+    const chunks = [];
+    rec.ondataavailable = (e) => chunks.push(e.data);
+    rec.start();
+    const t0 = performance.now();
+    await new Promise((resolve) => {
+      const draw = () => {
+        const t = performance.now() - t0;
+        x.fillStyle = `hsl(${(t / 10) % 360} 80% 50%)`;
+        x.fillRect(0, 0, 320, 180);
+        if (t < 2000) requestAnimationFrame(draw);
+        else resolve();
+      };
+      draw();
+    });
+    rec.stop();
+    await new Promise((r) => (rec.onstop = r));
+    const fd = new FormData();
+    fd.append('file', new File([new Blob(chunks, { type: 'video/webm' })], 'clip.webm', { type: 'video/webm' }));
+    const res = await fetch('/api/uploads', { method: 'POST', body: fd });
+    return { status: res.status, json: await res.json() };
+  });
+  check(vid.status === 201 && vid.json.url.endsWith('.webm'), 'Video (WebM) uploaden in de mediabibliotheek');
+  r = await api1('/api/commands', 'POST', mk({ name: 'clip', animation: 'image', imageUrl: vid.json.url, useVideoLength: true, durationMs: 15000, text: '{user} speelt een clip!', showText: true }));
+  check(r.status === 201 && r.json.useVideoLength === true, 'Command met video en "duur = lengte van de video"');
+  await waitFor(async () => (await overlay.locator('.lm-item').count()) === 0, 15000);
+  const tv = Date.now();
+  tw.chat('knuffelstreamer', { login: 'cliplover', display: 'ClipLover', userId: '7020', id: 'msg-v1', text: '!clip' });
+  await overlay.waitForSelector('video.lm-image', { timeout: 6000 });
+  const vstate = await overlay.evaluate(() => {
+    const v = document.querySelector('video.lm-image');
+    return { paused: v.paused, loop: v.loop, src: v.getAttribute('src') };
+  });
+  check(vstate.src === vid.json.url && !vstate.paused && !vstate.loop, 'Overlay speelt de video af');
+  const videoGone = await waitFor(async () => (await overlay.locator(".lm-item").count()) === 0, 12000);
+  const shown = Date.now() - tv;
+  check(Boolean(videoGone) && shown < 8000, `Video verdwijnt na zijn eigen lengte (${(shown / 1000).toFixed(1)}s i.p.v. de ingestelde 15s)`);
 } finally {
   await browser.close();
   app.kill('SIGTERM');

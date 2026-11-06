@@ -72,6 +72,7 @@ export function validateCommand(body: any) {
     animation,
     characterStyle: oneOf(body.characterStyle ?? 'anime', CHARACTER_STYLES, 'stijl'),
     walkIn: body.walkIn === true,
+    useVideoLength: body.useVideoLength === true,
     imageUrl,
     soundUrl: mediaUrl(body.soundUrl, 'Geluid'),
     soundVolume: int(body.soundVolume ?? 70, 'Volume', 0, 100),

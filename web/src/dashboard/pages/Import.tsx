@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ALERT_TYPES, api, LABELS } from '../api';
 import { PageHeader, Svg, Toggle, useToast } from '../ui';
+import { MediaThumb } from '../components/Shared';
 
 type Cmd = { key: string; name: string; aliases: string[]; reply: string; permission: string; userCooldownSec: number; globalCooldownSec: number; enabled: boolean; warnings: string[] };
 type Tmr = { key: string; name: string; messages: string[]; intervalMin: number; offlineIntervalMin: number; minChatLines: number; enabled: boolean; warnings: string[] };
@@ -155,7 +156,7 @@ export function ImportPage() {
             {preview.alerts.map((a) => (
               <Row key={a.key} k={a.key} picked={picked} toggle={toggle} warnings={a.warnings}>
                 <span className="flex items-center gap-3">
-                  {a.imageUrl ? <img src={a.imageUrl} alt="" className="checker h-10 w-10 rounded-lg object-contain" /> : <span className="grid h-10 w-10 place-items-center rounded-lg bg-white/5 text-lg">🔔</span>}
+                  {a.imageUrl ? <MediaThumb src={a.imageUrl} alt="" className="checker h-10 w-10 rounded-lg object-contain" /> : <span className="grid h-10 w-10 place-items-center rounded-lg bg-white/5 text-lg">🔔</span>}
                   <span className="min-w-0">
                     <span className="font-semibold text-white">
                       {ALERT_TYPES.find((t) => t.trigger === a.trigger)?.label}

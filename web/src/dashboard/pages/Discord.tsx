@@ -7,8 +7,9 @@ import { MediaPicker } from '../components/Shared';
 import { Field, PageHeader, StatusDot, Svg, Toggle, useToast } from '../ui';
 
 type Card = { background: string | null; title: string; subtitle: string; accentColor: string; textColor: string; dim: number };
-type Guild = { id: number; guildId: string; guildName: string; guildIcon: string | null; enabled: boolean; channelId: string | null; message: string; card: Card; memberCount: number };
-type BotStatus = { status: 'off' | 'connecting' | 'connected' | 'error'; botName: string | null; error: string | null };
+type BotProfile = { nick: string | null; avatar: string | null; bio: string | null };
+type Guild = { id: number; guildId: string; guildName: string; guildIcon: string | null; enabled: boolean; channelId: string | null; message: string; card: Card; memberCount: number; botProfile: BotProfile };
+type BotStatus = { status: 'off' | 'connecting' | 'connected' | 'error'; botName: string | null; error: string | null; avatar: string | null };
 type State = { configured: boolean; bot: BotStatus; guilds: Guild[] };
 
 export function DiscordPage() {
@@ -68,7 +69,10 @@ export function DiscordPage() {
           ) : (
             <div className="space-y-6">
               {data.guilds.map((g) => (
-                <GuildEditor key={g.id} guild={g} onChange={reload} />
+                <div key={g.id} className="space-y-4">
+                  <GuildEditor guild={g} onChange={reload} />
+                  <BotProfileEditor guild={g} bot={data.bot} onChange={reload} />
+                </div>
               ))}
             </div>
           )}
@@ -157,7 +161,7 @@ function GuildEditor({ guild, onChange }: { guild: Guild; onChange: () => void }
           </Field>
           <div>
             <span className="label">Achtergrond (leeg = kleurverloop)</span>
-            <MediaPicker kind="image" value={g.card.background} onChange={(v) => card('background', v)} />
+            <MediaPicker kind="image" allowVideo={false} value={g.card.background} onChange={(v) => card('background', v)} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Titel">
@@ -297,6 +301,91 @@ export function DiscordSetup({ onDone }: { onDone: () => void }) {
           {busy ? 'Controleren bij Discord…' : 'Bot opslaan'}
         </button>
       </form>
+    </section>
+  );
+}
+
+/** Per-server bot look: name, profile photo and bio, so it feels like the streamer's own bot. */
+function BotProfileEditor({ guild, bot, onChange }: { guild: Guild; bot: BotStatus; onChange: () => void }) {
+  const [p, setP] = useState<BotProfile>(guild.botProfile ?? { nick: null, avatar: null, bio: null });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
+  const saved = guild.botProfile ?? { nick: null, avatar: null, bio: null };
+  const dirty = JSON.stringify([p.nick || null, p.avatar || null, p.bio || null]) !== JSON.stringify([saved.nick, saved.avatar, saved.bio]);
+  const name = p.nick || bot.botName || 'Bot';
+  const avatar = p.avatar || bot.avatar;
+
+  const save = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api(`/api/discord/guilds/${guild.id}/profile`, { method: 'PUT', json: p });
+      toast(`Bot-profiel op ${guild.guildName} bijgewerkt`);
+      onChange();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="card p-5" aria-label={`Bot-profiel op ${guild.guildName}`}>
+      <h3 className="font-semibold text-white">Jouw bot op {guild.guildName}</h3>
+      <p className="mt-1 mb-5 text-sm text-zinc-400">Geef de bot een eigen naam, profielfoto en beschrijving. Dit geldt alleen op jouw server: andere streamers hebben hun eigen versie.</p>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+        <div className="space-y-4">
+          <Field label="Naam van de bot" hint="Max. 32 tekens. Leeg = standaardnaam.">
+            <input className="input" maxLength={32} placeholder={bot.botName ?? 'Lumio'} value={p.nick ?? ''} onChange={(e) => setP({ ...p, nick: e.target.value || null })} />
+          </Field>
+          <div>
+            <span className="label">Profielfoto (PNG, JPG, GIF of WEBP; GIF mag bewegen)</span>
+            <MediaPicker kind="image" allowVideo={false} value={p.avatar} onChange={(v) => setP({ ...p, avatar: v })} />
+          </div>
+          <Field label="Over mij" hint="Max. 190 tekens, zichtbaar in het profiel van de bot.">
+            <textarea className="input min-h-20" maxLength={190} value={p.bio ?? ''} placeholder="Bijv. De officiële bot van KnuffelStreamer 💜" onChange={(e) => setP({ ...p, bio: e.target.value || null })} />
+          </Field>
+          {error && <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{error}</div>}
+          <div className="flex justify-end gap-2">
+            {dirty && (
+              <button className="btn-ghost" onClick={() => setP(saved)}>
+                Ongedaan maken
+              </button>
+            )}
+            <button className="btn-primary" disabled={busy || !dirty} onClick={save}>
+              {busy ? 'Opslaan bij Discord…' : dirty ? 'Bot-profiel opslaan' : 'Opgeslagen'}
+            </button>
+          </div>
+        </div>
+        <div>
+          <span className="label">Zo ziet je bot eruit in Discord</span>
+          <div className="overflow-hidden rounded-xl border border-white/10 bg-[#232428]">
+            <div className="h-16" style={{ background: 'linear-gradient(135deg, #5865f2, #a855f7)' }} />
+            <div className="px-4 pb-4">
+              <div className="-mt-9 mb-2 h-[72px] w-[72px] overflow-hidden rounded-full border-[6px] border-[#232428] bg-[#5865f2]">
+                {avatar ? <img src={avatar} alt="" className="h-full w-full object-cover" /> : <div className="grid h-full w-full place-items-center text-2xl font-bold text-white">{name[0]}</div>}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-bold text-white">{name}</span>
+                <span className="rounded bg-[#5865f2] px-1.5 py-0.5 text-[10px] font-bold text-white">✓ APP</span>
+              </div>
+              {p.bio && <p className="mt-2 rounded-lg bg-[#2b2d31] p-3 text-sm whitespace-pre-wrap text-zinc-200">{p.bio}</p>}
+            </div>
+          </div>
+          <div className="mt-3 flex gap-3 rounded-xl border border-white/10 bg-[#313338] p-3">
+            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#5865f2]">
+              {avatar ? <img src={avatar} alt="" className="h-full w-full object-cover" /> : <div className="grid h-full w-full place-items-center font-bold text-white">{name[0]}</div>}
+            </div>
+            <div className="min-w-0 text-sm">
+              <div>
+                <span className="font-semibold text-white">{name}</span> <span className="rounded bg-[#5865f2] px-1 text-[10px] font-bold text-white">APP</span>
+              </div>
+              <div className="truncate text-zinc-300">{guild.message.replace(/\{user\}/gi, '@NieuwLid').replace(/\{name\}/gi, 'NieuwLid').replace(/\{server\}/gi, guild.guildName).replace(/\{count\}/gi, String(guild.memberCount || 1234))}</div>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
   );
 }

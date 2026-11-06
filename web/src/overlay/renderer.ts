@@ -118,43 +118,99 @@ export type PlayOptions = { muted?: boolean; resolvedUrl?: (u: string) => string
 /**
  * Renders a single event onto the stage and resolves once it has fully left the screen.
  */
-export function playEvent(stage: HTMLElement, ev: OverlayEvent, opts: PlayOptions = {}): Promise<void> {
+/** MP4 / WebM (incl. transparent WebM) are played as video; everything else as image/GIF. */
+export const isVideo = (u: string | null | undefined) => Boolean(u && /\.(mp4|webm|m4v|mov)(?:[?#]|$)/i.test(u));
+
+function mediaElement(src: string, cls: string, ev: OverlayEvent, opts: PlayOptions): HTMLImageElement | HTMLVideoElement {
+  if (!isVideo(src)) {
+    const img = document.createElement('img');
+    img.className = cls;
+    img.src = src;
+    img.alt = '';
+    return img;
+  }
+  const v = document.createElement('video');
+  v.className = cls;
+  v.src = src;
+  v.autoplay = true;
+  v.playsInline = true;
+  v.preload = 'auto';
+  // Loop short clips for the whole duration, unless the duration follows the video itself.
+  v.loop = !ev.useVideoLength;
+  // The video's own sound plays, unless a separate sound was chosen (or we're in a muted preview).
+  v.muted = Boolean(opts.muted || ev.soundUrl);
+  v.volume = Math.min(1, Math.max(0, ev.soundVolume / 100));
+  v.play().catch(() => {
+    // Autoplay with sound refused (normal browsers; OBS allows it): play muted instead.
+    v.muted = true;
+    v.play().catch(() => undefined);
+  });
+  return v;
+}
+
+/** Resolves with the video's length in ms (or null when it can't be read within 4 s). */
+function videoLength(v: HTMLVideoElement): Promise<number | null> {
+  if (Number.isFinite(v.duration) && v.duration > 0) return Promise.resolve(v.duration * 1000);
+  return new Promise((resolve) => {
+    const done = (val: number | null) => {
+      clearTimeout(t);
+      v.removeEventListener('loadedmetadata', onMeta);
+      resolve(val);
+    };
+    const onMeta = () => done(Number.isFinite(v.duration) && v.duration > 0 ? v.duration * 1000 : null);
+    const t = setTimeout(() => done(null), 4000);
+    v.addEventListener('loadedmetadata', onMeta);
+    v.addEventListener('error', () => done(null), { once: true });
+  });
+}
+
+/**
+ * Renders a single event onto the stage and resolves once it has fully left the screen.
+ */
+export async function playEvent(stage: HTMLElement, ev: OverlayEvent, opts: PlayOptions = {}): Promise<void> {
   const st = ev.style;
   ensureFont(st.fontFamily);
-  const duration = Math.max(1500, ev.durationMs);
+  const url = (u: string) => (opts.resolvedUrl ? opts.resolvedUrl(u) : u);
+
+  const fx = el('div', `lm-fx lm-in-${st.effect}`);
+  let media: HTMLImageElement | HTMLVideoElement | null = null;
+  if (ev.animation === 'image' && ev.imageUrl) {
+    media = mediaElement(url(ev.imageUrl), 'lm-image', ev, opts);
+    fx.appendChild(media);
+  } else {
+    fx.appendChild(scene(ev.animation, st.accentColor, ev.characterStyle, ev.walkIn));
+    if (ev.imageUrl) {
+      media = mediaElement(url(ev.imageUrl), 'lm-image lm-image-small', ev, opts);
+      fx.appendChild(media);
+    }
+  }
+
+  let duration = Math.max(1500, ev.durationMs);
+  if (ev.useVideoLength && media instanceof HTMLVideoElement) {
+    const len = await videoLength(media);
+    if (len) duration = Math.min(60_000, Math.max(1500, Math.round(len)));
+  }
+
   const item = el('div', 'lm-item');
   item.style.left = `${st.x}%`;
   item.style.top = `${st.y}%`;
   item.style.setProperty('--scale', String(st.scale));
   item.style.setProperty('--accent', st.accentColor);
   item.style.setProperty('--hold', `${duration - EXIT_MS}ms`);
-
-  const fx = el('div', `lm-fx lm-in-${st.effect}`);
   fx.style.setProperty('--enter', `${ENTER_MS}ms`);
   fx.style.setProperty('--exit', `${EXIT_MS}ms`);
   fx.style.setProperty('--exit-at', `${duration - EXIT_MS}ms`);
 
-  const url = (u: string) => (opts.resolvedUrl ? opts.resolvedUrl(u) : u);
-  if (ev.animation === 'image' && ev.imageUrl) {
-    const img = document.createElement('img');
-    img.className = 'lm-image';
-    img.src = url(ev.imageUrl);
-    img.alt = '';
-    fx.appendChild(img);
-  } else {
-    fx.appendChild(scene(ev.animation, st.accentColor, ev.characterStyle, ev.walkIn));
-    if (ev.imageUrl) {
-      const img = document.createElement('img');
-      img.className = 'lm-image lm-image-small';
-      img.src = url(ev.imageUrl);
-      fx.appendChild(img);
-    }
-  }
   const p = particles(st.particles, st.accentColor);
   if (p) fx.appendChild(p);
   if (ev.text) fx.appendChild(textBlock(ev));
   item.appendChild(fx);
   stage.appendChild(item);
+  if (media instanceof HTMLVideoElement) {
+    // Start from the beginning at the moment it appears (metadata may have been loaded earlier).
+    media.currentTime = 0;
+    media.play().catch(() => undefined);
+  }
 
   let audio: HTMLAudioElement | null = null;
   if (ev.soundUrl && !opts.muted) {
@@ -166,6 +222,11 @@ export function playEvent(stage: HTMLElement, ev: OverlayEvent, opts: PlayOption
   return new Promise((resolve) => {
     setTimeout(() => {
       item.remove();
+      if (media instanceof HTMLVideoElement) {
+        media.pause();
+        media.removeAttribute('src');
+        media.load();
+      }
       if (audio) {
         audio.pause();
         audio.src = '';

@@ -38,7 +38,8 @@
 .lm-text .lm-name { filter: brightness(1.9) saturate(.6); }
 @keyframes lm-text-in { from { opacity: 0; transform: translateY(18px) scale(.85); } to { opacity: 1; transform: none; } }
 
-.lm-image { display: block; max-width: 440px; max-height: 380px; object-fit: contain; filter: drop-shadow(0 12px 24px rgba(0,0,0,.35)); }
+.lm-image { display: block; background: transparent; max-width: 440px; max-height: 380px; object-fit: contain; filter: drop-shadow(0 12px 24px rgba(0,0,0,.35)); }
+video.lm-image { filter: none; } /* drop-shadow on every video frame costs too much CPU in OBS */
 .lm-image-small { position: absolute; top: -10px; right: -40px; max-width: 140px; max-height: 140px; }
 
 /* ---------- scenes ---------- */

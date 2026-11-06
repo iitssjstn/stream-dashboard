@@ -79,6 +79,8 @@ export const commands = sqliteTable(
     /** hug / highfive / dance: characters walk towards each other first */
     walkIn: integer('walk_in', { mode: 'boolean' }).notNull().default(false),
     imageUrl: text('image_url'),
+    /** When imageUrl is a video: show it for exactly its own length instead of durationMs */
+    useVideoLength: integer('use_video_length', { mode: 'boolean' }).notNull().default(false),
     soundUrl: text('sound_url'),
     soundVolume: integer('sound_volume').notNull().default(70),
     text: text('text').notNull(),
@@ -152,6 +154,8 @@ export const timers = sqliteTable(
   (t) => [index('timers_user_idx').on(t.userId)],
 );
 
+export type BotProfile = { nick: string | null; avatar: string | null; bio: string | null };
+
 export type WelcomeCard = {
   /** /uploads/... or https URL; null = gradient in accentColor */
   background: string | null;
@@ -179,6 +183,8 @@ export const discordGuilds = sqliteTable(
     /** Text above the image. {user} = mention, {name} = display name, {server}, {count} */
     message: text('message').notNull().default('Welkom {user} in {server}! 🎉'),
     card: text('card', { mode: 'json' }).$type<WelcomeCard>().notNull(),
+    /** How the shared bot presents itself on this server (per-server nickname, avatar, bio) */
+    botProfile: text('bot_profile', { mode: 'json' }).$type<BotProfile>().notNull().default({ nick: null, avatar: null, bio: null }),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
   },

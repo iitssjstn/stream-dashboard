@@ -203,6 +203,7 @@ export class CommandEngine {
         animation: cmd.animation,
         characterStyle: cmd.characterStyle,
         walkIn: cmd.walkIn,
+      useVideoLength: cmd.useVideoLength,
         imageUrl: cmd.imageUrl,
         soundUrl: cmd.soundUrl,
         soundVolume: cmd.soundVolume,

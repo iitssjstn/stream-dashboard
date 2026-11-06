@@ -22,23 +22,57 @@ const MAX_BYTES = 8 * 1024 * 1024;
  */
 const ALLOWED_HOST = /^(?:media\d*\.giphy\.com|i\.giphy\.com|cdn\.streamelements\.com|cdn\.discordapp\.com|media\.discordapp\.net)$/;
 
-async function fetchImage(src: string | null): Promise<Image | null> {
+/** Reads an upload from disk or downloads from an allowed media host. */
+export async function loadMediaBytes(src: string | null): Promise<Buffer | null> {
   if (!src) return null;
   try {
     if (src.startsWith('/uploads/')) {
-      const file = path.join(config.uploadDir, path.basename(src));
-      return await loadImage(await fs.promises.readFile(file));
+      const buf = await fs.promises.readFile(path.join(config.uploadDir, path.basename(src)));
+      return buf.length <= MAX_BYTES ? buf : null;
     }
     const url = new URL(src);
     if (url.protocol !== 'https:' || !ALLOWED_HOST.test(url.hostname)) return null;
     const res = await fetch(url, { signal: AbortSignal.timeout(5000), redirect: 'error' });
     if (!res.ok || Number(res.headers.get('content-length') ?? 0) > MAX_BYTES) return null;
     const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length > MAX_BYTES) return null;
+    return buf.length <= MAX_BYTES ? buf : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchImage(src: string | null): Promise<Image | null> {
+  const buf = await loadMediaBytes(src);
+  if (!buf) return null;
+  try {
     return await loadImage(buf);
   } catch {
     return null;
   }
+}
+
+const isGif = (b: Buffer) => b.subarray(0, 4).toString('latin1') === 'GIF8';
+
+/**
+ * Prepares a profile picture for Discord as a data URI: animated GIFs stay as they are,
+ * everything else is centre-cropped to a 512×512 PNG.
+ */
+export async function avatarDataUri(src: string): Promise<string | null> {
+  const buf = await loadMediaBytes(src);
+  if (!buf) return null;
+  if (isGif(buf)) return `data:image/gif;base64,${buf.toString('base64')}`;
+  let img: Image;
+  try {
+    img = await loadImage(buf);
+  } catch {
+    return null;
+  }
+  const size = 512;
+  const canvas = createCanvas(size, size);
+  const ctx = canvas.getContext('2d');
+  const s = Math.max(size / img.width, size / img.height);
+  ctx.drawImage(img, (size - img.width * s) / 2, (size - img.height * s) / 2, img.width * s, img.height * s);
+  return `data:image/png;base64,${canvas.toBuffer('image/png').toString('base64')}`;
 }
 
 export function fill(template: string, v: { name: string; server: string; count: number }) {

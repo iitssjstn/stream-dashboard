@@ -4,6 +4,7 @@ import { timeAgo, usePoll } from '../hooks';
 import { Svg, useToast } from '../ui';
 import { useMe } from '../App';
 import { GiphyPicker, PoweredByGiphy } from './GiphyPicker';
+import { isVideo } from '../../overlay/renderer';
 
 export function CopyUrl({ url }: { url: string }) {
   const [shown, setShown] = useState(false);
@@ -94,7 +95,12 @@ export function ActivityList({ limit = 10, compact = false }: { limit?: number; 
 }
 
 /** Upload + pick images/GIFs/sounds from the streamer's media library. */
-export function MediaPicker({ kind, value, onChange }: { kind: 'image' | 'audio'; value: string | null; onChange: (url: string | null) => void }) {
+/** Thumbnail for an image, GIF or video (videos play muted on a loop). */
+export function MediaThumb({ src, alt, className }: { src: string; alt: string; className: string }) {
+  return isVideo(src) ? <video src={src} className={className} muted loop autoPlay playsInline aria-label={alt} /> : <img src={src} alt={alt} className={className} loading="lazy" />;
+}
+
+export function MediaPicker({ kind, value, onChange, allowVideo = true }: { kind: 'image' | 'audio'; value: string | null; onChange: (url: string | null) => void; allowVideo?: boolean }) {
   const { data, reload } = usePoll<Upload[]>('/api/uploads');
   const [busy, setBusy] = useState(false);
   const [giphyOpen, setGiphyOpen] = useState(false);
@@ -102,7 +108,7 @@ export function MediaPicker({ kind, value, onChange }: { kind: 'image' | 'audio'
   const input = useRef<HTMLInputElement>(null);
   const external = kind === 'image' && value && !value.startsWith('/uploads/') ? value : null;
   const toast = useToast();
-  const items = (data ?? []).filter((u) => u.mime.startsWith(kind === 'image' ? 'image/' : 'audio/'));
+  const items = (data ?? []).filter((u) => (kind === 'image' ? u.mime.startsWith('image/') || (allowVideo && u.mime.startsWith('video/')) : u.mime.startsWith('audio/')));
 
   const upload = async (file: File) => {
     setBusy(true);
@@ -124,7 +130,7 @@ export function MediaPicker({ kind, value, onChange }: { kind: 'image' | 'audio'
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
         <button type="button" className="btn-ghost" disabled={busy} onClick={() => input.current?.click()}>
-          <Svg i="upload" className="h-4 w-4" /> {busy ? 'Uploaden…' : kind === 'image' ? 'Afbeelding / GIF uploaden' : 'Geluid uploaden'}
+          <Svg i="upload" className="h-4 w-4" /> {busy ? 'Uploaden…' : kind === 'image' ? (allowVideo ? 'Afbeelding / GIF / video uploaden' : 'Afbeelding / GIF uploaden') : 'Geluid uploaden'}
         </button>
         {kind === 'image' && me.giphyEnabled && (
           <button type="button" className="btn-ghost" onClick={() => setGiphyOpen(true)}>
@@ -140,7 +146,7 @@ export function MediaPicker({ kind, value, onChange }: { kind: 'image' | 'audio'
           ref={input}
           type="file"
           hidden
-          accept={kind === 'image' ? 'image/png,image/jpeg,image/gif,image/webp' : 'audio/mpeg,audio/wav,audio/ogg'}
+          accept={kind === 'image' ? `image/png,image/jpeg,image/gif,image/webp${allowVideo ? ',video/mp4,video/webm' : ''}` : 'audio/mpeg,audio/wav,audio/ogg'}
           onChange={(e) => {
             const f = e.target.files?.[0];
             if (f) void upload(f);
@@ -163,9 +169,9 @@ export function MediaPicker({ kind, value, onChange }: { kind: 'image' | 'audio'
       )}
       {external && (
         <div className="flex items-center gap-3 rounded-xl border border-brand-500/40 bg-brand-500/5 p-2">
-          <img src={external} alt="Gekozen GIF" className="checker h-16 w-16 rounded-lg object-contain" />
+          <MediaThumb src={external} alt="Gekozen media" className="checker h-16 w-16 rounded-lg object-contain" />
           <div className="min-w-0 flex-1 text-sm">
-            <div className="font-semibold text-white">Gekozen GIF</div>
+            <div className="font-semibold text-white">{isVideo(external) ? 'Gekozen video' : 'Gekozen GIF'}</div>
             {external.includes('giphy.com') && <PoweredByGiphy />}
           </div>
         </div>
@@ -181,7 +187,7 @@ export function MediaPicker({ kind, value, onChange }: { kind: 'image' | 'audio'
                 className={`checker aspect-square overflow-hidden rounded-lg border-2 transition ${value === u.url ? 'border-brand-500' : 'border-transparent hover:border-white/20'}`}
                 title={u.originalName}
               >
-                <img src={u.url} alt={u.originalName} className="h-full w-full object-contain" loading="lazy" />
+                <MediaThumb src={u.url} alt={u.originalName} className="h-full w-full object-contain" />
               </button>
             ) : (
               <button

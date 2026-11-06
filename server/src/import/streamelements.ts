@@ -236,11 +236,8 @@ function alertFrom(trigger: ImportAlert['trigger'], label: string, key: string, 
   const warnings: string[] = [];
   const conv = convertAlertText(String(merged.text?.message ?? ''), trigger);
   if (conv.unsupported.length) warnings.push(`Placeholders niet ondersteund (weggelaten): ${conv.unsupported.join(', ')}`);
-  let imageUrl = httpsUrl(merged.graphics?.src);
-  if (imageUrl && merged.graphics?.type === 'video') {
-    warnings.push('Video wordt niet ondersteund; er wordt een anime-animatie gebruikt');
-    imageUrl = null;
-  }
+  // Images, GIFs and videos (MP4/WebM, also with transparency) are all played by the overlay.
+  const imageUrl = httpsUrl(merged.graphics?.src);
   if (merged.tts?.enabled) warnings.push('Text-to-speech wordt niet overgenomen');
   if (Array.isArray(merged.graphics?.list) || merged.enableRandomPick === false) {
     /* nothing: single graphic is used */

@@ -7,6 +7,7 @@ Kijkers typen een command zoals `!knuffel` in je Twitch-chat en er verschijnt me
 - **OBS-overlay**: losse, lichte pagina (~11 KB JS) met transparante achtergrond, realtime via WebSocket, een wachtrij, automatisch opnieuw verbinden en instelbare resolutie
 - **Dashboard + editor**: live preview met precies dezelfde renderer als de overlay, positie verslepen, lettertype/kleur/grootte, effecten, deeltjes, uploads (PNG/JPG/GIF/WEBP/MP3/WAV/OGG)
 - Standaard-commands: `!knuffel`, `!hug`, `!highfive`, `!love`, `!dance`
+- **Video**: MP4 en WebM (ook transparant) in commands en alerts, met optioneel een duur gelijk aan de lengte van de video
 - **Chat-antwoorden**: commands kunnen een bericht in de chat sturen (met aliassen, `{count}`, `{args}` en `{random:1-100}`), met of zonder animatie
 - **Timers**: herhaalde chatberichten met een interval voor live en offline, plus een minimaal aantal chatberichten ertussen
 - **Alerts**: follow, sub, resub, gifted subs, bits en raid via Twitch EventSub, met varianten per drempel (bijv. "vanaf 500 bits")
@@ -81,6 +82,8 @@ Discord laat bots alleen handmatig aanmaken. De eigenaar van de installatie doet
 4. Vul in Lumio onder **Instellingen** (of op de pagina **Discord**) de Application ID, het Client Secret en het bot-token in. Lumio controleert het token bij Discord en slaat alles versleuteld op.
 
 Daarna klikt elke streamer op de pagina **Discord** op **Verbind je Discord-server**, kiest zijn server en klikt op **Toestaan**. Vervolgens kiest hij het welkomstkanaal en stelt hij de tekst, achtergrond (upload of GIPHY) en kleuren in, met een live preview. Bij elke nieuwe join plaatst de bot het plaatje met de avatar en naam van het nieuwe lid.
+
+Onder **Jouw bot op …** geeft elke streamer de bot op zijn eigen server een eigen naam, profielfoto (ook een bewegende GIF) en "over mij"-tekst. Op andere servers blijft de bot er anders uitzien. Heb je je server vóór deze versie gekoppeld? Klik dan één keer opnieuw op **Verbind je Discord-server** en kies dezelfde server, zodat de bot zijn naam mag aanpassen.
 
 Je kunt de gegevens ook als Docker secrets meegeven: `discord_client_id`, `discord_client_secret` en `discord_bot_token`.
 

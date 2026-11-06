@@ -14,6 +14,7 @@ export type Command = {
   animation: string;
   characterStyle: 'anime' | 'people';
   walkIn: boolean;
+  useVideoLength: boolean;
   imageUrl: string | null;
   soundUrl: string | null;
   soundVolume: number;

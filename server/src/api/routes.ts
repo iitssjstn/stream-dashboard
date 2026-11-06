@@ -27,6 +27,8 @@ const UPLOAD_TYPES: Record<string, string> = {
   'audio/wav': '.wav',
   'audio/x-wav': '.wav',
   'audio/ogg': '.ogg',
+  'video/mp4': '.mp4',
+  'video/webm': '.webm',
 };
 
 type Deps = { chat: ChatManager; engine: CommandEngine; hub: OverlayHub; eventsub: EventSubManager; timers: TimerScheduler };
@@ -244,16 +246,17 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
     const ext = UPLOAD_TYPES[file.mimetype];
     if (!ext) {
       file.file.resume();
-      return reply.code(415).send({ error: 'Alleen PNG, JPG, GIF, WEBP, MP3, WAV of OGG' });
+      return reply.code(415).send({ error: 'Alleen PNG, JPG, GIF, WEBP, MP3, WAV, OGG, MP4 of WEBM' });
     }
     const id = `${randomToken(12)}${ext}`;
     const dest = path.join(config.uploadDir, id);
     await pipeline(file.file, fs.createWriteStream(dest));
-    if (file.file.truncated) {
-      fs.rmSync(dest, { force: true });
-      return reply.code(413).send({ error: 'Bestand is groter dan 15 MB' });
-    }
+    const isVideo = file.mimetype.startsWith('video/');
     const size = fs.statSync(dest).size;
+    if (file.file.truncated || (!isVideo && size > 15 * 1024 * 1024)) {
+      fs.rmSync(dest, { force: true });
+      return reply.code(413).send({ error: isVideo ? 'Video is groter dan 60 MB' : 'Bestand is groter dan 15 MB' });
+    }
     db.insert(schema.uploads)
       .values({ id, userId: req.user.id, originalName: file.filename.slice(0, 200), mime: file.mimetype, size, createdAt: Date.now() })
       .run();

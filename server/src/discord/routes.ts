@@ -6,13 +6,13 @@ import { randomToken } from '../crypto.js';
 import { currentUser, requireUser } from '../auth/session.js';
 import { discordApp, ownerUserId, saveDiscordApp } from '../settings.js';
 import type { WelcomeCard } from '../db/schema.js';
-import { DiscordError, exchangeBotCode, leaveGuild, textChannels } from './api.js';
-import { renderCard } from './card.js';
+import { DiscordError, exchangeBotCode, leaveGuild, modifyCurrentMember, textChannels } from './api.js';
+import { avatarDataUri, renderCard } from './card.js';
 import { DiscordBot } from './bot.js';
 
 const STATE_COOKIE = 'lumio_discord_state';
-/** View Channels + Send Messages + Embed Links + Attach Files */
-const BOT_PERMISSIONS = String(1024 + 2048 + 16384 + 32768);
+/** View Channels + Send Messages + Embed Links + Attach Files + Change Nickname */
+const BOT_PERMISSIONS = String(1024 + 2048 + 16384 + 32768 + 67108864);
 
 export const defaultCard = (): WelcomeCard => ({
   background: null,
@@ -98,7 +98,7 @@ export async function discordRoutes(app: FastifyInstance, { bot }: { bot: Discor
 
     api.get('/api/discord', async (req) => ({
       configured: discordApp().source !== 'none',
-      bot: bot.status,
+      bot: { ...bot.status, avatar: bot.avatarUrl },
       guilds: db
         .select()
         .from(schema.discordGuilds)
@@ -127,6 +127,36 @@ export async function discordRoutes(app: FastifyInstance, { bot }: { bot: Discor
         .get();
       return row;
     });
+
+    /** The bot's look on this server only: other servers keep their own (or the default) profile. */
+    api.put<{ Params: { id: string }; Body: { nick?: string | null; avatar?: string | null; bio?: string | null } }>(
+      '/api/discord/guilds/:id/profile',
+      { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+      async (req, reply) => {
+        const g = own(req.user.id, Number(req.params.id));
+        if (!g) return reply.code(404).send({ error: 'Niet gevonden' });
+        const nick = String(req.body?.nick ?? '').trim().slice(0, 32) || null;
+        const bio = String(req.body?.bio ?? '').trim().slice(0, 190) || null;
+        const avatarSrc = req.body?.avatar ? String(req.body.avatar) : null;
+        if (avatarSrc && !/^\/uploads\/[\w.-]+$/.test(avatarSrc) && !/^https:\/\/\S{1,490}$/.test(avatarSrc)) return reply.code(400).send({ error: 'Kies een geüploade afbeelding' });
+        let avatar: string | null = null;
+        if (avatarSrc) {
+          avatar = await avatarDataUri(avatarSrc);
+          if (!avatar) return reply.code(400).send({ error: 'Deze afbeelding kan niet als profielfoto worden gebruikt (PNG, JPG, GIF of WEBP, max 8 MB)' });
+        }
+        try {
+          await modifyCurrentMember(g.guildId, { nick, avatar, bio });
+        } catch (e) {
+          if (e instanceof DiscordError && e.status === 403) {
+            return reply.code(400).send({ error: 'De bot mag zijn profiel op deze server niet aanpassen. Klik op "Verbind je Discord-server" en kies dezelfde server opnieuw om de extra toestemming te geven.' });
+          }
+          throw e;
+        }
+        const botProfile = { nick, avatar: avatarSrc, bio };
+        db.update(schema.discordGuilds).set({ botProfile, updatedAt: Date.now() }).where(eq(schema.discordGuilds.id, g.id)).run();
+        return { ok: true, botProfile };
+      },
+    );
 
     api.post<{ Params: { id: string } }>('/api/discord/guilds/:id/test', async (req, reply) => {
       const g = own(req.user.id, Number(req.params.id));

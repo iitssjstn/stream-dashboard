@@ -6,6 +6,7 @@ import { useMe } from '../App';
 import { PageHeader, Svg, Toggle, useToast } from '../ui';
 import { figure } from '../../overlay/characters';
 import { WALKABLE } from '../../overlay/renderer';
+import { MediaThumb } from '../components/Shared';
 import '../../overlay/overlay.css';
 
 type View = 'grid' | 'list';
@@ -128,7 +129,7 @@ function CommandHero({ c }: { c: Command }) {
           </div>
         </div>
       ) : c.animation === 'image' && c.imageUrl ? (
-        <img src={c.imageUrl} alt="" loading="lazy" className="absolute inset-0 m-auto max-h-[88%] max-w-[88%] object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,.45)] transition duration-300 group-hover:scale-105" />
+        <MediaThumb src={c.imageUrl} alt="" className="absolute inset-0 m-auto max-h-[88%] max-w-[88%] object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,.45)] transition duration-300 group-hover:scale-105" />
       ) : (
         <div className="flex h-[92%] items-end transition duration-300 group-hover:scale-105">
           <div className="h-full" style={{ aspectRatio: '200 / 300' }} dangerouslySetInnerHTML={{ __html: figure(c.characterStyle, c.animation === 'highfive' ? 1 : 0) }} />

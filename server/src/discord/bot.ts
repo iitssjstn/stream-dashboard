@@ -36,6 +36,8 @@ export class DiscordBot {
   private attempt = 0;
   private memberCounts = new Map<string, number>();
   private recent = new Map<string, number>();
+  /** The bot's global avatar (default look on servers without their own profile). */
+  avatarUrl: string | null = null;
 
   constructor(private log: FastifyBaseLogger) {}
 
@@ -157,6 +159,7 @@ export class DiscordBot {
         this.resumeUrl = d.resume_gateway_url;
         this.attempt = 0;
         this.status = { status: 'connected', botName: d.user?.global_name ?? d.user?.username ?? null, error: null, guilds: d.guilds?.length ?? 0 };
+        this.avatarUrl = d.user?.id ? avatarUrl({ id: d.user.id, avatar: d.user.avatar ?? null }) : null;
         break;
       case 'RESUMED':
         this.attempt = 0;

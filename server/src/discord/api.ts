@@ -65,6 +65,10 @@ export async function exchangeBotCode(code: string) {
   return json.guild;
 }
 
+/** The bot's own profile on one server only: nickname, avatar (data URI) and bio. null resets a field. */
+export const modifyCurrentMember = (guildId: string, body: { nick: string | null; avatar: string | null; bio: string | null }) =>
+  discordRest(`/guilds/${guildId}/members/@me`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+
 export const leaveGuild = (guildId: string) => discordRest(`/users/@me/guilds/${guildId}`, { method: 'DELETE' });
 
 export function avatarUrl(u: Pick<DiscordUser, 'id' | 'avatar'>) {
