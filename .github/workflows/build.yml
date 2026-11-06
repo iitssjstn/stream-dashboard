@@ -28,6 +28,14 @@ jobs:
           cache-dependency-path: |
             server/package-lock.json
             web/package-lock.json
+      - name: Version tag matches package.json
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          v=$(node -p "require('./package.json').version")
+          for f in server/package.json web/package.json; do
+            [ "$(node -p "require('./$f').version")" = "$v" ] || { echo "::error::$f heeft niet versie $v"; exit 1; }
+          done
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "::error::Tag $GITHUB_REF_NAME hoort bij versie v$v"; exit 1; }
       - run: npm run install:all
       - run: npm run typecheck
       - run: npm run build
@@ -81,3 +89,23 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  release:
+    name: GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: docker
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Release notes from CHANGELOG.md
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          awk -v v="$v" '$0 ~ "^## \\[" v "\\]" {on=1; next} /^## \[/ {on=0} on' CHANGELOG.md > notes.md
+          printf '\n---\nDocker: `ghcr.io/%s:%s`\n' "$GITHUB_REPOSITORY" "$v" >> notes.md
+          cat notes.md
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --title "Lumio $GITHUB_REF_NAME" --notes-file notes.md --verify-tag

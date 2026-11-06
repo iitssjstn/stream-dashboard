@@ -1,5 +1,6 @@
 {
   "name": "stream-dashboard",
+  "version": "0.8.1",
   "private": true,
   "scripts": {
     "install:all": "npm ci --prefix server && npm ci --prefix web",
@@ -8,6 +9,9 @@
     "dev:server": "npm run dev --prefix server",
     "dev:web": "npm run dev --prefix web",
     "typecheck": "npm run typecheck --prefix server && npm run typecheck --prefix web",
-    "test:e2e": "npm run build && node e2e/run.mjs"
+    "test:e2e": "npm run build && node e2e/run.mjs",
+    "release:patch": "node scripts/release.mjs patch",
+    "release:minor": "node scripts/release.mjs minor",
+    "release:major": "node scripts/release.mjs major"
   }
 }

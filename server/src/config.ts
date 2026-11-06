@@ -53,7 +53,10 @@ function loadSecret(): Buffer {
 
 const publicUrl = env('PUBLIC_URL', 'http://localhost:3000').replace(/\/$/, '');
 
+const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string };
+
 export const config = {
+  version: pkg.version,
   port: Number(env('PORT', '3000')),
   host: env('HOST', '0.0.0.0'),
   publicUrl,

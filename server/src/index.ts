@@ -55,7 +55,7 @@ await app.register(websocket, { options: { maxPayload: 64 * 1024 } });
 await app.register(multipart, { limits: { fileSize: 60 * 1024 * 1024, files: 1 } });
 await app.register(rateLimit, { max: 300, timeWindow: '1 minute', allowList: (req) => req.url.startsWith('/assets/') });
 
-app.get('/healthz', async () => ({ ok: true }));
+app.get('/healthz', async () => ({ ok: true, version: config.version }));
 
 await app.register(authRoutes, { chat, eventsub });
 await app.register(setupRoutes, { chat, eventsub });
@@ -92,6 +92,7 @@ if (fs.existsSync(config.webDist)) {
 }
 
 await app.listen({ port: config.port, host: config.host });
+app.log.info(`Lumio v${config.version} gestart`);
 if (!twitchConfigured()) {
   const code = ensureSetupCode();
   const line = '='.repeat(64);

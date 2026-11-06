@@ -102,6 +102,27 @@ Wat er gebeurt:
 
 > Alerts hebben extra Twitch-rechten nodig (`moderator:read:followers`, `channel:read:subscriptions`, `bits:read`). Heb je Lumio vóór deze versie gekoppeld? Klik dan één keer op **Opnieuw koppelen** op de Alerts-pagina.
 
+## Versies & releases
+
+Lumio gebruikt versienummers volgens SemVer. In [`CHANGELOG.md`](CHANGELOG.md) staat per versie wat er nieuw is, en de versie die je draait zie je linksonder in het dashboard (boven je naam) en via `/healthz`.
+
+- **`latest`** volgt de nieuwste code op `main`.
+- **Een vaste versie** draai je zo: `image: ghcr.io/iitssjstn/stream-dashboard:1.0.0`. Met `:1.0` krijg je automatisch alleen de bugfixes binnen 1.0.
+
+Een nieuwe versie uitbrengen (voor ontwikkelaars):
+
+1. Zet de wijzigingen in `CHANGELOG.md` onder `## [Unreleased]`.
+2. Maak de release:
+   ```bash
+   npm run release:minor   # of release:patch / release:major
+   ```
+3. Publiceer hem:
+   ```bash
+   git push origin main && git push origin v1.1.0
+   ```
+
+GitHub Actions bouwt en test de versie, publiceert het Docker-image met die versie-tag en maakt een GitHub Release met de tekst uit de changelog.
+
 ## Architectuur
 
 ```

@@ -112,7 +112,18 @@ function Authed() {
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col gap-6 border-r border-white/[.06] bg-ink-950/50 p-5 backdrop-blur-xl lg:flex">
           <Logo />
           {nav}
-          <div className="mt-auto">{account}</div>
+          <div className="mt-auto space-y-2">
+            <a
+              href="https://github.com/iitssjstn/stream-dashboard/blob/main/CHANGELOG.md"
+              target="_blank"
+              rel="noreferrer"
+              className="block text-center text-[11px] text-zinc-500 hover:text-zinc-300"
+              title="Wat is er nieuw?"
+            >
+              Lumio v{__APP_VERSION__}
+            </a>
+            {account}
+          </div>
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
