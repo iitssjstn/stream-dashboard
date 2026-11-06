@@ -15,8 +15,37 @@ env:
   IMAGE: ghcr.io/${{ github.repository }}
 
 jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      release: ${{ steps.v.outputs.release }}
+      minor: ${{ steps.v.outputs.minor }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        name: Is this a new version?
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=$(node -p "require('./package.json').version")
+          for f in server/package.json web/package.json; do
+            [ "$(node -p "require('./$f').version")" = "$v" ] || { echo "::error::$f heeft niet versie $v"; exit 1; }
+          done
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "minor=${v%.*}" >> "$GITHUB_OUTPUT"
+          # A release happens on main when no tag exists yet for the version in package.json.
+          if [ "$GITHUB_REF" = "refs/heads/main" ] && ! gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$v" >/dev/null 2>&1; then
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "Nieuwe versie: v$v"
+          else
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+
   test:
     name: Typecheck & end-to-end test
+    needs: version
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -28,14 +57,6 @@ jobs:
           cache-dependency-path: |
             server/package-lock.json
             web/package-lock.json
-      - name: Version tag matches package.json
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          v=$(node -p "require('./package.json').version")
-          for f in server/package.json web/package.json; do
-            [ "$(node -p "require('./$f').version")" = "$v" ] || { echo "::error::$f heeft niet versie $v"; exit 1; }
-          done
-          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "::error::Tag $GITHUB_REF_NAME hoort bij versie v$v"; exit 1; }
       - run: npm run install:all
       - run: npm run typecheck
       - run: npm run build
@@ -54,7 +75,7 @@ jobs:
 
   docker:
     name: Docker image
-    needs: test
+    needs: [version, test]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -77,6 +98,9 @@ jobs:
           images: ${{ env.IMAGE }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ needs.version.outputs.version }},enable=${{ needs.version.outputs.release == 'true' }}
+            type=raw,value=${{ needs.version.outputs.minor }},enable=${{ needs.version.outputs.release == 'true' }}
+            type=raw,value=${{ needs.version.outputs.version }},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
@@ -92,20 +116,22 @@ jobs:
 
   release:
     name: GitHub Release
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: docker
+    if: needs.version.outputs.release == 'true'
+    needs: [version, docker]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Release notes from CHANGELOG.md
+        env:
+          V: ${{ needs.version.outputs.version }}
         run: |
-          v="${GITHUB_REF_NAME#v}"
-          awk -v v="$v" '$0 ~ "^## \\[" v "\\]" {on=1; next} /^## \[/ {on=0} on' CHANGELOG.md > notes.md
-          printf '\n---\nDocker: `ghcr.io/%s:%s`\n' "$GITHUB_REPOSITORY" "$v" >> notes.md
+          awk -v v="$V" '$0 ~ "^## \\[" v "\\]" {on=1; next} /^## \[/ {on=0} on' CHANGELOG.md > notes.md
+          printf '\n---\nDocker: `ghcr.io/%s:%s`\n' "$GITHUB_REPOSITORY" "$V" >> notes.md
           cat notes.md
-      - name: Create release
+      - name: Create tag and release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --title "Lumio $GITHUB_REF_NAME" --notes-file notes.md --verify-tag
+          V: ${{ needs.version.outputs.version }}
+        run: gh release create "v$V" --target "$GITHUB_SHA" --title "Lumio v$V" --notes-file notes.md

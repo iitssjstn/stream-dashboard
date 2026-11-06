@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// Creates a new release: bumps the version everywhere, dates the changelog, commits and tags.
+// Prepares a new release: bumps the version everywhere, dates the changelog and commits.
 //   node scripts/release.mjs patch|minor|major   (or an exact version, e.g. 1.4.0)
-// Then push it:  git push origin main && git push origin vX.Y.Z
+// Then: git push origin main  → GitHub Actions tests it, publishes the Docker image with the
+// version tag and creates the tag + GitHub Release (when no tag exists yet for that version).
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
@@ -55,5 +56,4 @@ fs.writeFileSync(clPath, cl.replace(/## \[Unreleased\]\n[\s\S]*?(?=\n## \[)/, `#
 
 sh('git add -A');
 execSync(`git commit -q -m "Release v${next}"`, { cwd: root, stdio: 'inherit' });
-execSync(`git tag -a v${next} -m "Lumio v${next}"`, { cwd: root, stdio: 'inherit' });
-console.log(`\nVersie ${current} → ${next} klaar. Publiceren:\n  git push origin main && git push origin v${next}`);
+console.log(`\nVersie ${current} → ${next} klaar. Publiceren:\n  git push origin main\nGitHub Actions maakt daarna de tag v${next}, het Docker-image en de GitHub Release.`);

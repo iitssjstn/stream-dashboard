@@ -118,10 +118,10 @@ Een nieuwe versie uitbrengen (voor ontwikkelaars):
    ```
 3. Publiceer hem:
    ```bash
-   git push origin main && git push origin v1.1.0
+   git push origin main
    ```
 
-GitHub Actions bouwt en test de versie, publiceert het Docker-image met die versie-tag en maakt een GitHub Release met de tekst uit de changelog.
+Zodra er op `main` een versienummer staat waarvoor nog geen tag bestaat, test GitHub Actions die versie. Daarna publiceert het het Docker-image (`:1.1.0` en `:1.1`) en maakt het de tag `v1.1.0` met een GitHub Release, met de tekst uit de changelog.
 
 ## Architectuur
 
