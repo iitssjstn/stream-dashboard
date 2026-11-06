@@ -50,7 +50,8 @@ function useCommandActions(setData: (fn: (d: Command[] | null) => Command[] | nu
 }
 
 export function Commands() {
-  const { data, reload, setData } = usePoll<Command[]>('/api/commands');
+  const { data: all, reload, setData } = usePoll<Command[]>('/api/commands');
+  const data = all?.filter((c) => c.trigger === 'chat') ?? null;
   const [view, setView] = useState<View>(loadView);
   const actions = useCommandActions(setData, reload);
 
@@ -119,7 +120,14 @@ function CommandHero({ c }: { c: Command }) {
       className="relative flex aspect-[16/9] items-end justify-center overflow-hidden"
       style={{ background: `radial-gradient(120% 90% at 50% 110%, ${accent}66, transparent 65%), linear-gradient(160deg, ${accent}26, rgb(16 14 28))` }}
     >
-      {c.animation === 'image' && c.imageUrl ? (
+      {c.animation === 'none' ? (
+        <div className="absolute inset-0 grid place-items-center p-6">
+          <div className="max-w-[85%] rounded-2xl rounded-bl-sm bg-ink-700/90 px-4 py-2.5 text-sm text-zinc-100 shadow-lg">
+            <span className="mr-1">💬</span>
+            {c.reply}
+          </div>
+        </div>
+      ) : c.animation === 'image' && c.imageUrl ? (
         <img src={c.imageUrl} alt="" loading="lazy" className="absolute inset-0 m-auto max-h-[88%] max-w-[88%] object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,.45)] transition duration-300 group-hover:scale-105" />
       ) : (
         <div className="flex h-[92%] items-end transition duration-300 group-hover:scale-105">
@@ -150,7 +158,7 @@ function Chips({ c }: { c: Command }) {
   );
 }
 
-const textOf = (c: Command) => (c.showText ? c.text : 'Alleen animatie / GIF, geen tekst');
+const textOf = (c: Command) => (c.animation === 'none' ? `💬 ${c.reply ?? ''}` : c.showText ? c.text : 'Alleen animatie / GIF, geen tekst');
 
 function HeroGrid({ commands, actions }: { commands: Command[]; actions: Actions }) {
   const nav = useNavigate();
@@ -168,7 +176,7 @@ function HeroGrid({ commands, actions }: { commands: Command[]; actions: Actions
               </Link>
               <Toggle checked={c.enabled} onChange={(v) => actions.toggle(c, v)} label={`!${c.name} aan/uit`} />
             </div>
-            <p className={`mt-2 line-clamp-2 flex-1 text-sm ${c.showText ? 'text-zinc-300' : 'text-zinc-500 italic'}`}>{textOf(c)}</p>
+            <p className={`mt-2 line-clamp-2 flex-1 text-sm ${c.showText || c.animation === 'none' ? 'text-zinc-300' : 'text-zinc-500 italic'}`}>{textOf(c)}</p>
             <div className="mt-3 flex flex-wrap gap-1.5">
               <Chips c={c} />
             </div>
@@ -221,7 +229,7 @@ function CommandList({ commands, actions }: { commands: Command[]; actions: Acti
                 {c.animation !== 'image' && ` · ${LABELS.style[c.characterStyle] ?? 'Anime'}`}
               </div>
             </div>
-            <p className={`col-span-3 truncate text-sm md:col-span-1 ${c.showText ? 'text-zinc-300' : 'text-zinc-500 italic'}`}>{textOf(c)}</p>
+            <p className={`col-span-3 truncate text-sm md:col-span-1 ${c.showText || c.animation === 'none' ? 'text-zinc-300' : 'text-zinc-500 italic'}`}>{textOf(c)}</p>
             <div className="col-span-3 flex flex-wrap gap-1.5 md:col-span-1">
               <Chips c={c} />
             </div>

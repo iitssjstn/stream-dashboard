@@ -8,10 +8,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { config } from './config.js';
-import { runMigrations } from './db/index.js';
+import { db, runMigrations, schema } from './db/index.js';
+import { eq } from 'drizzle-orm';
 import { OverlayHub } from './overlay/hub.js';
 import { CommandEngine } from './commands/engine.js';
 import { ChatManager } from './twitch/manager.js';
+import { EventSubManager } from './twitch/eventsub.js';
+import { TimerScheduler } from './timers/scheduler.js';
+import { seedDefaultAlerts } from './commands/seed.js';
+import { importRoutes } from './import/routes.js';
 import { authRoutes } from './auth/routes.js';
 import { setupRoutes } from './setup/routes.js';
 import { giphyRoutes } from './giphy/routes.js';
@@ -28,7 +33,19 @@ const app = Fastify({
 
 const hub = new OverlayHub();
 const engine = new CommandEngine(hub, app.log);
-const chat = new ChatManager(app.log, (userId, msg) => engine.handleChat(userId, msg));
+let timers: TimerScheduler;
+const chat = new ChatManager(app.log, (userId, msg) => {
+  timers.onChat(userId);
+  engine.handleChat(userId, msg);
+});
+timers = new TimerScheduler((userId, text) => chat.say(userId, text), app.log);
+engine.setChatSender((userId, text) => chat.say(userId, text));
+const eventsub = new EventSubManager(app.log, (userId, ev) => {
+  const user = db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
+  if (user) engine.handleAlert(userId, user.login, ev);
+});
+// Accounts created before alerts existed get the default alerts once.
+for (const u of db.select({ id: schema.users.id }).from(schema.users).all()) seedDefaultAlerts(u.id);
 
 await app.register(cookie, { secret: createHash('sha256').update(config.encryptionKey).update('cookie').digest('hex') });
 await app.register(websocket, { options: { maxPayload: 64 * 1024 } });
@@ -37,10 +54,11 @@ await app.register(rateLimit, { max: 300, timeWindow: '1 minute', allowList: (re
 
 app.get('/healthz', async () => ({ ok: true }));
 
-await app.register(authRoutes, { chat });
-await app.register(setupRoutes, { chat });
+await app.register(authRoutes, { chat, eventsub });
+await app.register(setupRoutes, { chat, eventsub });
 await app.register(giphyRoutes);
-await app.register(apiRoutes, { prefix: '/api', chat, engine, hub });
+await app.register(apiRoutes, { prefix: '/api', chat, engine, hub, eventsub, timers });
+await app.register(importRoutes, { prefix: '/api/import', engine });
 await app.register(overlayRoutes, { hub });
 
 // Public uploaded media (random, unguessable file names). nosniff + no SVG prevents script injection.
@@ -76,9 +94,12 @@ if (!twitchConfigured()) {
   console.log(`\n${line}\n  Twitch is nog niet ingesteld. Open ${config.publicUrl}\n  en vul deze eenmalige setup-code in:\n\n      SETUP CODE: ${code}\n\n  (nieuwe code bij elke herstart zolang de setup niet klaar is)\n${line}\n`);
 }
 chat.startAll();
+eventsub.startAll();
 
 const shutdown = async () => {
   chat.stopAll();
+  eventsub.stopAll();
+  timers.close();
   engine.close();
   hub.close();
   await app.close();

@@ -70,12 +70,17 @@ export const config = {
     idBase: env('TWITCH_ID_BASE', 'https://id.twitch.tv'),
     apiBase: env('TWITCH_API_BASE', 'https://api.twitch.tv'),
     ircUrl: env('TWITCH_IRC_URL', 'wss://irc-ws.chat.twitch.tv:443'),
-    scopes: ['chat:read', 'chat:edit', 'user:read:email'],
+    eventSubUrl: env('TWITCH_EVENTSUB_URL', 'wss://eventsub.wss.twitch.tv/ws'),
+    scopes: ['chat:read', 'chat:edit', 'user:read:email', 'moderator:read:followers', 'channel:read:subscriptions', 'bits:read'],
   },
   giphy: {
     /** Overridable for tests. */
     apiBase: env('GIPHY_API_BASE', 'https://api.giphy.com'),
   },
+  /** StreamElements API (overridable for tests). */
+  streamElementsApi: env('SE_API_BASE', 'https://api.streamelements.com/kappa/v2'),
+  /** Length of one timer "minute" in ms. Only shortened by the end-to-end test. */
+  timerMinuteMs: Number(env('TIMER_MINUTE_MS', '60000')),
   webDist: path.resolve(env('WEB_DIST', '../web/dist')),
 };
 

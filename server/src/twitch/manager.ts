@@ -60,6 +60,11 @@ export class ChatManager {
     return { status: c.status, lastError: c.lastError, connectedAt: c.connectedAt };
   }
 
+  /** Sends a chat message in the streamer's channel (as the streamer's account). */
+  say(userId: number, text: string) {
+    this.conns.get(userId)?.say(text);
+  }
+
   stopAll() {
     for (const id of [...this.conns.keys()]) this.stop(id);
   }

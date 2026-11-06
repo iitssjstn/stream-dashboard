@@ -17,7 +17,7 @@ export function previewEvent(cmd: Pick<Command, 'name' | 'animation' | 'imageUrl
     imageUrl: cmd.imageUrl,
     soundUrl: cmd.soundUrl,
     soundVolume: cmd.soundVolume,
-    text: cmd.showText === false ? '' : cmd.text.replace(/\{user\}/gi, user).replace(/\{target\}/gi, target ?? cmd.targetFallback ?? 'de streamer').replace(/\{channel\}/gi, 'jouwkanaal'),
+    text: cmd.showText === false ? '' : cmd.text.replace(/\{user\}/gi, user).replace(/\{target\}/gi, target ?? cmd.targetFallback ?? 'de streamer').replace(/\{channel\}/gi, 'jouwkanaal').replace(/\{amount\}/gi, '100').replace(/\{months\}/gi, '6').replace(/\{tier\}/gi, '1').replace(/\{message\}/gi, 'Hallo!').replace(/\{count\}/gi, '42').replace(/\{args\}/gi, '').replace(/\{random:(\d+)-(\d+)\}/gi, '7'),
     viewer: cmd.showUsername ? viewer : null,
     target,
     durationMs: cmd.durationMs,

@@ -11,13 +11,13 @@ export function startFakeTwitch(port) {
     streamer1: { id: '1001', login: 'knuffelstreamer', display_name: 'KnuffelStreamer' },
     streamer2: { id: '1002', login: 'anderestreamer', display_name: 'AndereStreamer' },
   };
-  const state = { nextAccount: 'streamer1', tokens: new Map(), sockets: new Map(), log: [] };
+  const state = { nextAccount: 'streamer1', tokens: new Map(), sockets: new Map(), log: [], sent: [], subs: [], eventsub: new Set() };
   let n = 0;
   const issue = (acct) => {
     const access = `at_${acct}_${++n}`;
     state.tokens.set(access, acct);
     state.tokens.set(`rt_${acct}`, acct);
-    return { access_token: access, refresh_token: `rt_${acct}`, expires_in: 14400, scope: ['chat:read', 'chat:edit', 'user:read:email'], token_type: 'bearer' };
+    return { access_token: access, refresh_token: `rt_${acct}`, expires_in: 14400, scope: ['chat:read', 'chat:edit', 'user:read:email', 'moderator:read:followers', 'channel:read:subscriptions', 'bits:read'], token_type: 'bearer' };
   };
   const body = (req) => new Promise((r) => { let b = ''; req.on('data', (c) => (b += c)); req.on('end', () => r(new URLSearchParams(b))); });
 
@@ -63,12 +63,80 @@ export function startFakeTwitch(port) {
       res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data, pagination: { total_count: 100, count: data.length, offset } }));
     } else if (url.pathname === '/gif.gif') {
       res.writeHead(200, { 'content-type': 'image/gif' }).end(Buffer.from('R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==', 'base64'));
+    } else if (url.pathname === '/helix/streams') {
+      res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ data: [{ type: 'live' }] }));
+    } else if (url.pathname === '/helix/eventsub/subscriptions' && req.method === 'POST') {
+      let b = '';
+      for await (const c of req) b += c;
+      state.subs.push(JSON.parse(b));
+      res.writeHead(202, { 'content-type': 'application/json' }).end('{"data":[]}');
+    } else if (url.pathname.startsWith('/se/')) {
+      // TEST-ONLY stand-in for api.streamelements.com/kappa/v2, shaped like their published API spec
+      if (req.headers.authorization !== 'Bearer aaa.bbb.ccc') return res.writeHead(401).end('{"message":"Unauthorized"}');
+      const CH = '5b2e2007760aeb7729487dab';
+      const routes = {
+        '/se/channels/me': { _id: CH, username: 'knuffelstreamer', displayName: 'KnuffelStreamer' },
+        [`/se/bot/commands/${CH}`]: [
+          { cooldown: { user: 15, global: 5 }, aliases: ['links', 'dc'], keywords: [], enabled: true, enabledOnline: true, enabledOffline: true, hidden: false, cost: 0, type: 'say', accessLevel: 100, _id: 'c1', reply: 'Socials van ${channel}: discord.gg/test (aangeroepen door ${user})', command: 'socials' },
+          { cooldown: { user: 0, global: 10 }, aliases: [], keywords: [], enabled: true, type: 'say', accessLevel: 500, _id: 'c2', reply: '${user} geeft ${touser} ${random.1-10} koekjes! Live sinds ${uptime}', command: 'koekje' },
+          { cooldown: { user: 0, global: 0 }, aliases: [], keywords: [], enabled: true, type: 'say', accessLevel: 100, _id: 'c3', reply: 'dit heeft een rare naam', command: 'raar commando!' },
+        ],
+        [`/se/bot/timers/${CH}`]: [
+          { online: { enabled: true, interval: 20 }, offline: { enabled: false, interval: 30 }, enabled: true, chatLines: 5, _id: 't1', name: 'Socials timer', message: 'Volg me op Insta: @knuffel' },
+        ],
+        [`/se/overlays/${CH}`]: { total: 1, docs: [{ _id: 'o1', name: 'Alerts' }] },
+        [`/se/overlays/${CH}/o1`]: {
+          _id: 'o1',
+          widgets: [
+            { type: 'se-widget-custom-event-list' },
+            {
+              type: 'se-widget-alert-box',
+              variables: {
+                follower: { enabled: true, duration: 8, text: { css: { 'font-family': 'Roboto', 'font-size': 42, color: '#ffffff', highlights: { color: '#3F51B5' } }, message: '{name} volgt nu!' }, graphics: { src: 'https://cdn.streamelements.com/static/alertbox/default.gif', type: 'image' }, audio: { src: 'https://cdn.streamelements.com/static/alertbox/default.ogg', volume: 0.5 }, variations: [] },
+                subscriber: { enabled: true, duration: 8, text: { message: '{name} is sub!' }, graphics: { src: 'https://cdn.streamelements.com/static/alertbox/default.gif', type: 'image' }, audio: { src: null, volume: 0.5 },
+                  variations: [
+                    { name: 'Subscriber default', type: 'amount', condition: 'ATLEAST', requirement: 2, settings: { text: { message: '{name} resubt al {amount} maanden!' } } },
+                    { name: 'Subscriber gift', type: 'gift', settings: { text: { message: '{sender} gifted {name} a subscription!' }, graphics: { src: null, type: 'image' } } },
+                  ] },
+                cheer: { enabled: true, duration: 6, text: { message: '{name} cheert {amount} bits: {message}' }, graphics: { src: 'https://cdn.example.com/cheer.webm', type: 'video' }, audio: { src: null }, variations: [] },
+                tip: { enabled: true, duration: 8, text: { message: '{name} tipped {currency}{amount}!' }, graphics: { src: null }, variations: [] },
+                host: { enabled: true, duration: 8, text: { message: '{name} host' }, graphics: { src: null }, variations: [] },
+                raid: { enabled: true, duration: 8, minAmount: 5, text: { message: '{name} raidt met {amount}!' }, graphics: { src: null }, variations: [] },
+              },
+            },
+          ],
+        },
+      };
+      const body = routes[url.pathname];
+      if (body === undefined) return res.writeHead(404).end('{}');
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }).end(JSON.stringify(body));
     } else if (url.pathname === '/oauth2/revoke') {
       res.writeHead(200).end();
     } else res.writeHead(404).end();
   });
 
-  const wss = new WebSocketServer({ server, path: '/irc' });
+  const wss = new WebSocketServer({ noServer: true });
+  // TEST-ONLY stand-in for eventsub.wss.twitch.tv
+  const ess = new WebSocketServer({ noServer: true });
+  server.on('upgrade', (req, socket, head) => {
+    const target = req.url.startsWith('/eventsub') ? ess : req.url.startsWith('/irc') ? wss : null;
+    if (!target) return socket.destroy();
+    target.handleUpgrade(req, socket, head, (ws) => target.emit('connection', ws, req));
+  });
+  let sid = 0;
+  ess.on('connection', (ws) => {
+    state.eventsub.add(ws);
+    ws.on('close', () => state.eventsub.delete(ws));
+    const meta = (type) => ({ message_id: `m-${Date.now()}-${Math.random()}`, message_type: type, message_timestamp: new Date().toISOString() });
+    ws.send(JSON.stringify({ metadata: meta('session_welcome'), payload: { session: { id: `session-${++sid}`, status: 'connected', keepalive_timeout_seconds: 10 } } }));
+    const ka = setInterval(() => ws.readyState === 1 && ws.send(JSON.stringify({ metadata: meta('session_keepalive'), payload: {} })), 5000);
+    ws.on('close', () => clearInterval(ka));
+  });
+  /** Push an EventSub notification exactly like Twitch does. */
+  const event = (subscriptionType, ev, messageId = `n-${Date.now()}-${Math.random()}`) => {
+    for (const ws of state.eventsub)
+      ws.send(JSON.stringify({ metadata: { message_id: messageId, message_type: 'notification', message_timestamp: new Date().toISOString(), subscription_type: subscriptionType, subscription_version: '1' }, payload: { subscription: { type: subscriptionType }, event: ev } }));
+  };
   wss.on('connection', (ws) => {
     let acct = null;
     ws.on('message', (raw) => {
@@ -83,6 +151,8 @@ export function startFakeTwitch(port) {
           if (ch !== accounts[acct].login) continue;
           state.sockets.set(ch, ws);
           ws.send(`:${ch}!${ch}@${ch}.tmi.twitch.tv JOIN #${ch}\r\n`);
+        } else if (line.startsWith('PRIVMSG #')) {
+          state.sent.push(line);
         }
       }
     });
@@ -97,5 +167,5 @@ export function startFakeTwitch(port) {
     ws.send(`${tags} :${login}!${login}@${login}.tmi.twitch.tv PRIVMSG #${channel} :${text}\r\n`);
   };
 
-  return new Promise((resolve) => server.listen(port, () => resolve({ state, chat, close: () => { wss.close(); server.close(); } })));
+  return new Promise((resolve) => server.listen(port, () => resolve({ state, chat, event, close: () => { for (const ws of state.eventsub) ws.terminate(); ess.close(); wss.close(); server.close(); } })));
 }

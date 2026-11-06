@@ -93,3 +93,25 @@ export async function verifyAppCredentials(clientId: string, clientSecret: strin
   if (res.status >= 400 && res.status < 500) return false;
   throw new Error(`Twitch is niet bereikbaar (${res.status})`);
 }
+
+async function helix(path: string, accessToken: string, init: RequestInit = {}) {
+  const res = await fetch(`${config.twitch.apiBase}/helix/${path}`, {
+    ...init,
+    headers: { authorization: `Bearer ${accessToken}`, 'client-id': twitchCredentials().clientId, 'content-type': 'application/json', ...init.headers },
+  });
+  if (res.status === 401) throw new TwitchAuthError('Twitch rejected access token');
+  return res;
+}
+
+/** True when the channel is live right now. */
+export async function isLive(accessToken: string, twitchId: string): Promise<boolean> {
+  const res = await helix(`streams?user_id=${encodeURIComponent(twitchId)}`, accessToken);
+  if (!res.ok) throw new Error(`Helix /streams failed: ${res.status}`);
+  const json = (await res.json()) as { data: unknown[] };
+  return json.data.length > 0;
+}
+
+export async function createEventSubSubscription(accessToken: string, body: unknown) {
+  const res = await helix('eventsub/subscriptions', accessToken, { method: 'POST', body: JSON.stringify(body) });
+  if (!res.ok && res.status !== 409) throw new Error(`EventSub subscribe failed (${res.status}): ${(await res.text()).slice(0, 200)}`);
+}

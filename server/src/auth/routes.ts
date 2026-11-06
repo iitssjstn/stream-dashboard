@@ -7,13 +7,15 @@ import { authorizeUrl, exchangeCode, getUser, revokeToken } from '../twitch/api.
 import { createSession, currentUser, destroySession } from './session.js';
 import { DEFAULT_COMMANDS } from '../commands/defaults.js';
 import type { ChatManager } from '../twitch/manager.js';
+import type { EventSubManager } from '../twitch/eventsub.js';
+import { seedDefaultAlerts } from '../commands/seed.js';
 import { claimOwnerIfUnset, twitchConfigured } from '../settings.js';
 
 const STATE_COOKIE = 'lumio_oauth_state';
 
 export { twitchConfigured };
 
-export async function authRoutes(app: FastifyInstance, opts: { chat: ChatManager }) {
+export async function authRoutes(app: FastifyInstance, opts: { chat: ChatManager; eventsub: EventSubManager }) {
   app.get('/auth/twitch/login', async (req, reply) => {
     if (!twitchConfigured()) {
       return reply
@@ -79,7 +81,9 @@ export async function authRoutes(app: FastifyInstance, opts: { chat: ChatManager
       }
       claimOwnerIfUnset(userId);
       createSession(reply, userId);
+      seedDefaultAlerts(userId);
       opts.chat.restart(userId);
+      opts.eventsub.restart(userId);
       return reply.redirect(`${config.appUrl}/dashboard`);
     },
   );
@@ -101,6 +105,7 @@ export async function authRoutes(app: FastifyInstance, opts: { chat: ChatManager
     const user = currentUser(req);
     if (!user) return reply.code(401).send({ error: 'Niet ingelogd' });
     opts.chat.stop(user.id);
+    opts.eventsub.stop(user.id);
     await revokeToken(decrypt(user.accessToken));
     db.update(schema.users).set({ chatEnabled: false, authError: 'Twitch ontkoppeld' }).where(eq(schema.users.id, user.id)).run();
     destroySession(req, reply);

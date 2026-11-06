@@ -10,6 +10,9 @@ import { CommandEditor } from './pages/CommandEditor';
 import { OverlayPage } from './pages/Overlay';
 import { ActivityPage } from './pages/Activity';
 import { Settings } from './pages/Settings';
+import { AlertsPage } from './pages/Alerts';
+import { TimersPage } from './pages/Timers';
+import { ImportPage } from './pages/Import';
 
 type MeCtx = { me: Me; reload: () => Promise<void> };
 const Ctx = createContext<MeCtx | null>(null);
@@ -23,6 +26,9 @@ export function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/commands" element={<Commands />} />
         <Route path="/commands/:id" element={<CommandEditor />} />
+        <Route path="/alerts" element={<AlertsPage />} />
+        <Route path="/timers" element={<TimersPage />} />
+        <Route path="/import" element={<ImportPage />} />
         <Route path="/overlay" element={<OverlayPage />} />
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/settings" element={<Settings />} />
@@ -35,8 +41,11 @@ export function App() {
 const NAV: { to: string; label: string; icon: keyof typeof Icon }[] = [
   { to: '/dashboard', label: 'Dashboard', icon: 'home' },
   { to: '/commands', label: 'Commands', icon: 'bolt' },
+  { to: '/alerts', label: 'Alerts', icon: 'bell' },
+  { to: '/timers', label: 'Timers', icon: 'clock' },
   { to: '/overlay', label: 'Overlay', icon: 'layers' },
   { to: '/activity', label: 'Activiteit', icon: 'activity' },
+  { to: '/import', label: 'Importeren', icon: 'download' },
   { to: '/settings', label: 'Instellingen', icon: 'cog' },
 ];
 

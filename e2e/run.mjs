@@ -37,7 +37,7 @@ function startApp() {
     const name = 'lumio-e2e';
     spawn('docker', ['rm', '-f', name], { stdio: 'ignore' });
     const env = { PORT: APP_PORT, PUBLIC_URL: APP, LOG_LEVEL: 'warn',
-      TWITCH_ID_BASE: `http://localhost:${TW_PORT}`, TWITCH_API_BASE: `http://localhost:${TW_PORT}`, TWITCH_IRC_URL: `ws://localhost:${TW_PORT}/irc`, GIPHY_API_BASE: `http://localhost:${TW_PORT}` };
+      TWITCH_ID_BASE: `http://localhost:${TW_PORT}`, TWITCH_API_BASE: `http://localhost:${TW_PORT}`, TWITCH_IRC_URL: `ws://localhost:${TW_PORT}/irc`, GIPHY_API_BASE: `http://localhost:${TW_PORT}`, TWITCH_EVENTSUB_URL: `ws://localhost:${TW_PORT}/eventsub`, SE_API_BASE: `http://localhost:${TW_PORT}/se`, TIMER_MINUTE_MS: '400' };
     const args = ['run', '--rm', '--name', name, '--network', 'host', '-v', 'lumio-e2e-data:/data', ...Object.entries(env).flatMap(([k, v]) => ['-e', `${k}=${v}`]), IMAGE];
     const p = watchOutput(spawn('docker', args, { stdio: ['ignore', 'pipe', 'inherit'] }));
     const kill = p.kill.bind(p);
@@ -49,7 +49,7 @@ function startApp() {
     env: {
       ...process.env, PORT: String(APP_PORT), PUBLIC_URL: APP, DATA_DIR: DATA, LOG_LEVEL: 'warn',
       TWITCH_ID_BASE: `http://localhost:${TW_PORT}`, TWITCH_API_BASE: `http://localhost:${TW_PORT}`,
-      TWITCH_IRC_URL: `ws://localhost:${TW_PORT}/irc`, GIPHY_API_BASE: `http://localhost:${TW_PORT}`,
+      TWITCH_IRC_URL: `ws://localhost:${TW_PORT}/irc`, GIPHY_API_BASE: `http://localhost:${TW_PORT}`, TWITCH_EVENTSUB_URL: `ws://localhost:${TW_PORT}/eventsub`, SE_API_BASE: `http://localhost:${TW_PORT}/se`, TIMER_MINUTE_MS: '400',
     },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
@@ -335,7 +335,8 @@ try {
   await p1.goto(`${APP}/overlay`);
   const list = p1.getByRole('list', { name: 'Commands in de overlay' });
   await list.waitFor();
-  check((await list.getByRole('listitem').count()) === 5, 'Indeling toont lijst met alle 5 commands');
+  const visibleCount = (await p1.evaluate(() => fetch('/api/commands').then((r) => r.json()))).filter((c) => c.animation !== 'none').length;
+  check((await list.getByRole('listitem').count()) === visibleCount, `Indeling toont lijst met alle ${visibleCount} overlay-elementen (commands + alerts)`);
   await list.getByRole('button', { name: /!love/ }).click();
   await p1.getByRole('button', { name: 'Test in OBS' }).waitFor();
   check(true, 'Command in lijst selecteren toont Test/Bewerken');
@@ -361,6 +362,92 @@ try {
   await p1.getByText('Recente activiteit').waitFor();
   await sleep(600);
   await p1.screenshot({ path: path.join(OUT, '6-dashboard-activity.png') });
+
+  // ===== 17. Chat replies, timers, alerts (EventSub) and the StreamElements import =====
+  const api1 = (url, method = 'GET', body) => p1.evaluate(([u, m, b]) => fetch(u, { method: m, headers: b ? { 'content-type': 'application/json' } : {}, body: b ? JSON.stringify(b) : undefined }).then(async (r) => ({ status: r.status, json: await r.json() })), [url, method, body]);
+  const sentIncludes = (txt) => waitFor(() => tw.state.sent.some((l) => l.includes(txt)), 6000);
+  const baseCmd = (await api1('/api/commands')).json.find((c) => c.name === 'knuffel');
+  const mk = (over) => ({ ...baseCmd, id: undefined, aliases: [], reply: null, trigger: 'chat', minAmount: 0, userCooldownSec: 0, globalCooldownSec: 0, ...over });
+
+  let r = await api1('/api/commands', 'POST', mk({ name: 'discord', animation: 'none', text: '', showText: false, reply: 'Join onze Discord {user}! Gebruikt: {count}x {random:5-5}', aliases: ['dc'] }));
+  check(r.status === 201, 'Chat-command zonder animatie (alleen antwoord) aanmaken');
+  tw.chat('knuffelstreamer', { login: 'chatter', display: 'Chatter', userId: '7001', id: 'msg-c1', text: '!dc' });
+  check(await sentIncludes('PRIVMSG #knuffelstreamer :Join onze Discord Chatter! Gebruikt: 1x 5'), 'Bot antwoordt in de chat via alias !dc met {user}, {count} en {random}');
+  await api1('/api/commands', 'POST', mk({ name: 'echo', animation: 'none', text: '', showText: false, reply: '{args}' }));
+  tw.chat('knuffelstreamer', { login: 'stout', display: 'Stout', userId: '7002', id: 'msg-c2', text: '!echo /ban knuffelstreamer' });
+  await sentIncludes('ban knuffelstreamer');
+  check(!tw.state.sent.some((l) => l.includes(':/ban')), 'Kijker kan via {args} geen chatcommando (/ban) laten uitvoeren');
+
+  r = await api1('/api/timers', 'POST', { name: 'Test timer', messages: ['Timer bericht A', 'Timer bericht B'], intervalMin: 1, offlineIntervalMin: 0, minChatLines: 2, enabled: true });
+  check(r.status === 201, 'Timer aanmaken');
+  await sleep(1200);
+  check(!tw.state.sent.some((l) => l.includes('Timer bericht A')), 'Timer wacht op genoeg chatberichten');
+  tw.chat('knuffelstreamer', { login: 'a1', display: 'A1', userId: '7003', id: 'msg-t1', text: 'hoi' });
+  tw.chat('knuffelstreamer', { login: 'a2', display: 'A2', userId: '7004', id: 'msg-t2', text: 'hallo' });
+  check(await sentIncludes('Timer bericht A'), 'Timer stuurt bericht na interval + minimaal aantal chatberichten');
+  await api1(`/api/timers/${r.json.id}`, 'PUT', { ...r.json, enabled: false });
+
+  const subscribed = await waitFor(async () => (await api1('/api/me')).json.alerts.subscribed.length === 6, 8000);
+  check(Boolean(subscribed), 'EventSub verbonden: follows, subs, resubs, gifts, bits en raids');
+  check(tw.state.subs.some((s) => s.type === 'channel.follow' && s.condition.moderator_user_id === '1001' && s.transport.method === 'websocket'), 'Follow-abonnement met juiste condition en websocket-transport');
+  await waitFor(async () => (await overlay.locator('.lm-item').count()) === 0, 15000);
+  tw.event('channel.follow', { user_id: '9001', user_name: 'NieuweVolger', broadcaster_user_id: '1001' }, 'follow-1');
+  tw.event('channel.follow', { user_id: '9001', user_name: 'NieuweVolger', broadcaster_user_id: '1001' }, 'follow-1');
+  await overlay.waitForSelector('.lm-scene-wave', { timeout: 4000 });
+  check((await overlay.locator('.lm-text').textContent()) === 'Bedankt voor de follow, NieuweVolger!', 'Follow-alert verschijnt in de overlay');
+  await waitFor(async () => (await overlay.locator('.lm-item').count()) === 0, 10000);
+  await sleep(800);
+  check((await overlay.locator('.lm-item').count()) === 0, 'Dubbel afgeleverd Twitch-event speelt maar één keer');
+  r = await api1('/api/commands', 'POST', mk({ name: 'mega-cheer', trigger: 'cheer', minAmount: 500, animation: 'dance', text: 'MEGA {amount} van {user}!', showText: true, targetMode: 'none' }));
+  check(r.status === 201, 'Bits-variant vanaf 500 aanmaken');
+  tw.event('channel.cheer', { user_name: 'Rijk', bits: 1000, message: 'Cheer1000', is_anonymous: false });
+  await overlay.waitForSelector('.lm-scene-dance', { timeout: 4000 });
+  check((await overlay.locator('.lm-text').textContent()) === 'MEGA 1000 van Rijk!', 'Variant met hoogste passende minimum wordt gekozen (1000 bits → vanaf 500)');
+  await waitFor(async () => (await overlay.locator('.lm-item').count()) === 0, 10000);
+  tw.event('channel.cheer', { user_name: 'Klein', bits: 50, message: '', is_anonymous: false });
+  await overlay.waitForSelector('.lm-text', { timeout: 4000 });
+  check((await overlay.locator('.lm-text').textContent()) === 'Klein cheert 50 bits!', 'Onder het minimum: standaard bits-alert');
+  await waitFor(async () => (await overlay.locator('.lm-item').count()) === 0, 10000);
+
+  await p1.goto(`${APP}/import`);
+  await p1.getByLabel('StreamElements JWT-token').fill('fout.token.hier');
+  await p1.getByRole('button', { name: 'Ophalen' }).click();
+  await p1.getByText('weigert dit JWT-token').waitFor();
+  check(true, 'Import: ongeldig JWT geeft een duidelijke foutmelding');
+  await p1.getByLabel('StreamElements JWT-token').fill('aaa.bbb.ccc');
+  await p1.getByRole('button', { name: 'Ophalen' }).click();
+  await p1.getByText('!socials').waitFor();
+  check(await p1.getByText('Variabelen niet ondersteund (blijven als tekst staan): ${uptime}').isVisible(), 'Import: niet-ondersteunde variabelen worden gemeld');
+  check(await p1.getByText('Video wordt niet ondersteund').isVisible(), 'Import: video-alert wordt gemeld');
+  check(await p1.getByText('Twitch heeft hosts afgeschaft').isVisible(), 'Import: host-alert overgeslagen met uitleg');
+  await sleep(300);
+  await p1.screenshot({ path: path.join(OUT, '14-import-preview.png'), fullPage: true });
+  await p1.getByRole('button', { name: /onderdelen importeren/ }).click();
+  await p1.getByText('Import voltooid').waitFor();
+  const imported = (await api1('/api/commands')).json;
+  const socials = imported.find((c) => c.name === 'socials');
+  check(socials?.reply === 'Socials van {channel}: discord.gg/test (aangeroepen door {user})' && socials.aliases.includes('links') && !socials.aliases.includes('dc'), `Command geïmporteerd met omgezette variabelen; alias die al bestond (dc) overgeslagen`);
+  const koekje = imported.find((c) => c.name === 'koekje');
+  check(koekje?.permission === 'moderator' && koekje.reply.startsWith('{user} geeft {target} {random:1-10} koekjes') && koekje.targetFallback === '{user}', 'accessLevel 500 → moderator; ${touser} → {target} met {user} als terugval');
+  const timersNow = (await api1('/api/timers')).json;
+  check(timersNow.some((t) => t.name === 'Socials timer' && t.intervalMin === 20 && t.minChatLines === 5 && t.messages[0] === 'Volg me op Insta: @knuffel'), 'Timer geïmporteerd (interval en chatLines)');
+  const seFollow = imported.find((c) => c.name === 'se-follow-0');
+  check(seFollow?.enabled && seFollow.animation === 'image' && seFollow.imageUrl.includes('default.gif') && seFollow.text === '{user} volgt nu!' && seFollow.style.accentColor === '#3f51b5', 'Follow-alert geïmporteerd met afbeelding, geluid, tekst en kleur');
+  check(imported.find((c) => c.name === 'alert-follow')?.enabled === false, 'Lumio-standaard follow-alert is uitgezet zodat er geen dubbele alert komt');
+  check(imported.some((c) => c.trigger === 'resub' && c.minAmount === 2) && imported.some((c) => c.trigger === 'gift' && c.text === '{user} gifted de chat a subscription!'), 'Sub-variaties: resub (vanaf 2 maanden) en gift overgenomen');
+  check(imported.some((c) => c.trigger === 'raid' && c.minAmount === 5), 'Raid minimum (5 kijkers) overgenomen');
+  check(imported.find((c) => c.name === 'mega-cheer')?.enabled === true, 'Zelfgemaakte alert-varianten blijven aan na import');
+  tw.chat('knuffelstreamer', { login: 'fan9', display: 'Fan9', userId: '7009', id: 'msg-i1', text: '!links' });
+  check(await sentIncludes('Socials van knuffelstreamer: discord.gg/test (aangeroepen door Fan9)'), 'Geïmporteerd command werkt in de chat (via alias !links)');
+  tw.event('channel.follow', { user_name: 'ImportVolger' }, 'follow-2');
+  await overlay.waitForSelector('.lm-image', { timeout: 4000, state: 'attached' });
+  check((await overlay.locator('.lm-text').textContent()) === 'ImportVolger volgt nu!', 'Geïmporteerde follow-alert speelt in de overlay');
+  await sleep(500);
+  await overlay.screenshot({ path: path.join(OUT, '15-overlay-import-alert.png'), omitBackground: true });
+  await p1.goto(`${APP}/alerts`);
+  await p1.getByText('Twitch-events verbonden').waitFor();
+  await sleep(400);
+  await p1.screenshot({ path: path.join(OUT, '16-alerts.png'), fullPage: true });
 } finally {
   await browser.close();
   app.kill('SIGTERM');

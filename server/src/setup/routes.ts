@@ -3,6 +3,7 @@ import { checkSetupCode, ownerUserId, saveTwitchCredentials, twitchConfigured, t
 import { verifyAppCredentials } from '../twitch/api.js';
 import { requireUser } from '../auth/session.js';
 import type { ChatManager } from '../twitch/manager.js';
+import type { EventSubManager } from '../twitch/eventsub.js';
 
 type Body = { code?: string; clientId?: string; clientSecret?: string };
 
@@ -26,7 +27,7 @@ async function validateAndSave(body: Body): Promise<{ status: number; error: str
   return null;
 }
 
-export async function setupRoutes(app: FastifyInstance, { chat }: { chat: ChatManager }) {
+export async function setupRoutes(app: FastifyInstance, { chat, eventsub }: { chat: ChatManager; eventsub: EventSubManager }) {
   /** First-run wizard. Guarded by the one-time code printed in the server logs. */
   app.post<{ Body: Body }>(
     '/setup/twitch',
@@ -66,6 +67,8 @@ export async function setupRoutes(app: FastifyInstance, { chat }: { chat: ChatMa
         req.log.info({ userId: req.user.id }, 'Twitch app credentials rotated');
         chat.stopAll();
         chat.startAll();
+        eventsub.stopAll();
+        eventsub.startAll();
         return { ok: true };
       },
     );

@@ -43,6 +43,13 @@
       "when": 1793893827468,
       "tag": "0005_walk_in",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793988788001,
+      "tag": "0006_chat_timers_alerts",
+      "breakpoints": true
     }
   ]
 }

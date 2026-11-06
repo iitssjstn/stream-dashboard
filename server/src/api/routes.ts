@@ -8,9 +8,12 @@ import { config } from '../config.js';
 import { randomToken } from '../crypto.js';
 import { requireUser } from '../auth/session.js';
 import { giphyKey, ownerUserId, twitchConfigured } from '../settings.js';
-import { validateCommand, ValidationError } from './validate.js';
+import { validateCommand, validateTimer, ValidationError } from './validate.js';
+import { renderText, safeReply } from '../commands/engine.js';
 import { ANIMATIONS, EFFECTS, PARTICLES, PERMISSIONS } from '../commands/defaults.js';
 import type { ChatManager } from '../twitch/manager.js';
+import type { EventSubManager } from '../twitch/eventsub.js';
+import type { TimerScheduler } from '../timers/scheduler.js';
 import type { CommandEngine } from '../commands/engine.js';
 import type { OverlayHub } from '../overlay/hub.js';
 import type { User } from '../db/schema.js';
@@ -26,11 +29,11 @@ const UPLOAD_TYPES: Record<string, string> = {
   'audio/ogg': '.ogg',
 };
 
-type Deps = { chat: ChatManager; engine: CommandEngine; hub: OverlayHub };
+type Deps = { chat: ChatManager; engine: CommandEngine; hub: OverlayHub; eventsub: EventSubManager; timers: TimerScheduler };
 
 export const overlayUrl = (u: User) => `${config.publicUrl}/overlay/${u.overlayToken}`;
 
-export async function apiRoutes(app: FastifyInstance, { chat, engine, hub }: Deps) {
+export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, eventsub, timers }: Deps) {
   app.addHook('preHandler', requireUser);
 
   app.setErrorHandler((error, _req, reply) => {
@@ -79,6 +82,7 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub }: Dep
         connectedClients: hub.count(u.id),
       },
       chat: { enabled: u.chatEnabled, ...chat.status(u.id) },
+      alerts: eventsub.status(u.id),
       stats: { ...stats, playsByHour, playsFirstHour: firstHour },
       twitchConfigured: twitchConfigured(),
       isOwner: ownerUserId() === u.id,
@@ -97,7 +101,15 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub }: Dep
     db.update(schema.users).set(patch).where(eq(schema.users.id, req.user.id)).run();
     const u = db.select().from(schema.users).where(eq(schema.users.id, req.user.id)).get()!;
     hub.broadcast(u.id, { type: 'config', width: u.overlayWidth, height: u.overlayHeight, channel: u.login });
-    if (b.chatEnabled !== undefined) (u.chatEnabled ? chat.ensure(u.id) : chat.stop(u.id));
+    if (b.chatEnabled !== undefined) {
+      if (u.chatEnabled) {
+        chat.ensure(u.id);
+        eventsub.ensure(u.id);
+      } else {
+        chat.stop(u.id);
+        eventsub.stop(u.id);
+      }
+    }
     return { ok: true };
   });
 
@@ -155,7 +167,51 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub }: Dep
   app.post<{ Params: { id: string } }>('/commands/:id/test', async (req, reply) => {
     const cmd = engine.getCommand(req.user.id, Number(req.params.id));
     if (!cmd) return reply.code(404).send({ error: 'Command niet gevonden' });
-    return engine.fire(req.user.id, cmd, req.user.displayName, null, req.user.login, 'test');
+    // Alerts are tested with sample values so {amount}, {months} etc. show something sensible.
+    const sample = { amount: Math.max(cmd.minAmount, cmd.trigger === 'cheer' ? 100 : cmd.trigger === 'raid' ? 25 : 3), months: 6, tier: '1', message: 'Dit is een testbericht', args: '' };
+    return engine.fire(req.user.id, cmd, req.user.displayName, null, req.user.login, 'test', cmd.trigger === 'chat' ? {} : sample);
+  });
+
+  app.post('/alerts/reconnect', async (req) => {
+    eventsub.restart(req.user.id);
+    return { ok: true };
+  });
+
+  // ---- timers ----
+  const ownTimer = (userId: number, id: number) =>
+    and(eq(schema.timers.userId, userId), eq(schema.timers.id, id));
+
+  app.get('/timers', async (req) =>
+    db.select().from(schema.timers).where(eq(schema.timers.userId, req.user.id)).orderBy(schema.timers.name).all(),
+  );
+
+  app.post('/timers', async (req, reply) => {
+    const data = validateTimer(req.body);
+    const now = Date.now();
+    const row = db.insert(schema.timers).values({ ...data, userId: req.user.id, createdAt: now, updatedAt: now }).returning().get();
+    return reply.code(201).send(row);
+  });
+
+  app.put<{ Params: { id: string } }>('/timers/:id', async (req, reply) => {
+    const data = validateTimer(req.body);
+    const row = db.update(schema.timers).set({ ...data, updatedAt: Date.now() }).where(ownTimer(req.user.id, Number(req.params.id))).returning().get();
+    if (!row) return reply.code(404).send({ error: 'Timer niet gevonden' });
+    timers.reset(row.id);
+    return row;
+  });
+
+  app.delete<{ Params: { id: string } }>('/timers/:id', async (req) => {
+    db.delete(schema.timers).where(ownTimer(req.user.id, Number(req.params.id))).run();
+    timers.reset(Number(req.params.id));
+    return { ok: true };
+  });
+
+  /** Sends the timer's next message right away (handy to check the text). */
+  app.post<{ Params: { id: string } }>('/timers/:id/test', async (req, reply) => {
+    const t = db.select().from(schema.timers).where(ownTimer(req.user.id, Number(req.params.id))).get();
+    if (!t) return reply.code(404).send({ error: 'Timer niet gevonden' });
+    chat.say(req.user.id, safeReply(renderText(t.messages[0], { user: req.user.displayName, target: req.user.displayName, channel: req.user.login }, 480)));
+    return { ok: true };
   });
 
   // ---- activity ----

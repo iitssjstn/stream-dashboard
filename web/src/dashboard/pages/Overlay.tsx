@@ -17,7 +17,9 @@ const PRESETS = [
 export function OverlayPage() {
   const { me, reload } = useMe();
   const toast = useToast();
-  const { data: cmds, reload: reloadCmds, setData } = usePoll<Command[]>('/api/commands');
+  const { data: allCmds, reload: reloadCmds, setData } = usePoll<Command[]>('/api/commands');
+  // Only things that actually appear in the overlay; alerts included.
+  const cmds = allCmds?.filter((c) => c.animation !== 'none') ?? null;
   const [w, setW] = useState(me.overlay.width);
   const [h, setH] = useState(me.overlay.height);
   const [selected, setSelected] = useState<number | null>(null);
@@ -140,7 +142,7 @@ export function OverlayPage() {
                       >
                       <div className="flex items-center gap-2.5">
                         <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: colorFor(i) }} />
-                        <span className="truncate font-mono text-sm font-semibold text-white">!{c.name}</span>
+                        <span className="truncate font-mono text-sm font-semibold text-white">{c.trigger === 'chat' ? `!${c.name}` : `🔔 ${c.trigger}${c.minAmount ? ` ${c.minAmount}+` : ''}`}</span>
                         {!c.enabled && <span className="chip ml-auto bg-white/[.06] px-2 py-0.5 text-[10px] text-zinc-400">uit</span>}
                       </div>
                       <div className="mt-0.5 pl-[22px] text-xs text-zinc-500">
@@ -262,7 +264,7 @@ function LayoutCanvas(props: {
                 title={LABELS.animation[c.animation]}
               >
                 <span className={`rounded px-1.5 py-0.5 font-mono text-white shadow ${dimmed ? 'invisible' : ''}`} style={{ background: color }}>
-                  !{c.name}
+                  {c.trigger === 'chat' ? `!${c.name}` : `🔔 ${c.trigger}${c.minAmount ? ` ${c.minAmount}+` : ''}`}
                 </span>
               </div>
             );

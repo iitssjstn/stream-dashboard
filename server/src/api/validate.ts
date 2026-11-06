@@ -1,4 +1,4 @@
-import { ANIMATIONS, CHARACTER_STYLES, EFFECTS, PARTICLES, PERMISSIONS, TARGET_MODES } from '../commands/defaults.js';
+import { ANIMATIONS, CHARACTER_STYLES, EFFECTS, PARTICLES, PERMISSIONS, TARGET_MODES, TRIGGERS } from '../commands/defaults.js';
 import type { CommandStyle } from '../db/schema.js';
 
 export class ValidationError extends Error {}
@@ -30,9 +30,11 @@ const mediaUrl = (v: unknown, name: string) => {
   return s;
 };
 
+export const NAME_RE = /^[a-z0-9_\-àáâäèéêëìíîïòóôöùúûü]{1,30}$/;
+
 export function validateCommand(body: any) {
   const name = str(body?.name, 'Commandnaam', 30)!.replace(/^!/, '').toLowerCase();
-  if (!/^[a-z0-9_\-àáâäèéêëìíîïòóôöùúûü]{1,30}$/.test(name)) throw new ValidationError('Commandnaam mag alleen letters, cijfers, _ en - bevatten');
+  if (!NAME_RE.test(name)) throw new ValidationError('Commandnaam mag alleen letters, cijfers, _ en - bevatten');
   const animation = oneOf(body.animation, ANIMATIONS, 'animatie');
   const imageUrl = mediaUrl(body.imageUrl, 'Afbeelding');
   if (animation === 'image' && !imageUrl) throw new ValidationError('Kies een afbeelding of GIF voor dit command');
@@ -49,8 +51,23 @@ export function validateCommand(body: any) {
     particles: oneOf(s.particles, PARTICLES, 'deeltjes'),
     textShadow: Boolean(s.textShadow),
   };
+  const trigger = oneOf(body.trigger ?? 'chat', TRIGGERS, 'trigger');
+  const reply = str(body.reply, 'Chat-antwoord', 480, true);
+  if (animation === 'none' && !reply) throw new ValidationError('Kies een animatie of vul een chat-antwoord in');
+  if (trigger !== 'chat' && animation === 'none' && !reply) throw new ValidationError('Een alert heeft een animatie of chat-antwoord nodig');
+  const aliases = Array.isArray(body.aliases)
+    ? [...new Set(body.aliases.map((a: unknown) => String(a).trim().replace(/^!/, '').toLowerCase()).filter(Boolean))]
+    : [];
+  if (aliases.length > 10) throw new ValidationError('Maximaal 10 aliassen');
+  for (const a of aliases as string[]) {
+    if (!NAME_RE.test(a)) throw new ValidationError(`Ongeldige alias: ${a}`);
+  }
   return {
     name,
+    trigger,
+    reply,
+    aliases: (aliases as string[]).filter((a) => a !== name),
+    minAmount: int(body.minAmount ?? 0, 'Minimum', 0, 1_000_000),
     enabled: body.enabled !== false,
     animation,
     characterStyle: oneOf(body.characterStyle ?? 'anime', CHARACTER_STYLES, 'stijl'),
@@ -58,7 +75,7 @@ export function validateCommand(body: any) {
     imageUrl,
     soundUrl: mediaUrl(body.soundUrl, 'Geluid'),
     soundVolume: int(body.soundVolume ?? 70, 'Volume', 0, 100),
-    text: body.showText === false ? (str(body.text, 'Tekst', 200, true) ?? '') : str(body.text, 'Tekst', 200)!,
+    text: body.showText === false || animation === 'none' ? (str(body.text, 'Tekst', 200, true) ?? '') : str(body.text, 'Tekst', 200)!,
     showText: body.showText !== false,
     durationMs: int(body.durationMs, 'Duur', 1000, 60_000),
     userCooldownSec: int(body.userCooldownSec, 'Cooldown per gebruiker', 0, 86_400),
@@ -68,5 +85,23 @@ export function validateCommand(body: any) {
     targetMode: oneOf(body.targetMode ?? 'optional', TARGET_MODES, 'ontvanger-instelling'),
     targetFallback: str(body.targetFallback ?? 'de streamer', 'Tekst zonder naam', 40)!,
     style,
+  };
+}
+
+export function validateTimer(body: any) {
+  const name = str(body?.name, 'Naam', 60)!;
+  const messages = (Array.isArray(body.messages) ? body.messages : [])
+    .map((m: unknown) => String(m ?? '').replace(/[\r\n]+/g, ' ').trim())
+    .filter(Boolean);
+  if (!messages.length) throw new ValidationError('Voeg minstens één bericht toe');
+  if (messages.length > 20) throw new ValidationError('Maximaal 20 berichten per timer');
+  for (const m of messages) if (m.length > 480) throw new ValidationError('Een bericht mag maximaal 480 tekens zijn');
+  return {
+    name,
+    enabled: body.enabled !== false,
+    messages: messages as string[],
+    intervalMin: int(body.intervalMin, 'Interval (live)', 1, 1440),
+    offlineIntervalMin: int(body.offlineIntervalMin ?? 0, 'Interval (offline)', 0, 1440),
+    minChatLines: int(body.minChatLines ?? 0, 'Minimaal aantal chatberichten', 0, 1000),
   };
 }

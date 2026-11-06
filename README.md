@@ -7,6 +7,10 @@ Kijkers typen een command zoals `!knuffel` in je Twitch-chat en er verschijnt me
 - **OBS-overlay**: losse, lichte pagina (~11 KB JS) met transparante achtergrond, realtime via WebSocket, een wachtrij, automatisch opnieuw verbinden en instelbare resolutie
 - **Dashboard + editor**: live preview met precies dezelfde renderer als de overlay, positie verslepen, lettertype/kleur/grootte, effecten, deeltjes, uploads (PNG/JPG/GIF/WEBP/MP3/WAV/OGG)
 - Standaard-commands: `!knuffel`, `!hug`, `!highfive`, `!love`, `!dance`
+- **Chat-antwoorden**: commands kunnen een bericht in de chat sturen (met aliassen, `{count}`, `{args}` en `{random:1-100}`), met of zonder animatie
+- **Timers**: herhaalde chatberichten met een interval voor live en offline, plus een minimaal aantal chatberichten ertussen
+- **Alerts**: follow, sub, resub, gifted subs, bits en raid via Twitch EventSub, met varianten per drempel (bijv. "vanaf 500 bits")
+- **StreamElements-import**: chat-commands, timers en AlertBox-alerts in één keer overnemen
 
 ## Snel starten met Docker Compose
 
@@ -65,6 +69,21 @@ jouwdomein.nl {
 2. daarna wordt een Docker-image voor `linux/amd64` en `linux/arm64` (bijv. Raspberry Pi) gebouwd en gepubliceerd naar `ghcr.io/iitssjstn/stream-dashboard` met de tags `latest`, `sha-…` en bij een tag `v1.2.3` ook `1.2.3` en `1.2`.
 
 Het package is standaard privé. Maak het publiek via GitHub → je profiel → *Packages* → *stream-dashboard* → *Package settings*, of log eenmalig in met `docker login ghcr.io` (gebruikersnaam + een token met `read:packages`).
+
+## StreamElements importeren
+
+1. Open in StreamElements **Account → Channels**, klik op **Show secrets** en kopieer het **JWT Token**.
+2. Plak het in Lumio onder **Importeren** en kies **Ophalen**. Het token wordt alleen voor die aanvraag gebruikt en niet opgeslagen.
+3. Je krijgt een overzicht met per onderdeel eventuele waarschuwingen. Vink aan wat je wilt overnemen en kies **Importeren**.
+
+Wat er gebeurt:
+
+- **Variabelen** worden omgezet: `${user}` → `{user}`, `${touser}` → `{target}`, `${random.1-10}` → `{random:1-10}`. Variabelen die Lumio niet kent, zoals `${uptime}`, blijven als tekst staan en worden gemeld.
+- **Rechten** gaan van `accessLevel` naar Iedereen, Subscribers, VIP's, Moderators of Streamer.
+- **Alerts** nemen afbeelding, geluid, tekst, duur, minimumbedrag en varianten over. Geïmporteerde alerts zetten de standaard-Lumio-alert van hetzelfde type uit, maar alerts die je zelf hebt gemaakt blijven aan.
+- **Niet mogelijk**: tips (eigen StreamElements-betalingen), hosts (bestaan niet meer op Twitch), video-alerts, TTS, loyaliteitspunten en keyword- of regex-triggers.
+
+> Alerts hebben extra Twitch-rechten nodig (`moderator:read:followers`, `channel:read:subscriptions`, `bits:read`). Heb je Lumio vóór deze versie gekoppeld? Klik dan één keer op **Opnieuw koppelen** op de Alerts-pagina.
 
 ## Architectuur
 

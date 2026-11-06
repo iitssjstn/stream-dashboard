@@ -64,6 +64,15 @@ export const commands = sqliteTable(
     name: text('name').notNull(),
     enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
     /** Built-in animation id ('hug', 'highfive', ...) or 'image' for a custom image/GIF */
+    /** chat = triggered by a chat command; otherwise an alert: follow | subscriber | resub | gift | cheer | raid */
+    trigger: text('trigger').notNull().default('chat'),
+    /** Chat message the bot sends back (optional). Supports {user} {target} {channel} {count} {random:1-100} {args} */
+    reply: text('reply'),
+    /** Extra command names, e.g. ["socials","links"] */
+    aliases: text('aliases', { mode: 'json' }).$type<string[]>().notNull().default([]),
+    /** Alerts: minimum amount (bits, raiders, gifted subs, months) for this variation */
+    minAmount: integer('min_amount').notNull().default(0),
+    useCount: integer('use_count').notNull().default(0),
     animation: text('animation').notNull(),
     /** anime = chibi characters, people = human-proportioned figures */
     characterStyle: text('character_style').notNull().default('anime'),
@@ -119,6 +128,30 @@ export const uploads = sqliteTable('uploads', {
   createdAt: integer('created_at').notNull(),
 });
 
+/** Repeating chat messages ("timers"). */
+export const timers = sqliteTable(
+  'timers',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+    /** Sent in rotation, one per interval */
+    messages: text('messages', { mode: 'json' }).$type<string[]>().notNull(),
+    /** Minutes between messages while live */
+    intervalMin: integer('interval_min').notNull().default(15),
+    /** Minutes between messages while offline; 0 = don't send while offline */
+    offlineIntervalMin: integer('offline_interval_min').notNull().default(0),
+    /** Minimum chat messages since the previous timer message */
+    minChatLines: integer('min_chat_lines').notNull().default(5),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (t) => [index('timers_user_idx').on(t.userId)],
+);
+
 /** Instance-wide settings (e.g. Twitch app credentials entered in the setup wizard). Secrets are stored encrypted. */
 export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),
@@ -128,3 +161,4 @@ export const appSettings = sqliteTable('app_settings', {
 
 export type User = typeof users.$inferSelect;
 export type Command = typeof commands.$inferSelect;
+export type Timer = typeof timers.$inferSelect;

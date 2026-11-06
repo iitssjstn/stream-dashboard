@@ -30,6 +30,9 @@ export class TwitchChatConnection extends EventEmitter<{
   private keepaliveTimer: NodeJS.Timeout | null = null;
   private lastSeen = 0;
   private authFailures = 0;
+  private outbox: string[] = [];
+  private lastSent = 0;
+  private outboxTimer: NodeJS.Timeout | null = null;
 
   constructor(private opts: Options) {
     super();
@@ -42,6 +45,9 @@ export class TwitchChatConnection extends EventEmitter<{
 
   stop() {
     this.stopped = true;
+    if (this.outboxTimer) clearTimeout(this.outboxTimer);
+    this.outboxTimer = null;
+    this.outbox = [];
     this.clearTimers();
     this.ws?.removeAllListeners();
     this.ws?.terminate();
@@ -159,6 +165,36 @@ export class TwitchChatConnection extends EventEmitter<{
         break;
       }
     }
+  }
+
+  /**
+   * Sends a chat message as the connected account. Queued and spaced ~1.1s apart to stay well
+   * under Twitch's rate limits; at most 20 messages wait, older ones are dropped.
+   */
+  say(text: string) {
+    const clean = text.replace(/[\r\n]+/g, ' ').trim().slice(0, 480);
+    if (!clean) return;
+    this.outbox.push(clean);
+    if (this.outbox.length > 20) this.outbox.shift();
+    this.flush();
+  }
+
+  private flush() {
+    if (this.outboxTimer) return;
+    const wait = Math.max(0, this.lastSent + 1100 - Date.now());
+    this.outboxTimer = setTimeout(() => {
+      this.outboxTimer = null;
+      if (this.status !== 'connected' || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        if (this.outbox.length) this.outboxTimer = setTimeout(() => ((this.outboxTimer = null), this.flush()), 2000);
+        return;
+      }
+      const msg = this.outbox.shift();
+      if (msg) {
+        this.ws.send(`PRIVMSG #${this.opts.channel} :${msg}`);
+        this.lastSent = Date.now();
+      }
+      if (this.outbox.length) this.flush();
+    }, wait);
   }
 
   private scheduleReconnect(delay?: number) {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useParams } from 'react-router-dom';
-import { api, FONTS, LABELS, type Command } from '../api';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { ALERT_TYPES, api, FONTS, LABELS, type Command, type Trigger } from '../api';
 import { useMe } from '../App';
 import { OverlayPreview } from '../components/OverlayPreview';
 import { figure } from '../../overlay/characters';
@@ -20,6 +20,10 @@ const fingerprint = (x: Draft) =>
 
 const blank: Draft = {
   name: '',
+  trigger: 'chat',
+  reply: null,
+  aliases: [],
+  minAmount: 0,
   enabled: true,
   animation: 'hug',
   characterStyle: 'anime',
@@ -42,15 +46,31 @@ const blank: Draft = {
 export function CommandEditor() {
   const { id } = useParams();
   const isNew = id === 'new';
+  const [params] = useSearchParams();
+  const newTrigger = (params.get('trigger') ?? 'chat') as Trigger;
+  const newDraft: Draft =
+    newTrigger === 'chat'
+      ? blank
+      : {
+          ...blank,
+          trigger: newTrigger,
+          name: `alert-${newTrigger}-${Date.now().toString(36)}`.slice(0, 30),
+          animation: 'love',
+          text: newTrigger === 'follow' ? 'Bedankt voor de follow, {user}!' : '{user}: {amount}!',
+          targetMode: 'none',
+          userCooldownSec: 0,
+          globalCooldownSec: 0,
+          minAmount: Number(params.get('min')) || 0,
+        };
   const nav = useNavigate();
   const toast = useToast();
   const { me, reload } = useMe();
-  const [d, setD] = useState<Draft | null>(isNew ? blank : null);
+  const [d, setD] = useState<Draft | null>(isNew ? newDraft : null);
   const [saving, setSaving] = useState(false);
   const [replay, setReplay] = useState(0);
-  const [tab, setTab] = useState<'visual' | 'text' | 'rules' | 'sound'>('visual');
-  const [savedPrint, setSavedPrint] = useState(isNew ? fingerprint(blank) : '');
-  const [savedDraft, setSavedDraft] = useState<Draft | null>(isNew ? blank : null);
+  const [tab, setTab] = useState<'visual' | 'text' | 'chat' | 'rules' | 'sound'>('visual');
+  const [savedPrint, setSavedPrint] = useState(isNew ? fingerprint(newDraft) : '');
+  const [savedDraft, setSavedDraft] = useState<Draft | null>(isNew ? newDraft : null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const dirty = d !== null && fingerprint(d) !== savedPrint;
   const saveRef = useRef<() => Promise<void>>(async () => undefined);
@@ -94,7 +114,7 @@ export function CommandEditor() {
 
   const goBack = () => {
     if (dirty && !confirm('Je hebt wijzigingen die nog niet zijn opgeslagen. Toch teruggaan?')) return;
-    nav('/commands');
+    nav(d && d.trigger !== 'chat' ? '/alerts' : '/commands');
   };
 
   useEffect(() => {
@@ -119,7 +139,7 @@ export function CommandEditor() {
     setSaving(true);
     setSaveError(null);
     try {
-      const saved = await api<Command>(isNew ? '/api/commands' : `/api/commands/${id}`, { method: isNew ? 'POST' : 'PUT', json: d });
+      const saved = await api<Command>(isNew ? '/api/commands' : `/api/commands/${id}`, { method: isNew ? 'POST' : 'PUT', json: { ...d, aliases: d.aliases.filter(Boolean) } });
       toast(`!${saved.name} opgeslagen`);
       void reload();
       setSavedPrint(fingerprint(saved));
@@ -135,20 +155,28 @@ export function CommandEditor() {
   };
   saveRef.current = save;
 
-  const tabs = [
-    ['visual', 'Animatie'],
-    ['text', 'Tekst & stijl'],
-    ['rules', 'Cooldowns & rechten'],
-    ['sound', 'Geluid'],
-  ] as const;
+  const isAlert = d.trigger !== 'chat';
+  const alertInfo = ALERT_TYPES.find((a) => a.trigger === d.trigger);
+  const tabs = (
+    [
+      ['visual', 'Animatie'],
+      ['text', 'Tekst & stijl'],
+      ['chat', 'Chat-antwoord'],
+      ['rules', 'Cooldowns & rechten'],
+      ['sound', 'Geluid'],
+    ] as const
+  ).filter(([k]) => !(isAlert && k === 'rules'));
+  const varsHint = isAlert
+    ? `Variabelen: ${alertInfo?.vars ?? '{user}'}`
+    : 'Variabelen: {user} = kijker, {target} = @genoemde naam, {channel}, {count} = aantal keer gebruikt, {args} = tekst na het command, {random:1-100}.';
 
   return (
     <>
       <button onClick={goBack} className="mb-3 -ml-1 inline-flex cursor-pointer items-center gap-1 rounded-lg px-1 py-1 text-sm font-semibold text-zinc-400 transition hover:text-white">
-        <Svg i="back" className="h-4 w-4" /> Terug naar commands
+        <Svg i="back" className="h-4 w-4" /> {isAlert ? 'Terug naar alerts' : 'Terug naar commands'}
       </button>
       <PageHeader
-        title={isNew ? 'Nieuw command' : `!${d.name}`}
+        title={isAlert ? `Alert: ${alertInfo?.label ?? d.trigger}${d.minAmount ? ` (vanaf ${d.minAmount} ${alertInfo?.amount ?? ''})` : ''}` : isNew ? 'Nieuw command' : `!${d.name}`}
         subtitle="Wijzigingen zie je direct in de preview. Klik of sleep in de preview om de positie te kiezen."
         actions={
           <>
@@ -177,6 +205,21 @@ export function CommandEditor() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
         <div className="space-y-5">
+          {isAlert ? (
+            <section className="card grid gap-4 p-5 sm:grid-cols-[1fr_auto]">
+              {alertInfo?.amount ? (
+                <Field label={`Vanaf hoeveel ${alertInfo.amount}?`} hint="Je kunt meerdere varianten maken; de variant met het hoogste passende minimum wordt afgespeeld.">
+                  <input type="number" className="input" min={0} max={1000000} value={d.minAmount} onChange={(e) => set('minAmount', Math.max(0, Number(e.target.value) || 0))} />
+                </Field>
+              ) : (
+                <p className="self-center text-sm text-zinc-400">Speelt af bij elke {alertInfo?.label.toLowerCase()} op Twitch.</p>
+              )}
+              <div className="flex items-end gap-3 pb-2">
+                <span className="text-sm text-zinc-300">Ingeschakeld</span>
+                <Toggle checked={d.enabled} onChange={(v) => set('enabled', v)} />
+              </div>
+            </section>
+          ) : (
           <section className="card grid gap-4 p-5 sm:grid-cols-[1fr_auto]">
             <Field label="Commandnaam" hint="Kijkers typen dit in de chat. Optioneel met @naam erachter: {target}.">
               <div className="flex items-center rounded-xl border border-white/10 bg-ink-950/60 focus-within:border-brand-500/70">
@@ -195,6 +238,7 @@ export function CommandEditor() {
               <Toggle checked={d.enabled} onChange={(v) => set('enabled', v)} />
             </div>
           </section>
+          )}
 
           <div className="flex gap-1 overflow-x-auto rounded-xl border border-white/[.06] bg-ink-950/40 p-1">
             {tabs.map(([k, l]) => (
@@ -306,7 +350,7 @@ export function CommandEditor() {
                 <Toggle checked={d.showText} onChange={(v) => set('showText', v)} label="Tekst tonen" />
               </div>
               <div className={`space-y-5 transition ${d.showText ? '' : 'pointer-events-none opacity-40'}`} aria-disabled={!d.showText}>
-              <Field label="Tekst" hint="Variabelen: {user} = kijker, {target} = @genoemde naam (anders “de streamer”), {channel} = jouw kanaal.">
+              <Field label="Tekst" hint={varsHint}>
                 <input className="input" value={d.text} maxLength={200} onChange={(e) => set('text', e.target.value)} />
               </Field>
               <div className="flex items-center justify-between rounded-xl border border-white/10 px-4 py-3">
@@ -316,6 +360,7 @@ export function CommandEditor() {
                 </div>
                 <Toggle checked={d.showUsername} onChange={(v) => set('showUsername', v)} />
               </div>
+              {!isAlert && (
               <div className="rounded-xl border border-white/10 p-4">
                 <span className="label">Naam van de ontvanger</span>
                 <p className="mb-3 text-xs text-zinc-500">
@@ -352,6 +397,7 @@ export function CommandEditor() {
                   </div>
                 )}
               </div>
+              )}
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Lettertype">
                   <select className="input" value={d.style.fontFamily} onChange={(e) => style('fontFamily', e.target.value)}>
@@ -373,6 +419,41 @@ export function CommandEditor() {
                 <Toggle checked={d.style.textShadow} onChange={(v) => style('textShadow', v)} />
               </div>
               </div>
+            </section>
+          )}
+
+          {tab === 'chat' && (
+            <section className="card space-y-5 p-5">
+              <Field
+                label="Chat-antwoord (optioneel)"
+                hint={`De bot (jouw Twitch-account) stuurt dit bericht in de chat. ${varsHint} Begint nooit met een chatcommando, behalve /me.`}
+              >
+                <textarea
+                  className="input min-h-28"
+                  maxLength={480}
+                  value={d.reply ?? ''}
+                  placeholder={isAlert ? 'Bijv. Welkom {user}, bedankt voor de follow!' : 'Bijv. Volg me ook op Instagram: @jouwnaam'}
+                  onChange={(e) => set('reply', e.target.value || null)}
+                />
+              </Field>
+              {!isAlert && (
+                <Field label="Aliassen" hint="Andere namen voor hetzelfde command, gescheiden door komma's. Bijv. socials, links">
+                  <input
+                    className="input font-mono"
+                    value={d.aliases.join(', ')}
+                    onChange={(e) =>
+                      set(
+                        'aliases',
+                        e.target.value
+                          .split(',')
+                          .map((a) => a.trim().replace(/^!/, '').toLowerCase())
+                          .filter((a, i, all) => a || i === all.length - 1),
+                      )
+                    }
+                  />
+                </Field>
+              )}
+              {d.animation === 'none' && <p className="text-xs text-zinc-500">Animatie staat op “Geen”: dit command stuurt alleen dit chatbericht.</p>}
             </section>
           )}
 
@@ -423,6 +504,17 @@ export function CommandEditor() {
                 <Svg i="refresh" className="h-3.5 w-3.5" /> Opnieuw
               </button>
             </div>
+            {d.animation === 'none' ? (
+              <div className="checker grid aspect-video place-items-center rounded-xl border border-white/10 p-6 text-center">
+                <div>
+                  <div className="text-sm text-zinc-400">Geen overlay-animatie, alleen een chatbericht:</div>
+                  <div className="mx-auto mt-3 max-w-md rounded-2xl rounded-bl-sm bg-ink-700 px-4 py-2.5 text-left text-sm text-zinc-100">
+                    <span className="font-semibold text-brand-400">{me.user.displayName}: </span>
+                    {d.reply || <i className="text-zinc-500">vul een chat-antwoord in</i>}
+                  </div>
+                </div>
+              </div>
+            ) : (
             <OverlayPreview
               cmd={d}
               width={me.overlay.width}
@@ -430,6 +522,7 @@ export function CommandEditor() {
               replayKey={replay}
               onMove={(x, y) => setD((cur) => (cur ? { ...cur, style: { ...cur.style, x, y } } : cur))}
             />
+            )}
             <p className="mt-3 text-xs text-zinc-500">
               Zo ziet het eruit in je {me.overlay.width}×{me.overlay.height} overlay. Het geblokte vlak is transparant in OBS.
             </p>
