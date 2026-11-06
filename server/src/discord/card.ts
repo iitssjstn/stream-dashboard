@@ -20,7 +20,7 @@ const MAX_BYTES = 8 * 1024 * 1024;
  * Remote images are only fetched from known media hosts (no arbitrary URLs: the server must not
  * become a proxy into the private network). Uploads are read from disk.
  */
-const ALLOWED_HOST = /^(?:media\d*\.giphy\.com|i\.giphy\.com|cdn\.streamelements\.com|cdn\.discordapp\.com|media\.discordapp\.net)$/;
+const ALLOWED_HOST = /^(?:media\d*\.giphy\.com|i\.giphy\.com|cdn\.streamelements\.com|cdn\.discordapp\.com|media\.discordapp\.net|static-cdn\.jtvnw\.net)$/;
 
 /** Reads an upload from disk or downloads from an allowed media host. */
 /** Why the last remote image could not be loaded (shown in the server log). */
@@ -122,6 +122,7 @@ export async function renderCard(
   card: WelcomeCard,
   v: { name: string; server: string; count: number; avatar: string | string[] | null },
   onAvatarError?: (reason: string) => void,
+  onAvatarLoaded?: (src: string) => void,
 ) {
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext('2d');
@@ -157,7 +158,10 @@ export async function renderCard(
   let avatar: Image | null = null;
   for (const candidate of Array.isArray(v.avatar) ? v.avatar : v.avatar ? [v.avatar] : []) {
     avatar = await fetchImage(candidate);
-    if (avatar) break;
+    if (avatar) {
+      onAvatarLoaded?.(candidate);
+      break;
+    }
     onAvatarError?.(`${candidate.replace(/\?.*$/, '')}: ${lastMediaError ?? 'onbekende fout'}`);
   }
   ctx.save();

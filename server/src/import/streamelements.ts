@@ -104,6 +104,8 @@ export type ImportTimer = {
 export type ImportAlert = {
   key: string;
   label: string;
+  /** Name of the StreamElements overlay this alert came from */
+  overlay: string;
   trigger: 'follow' | 'subscriber' | 'resub' | 'gift' | 'cheer' | 'raid';
   enabled: boolean;
   minAmount: number;
@@ -231,7 +233,7 @@ const ALERT_TYPES: Record<string, ImportAlert['trigger'] | null> = {
   charityCampaignDonation: null,
 };
 
-function alertFrom(trigger: ImportAlert['trigger'], label: string, key: string, base: any, over: any, minAmount: number, enabled: boolean): ImportAlert {
+function alertFrom(trigger: ImportAlert['trigger'], label: string, key: string, base: any, over: any, minAmount: number, enabled: boolean, overlay = ''): ImportAlert {
   const merged = { ...base, ...over, text: { ...base?.text, ...over?.text, css: { ...base?.text?.css, ...over?.text?.css } }, graphics: { ...base?.graphics, ...over?.graphics }, audio: { ...base?.audio, ...over?.audio } };
   const warnings: string[] = [];
   const conv = convertAlertText(String(merged.text?.message ?? ''), trigger);
@@ -246,6 +248,7 @@ function alertFrom(trigger: ImportAlert['trigger'], label: string, key: string, 
   return {
     key,
     label,
+    overlay,
     trigger,
     enabled,
     minAmount,
@@ -263,30 +266,32 @@ function alertFrom(trigger: ImportAlert['trigger'], label: string, key: string, 
 }
 
 /** Extracts alerts from all AlertBox widgets ("se-widget-alert-box") of all overlays. */
-export function convertAlertBoxes(widgets: any[], skipped: ImportSkipped[]): ImportAlert[] {
+const SE_TYPE_LABEL: Record<string, string> = { follower: 'Follow', subscriber: 'Sub', cheer: 'Bits', raid: 'Raid' };
+
+export function convertAlertBoxes(widgets: { overlay: string; widget: any }[], skipped: ImportSkipped[]): ImportAlert[] {
   const out: ImportAlert[] = [];
-  widgets.forEach((w, wi) => {
+  widgets.forEach(({ overlay, widget: w }, wi) => {
     const vars = w?.variables ?? {};
     for (const [seType, cfg] of Object.entries<any>(vars)) {
       if (!(seType in ALERT_TYPES)) continue;
       const trigger = ALERT_TYPES[seType];
       if (!trigger) {
-        skipped.push({ what: `${seType}-alert`, reason: seType === 'host' ? 'Twitch heeft hosts afgeschaft' : 'bestaat niet als Twitch-event (StreamElements-eigen)' });
+        skipped.push({ what: `${overlay ? `${overlay}: ` : ''}${seType}-alert`, reason: seType === 'host' ? 'Twitch heeft hosts afgeschaft' : 'bestaat niet als Twitch-event (StreamElements-eigen)' });
         continue;
       }
       const enabled = cfg?.enabled !== false;
       const prefix = `alert:${wi}:${seType}`;
-      out.push(alertFrom(trigger, `${seType}`, `${prefix}:base`, cfg, {}, Math.max(0, Math.round(num(cfg?.minAmount, 0))), enabled));
+      out.push(alertFrom(trigger, SE_TYPE_LABEL[seType] ?? seType, `${prefix}:base`, cfg, {}, Math.max(0, Math.round(num(cfg?.minAmount, 0))), enabled, overlay));
       (Array.isArray(cfg?.variations) ? cfg.variations : []).forEach((v: any, vi: number) => {
-        const label = `${seType}: ${v?.name ?? `variatie ${vi + 1}`}`;
+        const label = v?.name ? String(v.name).slice(0, 50) : `${SE_TYPE_LABEL[seType] ?? seType} variatie ${vi + 1}`;
         const settings = v?.settings ?? {};
         if (v?.type === 'gift' || v?.type === 'communityGift') {
           if (seType !== 'subscriber') return skipped.push({ what: label, reason: 'onbekende variatie' });
-          out.push(alertFrom('gift', label, `${prefix}:v${vi}`, cfg, settings, v?.type === 'communityGift' ? 2 : 0, enabled));
+          out.push(alertFrom('gift', label, `${prefix}:v${vi}`, cfg, settings, v?.type === 'communityGift' ? 2 : 0, enabled, overlay));
         } else if (v?.type === 'amount' && (v?.condition ?? 'ATLEAST') === 'ATLEAST') {
           const req = Math.max(0, Math.round(num(v?.requirement, 0)));
           // For subscriptions the "amount" is the number of months, i.e. a resub.
-          out.push(alertFrom(seType === 'subscriber' ? 'resub' : trigger, label, `${prefix}:v${vi}`, cfg, settings, req, enabled));
+          out.push(alertFrom(seType === 'subscriber' ? 'resub' : trigger, label, `${prefix}:v${vi}`, cfg, settings, req, enabled, overlay));
         } else {
           skipped.push({ what: label, reason: `variatie-type "${v?.type}${v?.condition ? ` ${v.condition}` : ''}" wordt niet ondersteund` });
         }
@@ -308,11 +313,12 @@ export async function fetchPreview(jwt: string): Promise<ImportPreview> {
     se<any>(`/overlays/${enc}`, jwt),
   ]);
   const overlayList: any[] = Array.isArray(overlays) ? overlays : (overlays?.docs ?? []);
-  const widgets: any[] = [];
+  const widgets: { overlay: string; widget: any }[] = [];
   for (const o of overlayList.slice(0, 50)) {
     if (typeof o?._id !== 'string') continue;
     const full = await se<any>(`/overlays/${enc}/${encodeURIComponent(o._id)}`, jwt);
-    for (const w of full?.widgets ?? []) if (w?.type === 'se-widget-alert-box') widgets.push(w);
+    const overlay = String(full?.name ?? o.name ?? '').slice(0, 40);
+    for (const w of full?.widgets ?? []) if (w?.type === 'se-widget-alert-box') widgets.push({ overlay, widget: w });
   }
   return {
     channel: { id, name: String(me.displayName ?? me.username ?? me.alias ?? 'StreamElements') },
@@ -349,6 +355,7 @@ const FALLBACK_ANIMATION: Record<ImportAlert['trigger'], string> = { follow: 'wa
 export function alertBody(a: ImportAlert, name: string) {
   return {
     name,
+    label: (a.overlay ? `${a.overlay} — ${a.label}` : a.label).slice(0, 80),
     trigger: a.trigger,
     minAmount: a.minAmount,
     animation: a.imageUrl ? 'image' : FALLBACK_ANIMATION[a.trigger],

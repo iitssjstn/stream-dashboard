@@ -8,8 +8,8 @@ import { Field, PageHeader, StatusDot, Svg, Toggle, useToast } from '../ui';
 
 type Card = { background: string | null; title: string; subtitle: string; accentColor: string; textColor: string; dim: number };
 type BotProfile = { nick: string | null; avatar: string | null; bio: string | null };
-type Guild = { id: number; guildId: string; guildName: string; guildIcon: string | null; enabled: boolean; channelId: string | null; message: string; card: Card; memberCount: number; botProfile: BotProfile };
-type BotStatus = { status: 'off' | 'connecting' | 'connected' | 'error'; botName: string | null; error: string | null; avatar: string | null };
+type Guild = { id: number; removedAt: number | null; guildId: string; guildName: string; guildIcon: string | null; enabled: boolean; channelId: string | null; message: string; card: Card; memberCount: number; botProfile: BotProfile };
+type BotStatus = { status: 'off' | 'connecting' | 'connected' | 'error'; botName: string | null; error: string | null; avatar: string | null; warning: string | null; avatarError: string | null };
 type State = { configured: boolean; bot: BotStatus; guilds: Guild[] };
 
 export function DiscordPage() {
@@ -18,30 +18,35 @@ export function DiscordPage() {
   const [params, setParams] = useSearchParams();
   const toast = useToast();
   const error = params.get('error');
+  const [tab, setTab] = useState<'welcome' | 'profile' | 'server'>('welcome');
 
   useEffect(() => {
     if (params.get('connected')) {
-      toast('Discord-server gekoppeld! Kies hieronder een welkomstkanaal.');
-      setParams({}, { replace: true });
+      toast('Server toegevoegd! Kies hieronder een welkomstkanaal.');
+      const next = new URLSearchParams(params);
+      next.delete('connected');
+      setParams(next, { replace: true });
     }
   }, [params, setParams, toast]);
 
   if (!data) return <div className="card h-60 animate-pulse" />;
   const tone = data.bot.status === 'connected' ? 'ok' : data.bot.status === 'connecting' ? 'warn' : data.bot.status === 'error' ? 'error' : 'off';
+  const selectedId = params.get('server');
+  const guild = data.guilds.find((g) => g.guildId === selectedId) ?? data.guilds[0];
+  const select = (g: Guild) => {
+    const next = new URLSearchParams(params);
+    next.set('server', g.guildId);
+    setParams(next, { replace: true });
+  };
+  const addButton = (
+    <a href="/auth/discord/connect" className="btn-primary">
+      <Svg i="plus" className="h-4 w-4" /> Server toevoegen
+    </a>
+  );
 
   return (
     <>
-      <PageHeader
-        title="Discord"
-        subtitle="Heet nieuwe leden van je Discord-server welkom met een eigen plaatje."
-        actions={
-          data.configured && (
-            <a href="/auth/discord/connect" className="btn-primary">
-              <Svg i="plus" className="h-4 w-4" /> Verbind je Discord-server
-            </a>
-          )
-        }
-      />
+      <PageHeader title="Discord" subtitle="Jouw bot voor je Discord-server(s): welkomstberichten en meer." actions={data.configured && addButton} />
       {error && <div className="mb-5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{error}</div>}
 
       {!data.configured ? (
@@ -52,33 +57,134 @@ export function DiscordPage() {
         )
       ) : (
         <>
-          <section className="card mb-6 flex items-center gap-3 p-4 text-sm">
+          <section className="card mb-5 flex flex-wrap items-center gap-3 p-4 text-sm">
             <StatusDot tone={tone} />
             <span className="text-zinc-200">
               Bot {data.bot.botName ? <b>{data.bot.botName}</b> : ''} {data.bot.status === 'connected' ? 'is online' : data.bot.status === 'connecting' ? 'verbindt…' : data.bot.status === 'error' ? 'heeft een probleem' : 'staat uit'}
             </span>
             {data.bot.error && <span className="text-rose-300">{data.bot.error}</span>}
+            {data.bot.warning && <span className="basis-full rounded-lg bg-amber-400/10 px-3 py-2 text-amber-200">{data.bot.warning}</span>}
+            {data.bot.avatarError && <span className="basis-full rounded-lg bg-amber-400/10 px-3 py-2 break-all text-amber-200">⚠ {data.bot.avatarError}</span>}
           </section>
+
           {data.guilds.length === 0 ? (
-            <section className="card p-10 text-center">
-              <p className="mb-4 text-sm text-zinc-400">Nog geen server gekoppeld. Klik op de knop, kies je server bij Discord en klik op Toestaan.</p>
-              <a href="/auth/discord/connect" className="btn-primary">
-                <Svg i="plus" className="h-4 w-4" /> Verbind je Discord-server
-              </a>
+            <section className="card p-8">
+              <h2 className="mb-1 text-lg font-semibold text-white">Voeg je bot toe aan je Discord-server</h2>
+              <p className="mb-6 text-sm text-zinc-400">Dit duurt minder dan een minuut. Je hebt wel de rol “Server beheren” nodig in die server.</p>
+              <ol className="mb-6 grid gap-3 sm:grid-cols-3">
+                {['Klik op “Server toevoegen”', 'Kies je server in Discord', 'Klik op “Toestaan”'].map((t, i) => (
+                  <li key={t} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[.03] p-3 text-sm text-zinc-200">
+                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#5865f2] font-bold text-white">{i + 1}</span>
+                    {t}
+                  </li>
+                ))}
+              </ol>
+              {addButton}
             </section>
           ) : (
-            <div className="space-y-6">
-              {data.guilds.map((g) => (
-                <div key={g.id} className="space-y-4">
-                  <GuildEditor guild={g} onChange={reload} />
-                  <BotProfileEditor guild={g} bot={data.bot} onChange={reload} />
-                </div>
-              ))}
-            </div>
+            <>
+              <nav className="mb-5 flex gap-2 overflow-x-auto pb-1" aria-label="Jouw servers">
+                {data.guilds.map((g) => (
+                  <button
+                    key={g.id}
+                    onClick={() => select(g)}
+                    aria-current={g.id === guild.id ? 'page' : undefined}
+                    className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-xl border py-2 pr-4 pl-2 text-sm font-semibold transition ${
+                      g.id === guild.id ? 'border-[#5865f2] bg-[#5865f2]/15 text-white' : 'border-white/10 text-zinc-300 hover:bg-white/[.05]'
+                    }`}
+                  >
+                    <GuildIcon g={g} size="h-8 w-8" />
+                    {g.guildName}
+                    {g.removedAt && <span className="h-2 w-2 rounded-full bg-rose-500" title="Bot zit niet meer in deze server" />}
+                  </button>
+                ))}
+                <a href="/auth/discord/connect" className="flex shrink-0 items-center gap-2 rounded-xl border border-dashed border-white/20 px-4 py-2 text-sm font-semibold text-zinc-400 hover:border-white/40 hover:text-white">
+                  <Svg i="plus" className="h-4 w-4" /> Nog een server
+                </a>
+              </nav>
+
+              {guild.removedAt ? (
+                <section className="card border-rose-500/30 p-6">
+                  <h2 className="font-semibold text-white">De bot zit niet meer in {guild.guildName}</h2>
+                  <p className="mt-1 mb-4 text-sm text-zinc-400">Iemand heeft de bot in Discord uit de server gehaald. Je instellingen zijn bewaard: voeg hem opnieuw toe en alles werkt weer.</p>
+                  <div className="flex flex-wrap gap-2">
+                    {addButton}
+                    <RemoveGuildButton guild={guild} onDone={reload} label="Instellingen verwijderen" />
+                  </div>
+                </section>
+              ) : (
+                <>
+                  <div className="mb-5 flex gap-1 overflow-x-auto rounded-xl border border-white/[.06] bg-ink-950/40 p-1" role="tablist">
+                    {(
+                      [
+                        ['welcome', 'Welkom'],
+                        ['profile', 'Bot-profiel'],
+                        ['server', 'Server'],
+                      ] as const
+                    ).map(([k, l]) => (
+                      <button
+                        key={k}
+                        role="tab"
+                        aria-selected={tab === k}
+                        onClick={() => setTab(k)}
+                        className={`flex-1 cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap transition ${tab === k ? 'bg-white/[.08] text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                  {tab === 'welcome' && <GuildEditor key={guild.id} guild={guild} onChange={reload} />}
+                  {tab === 'profile' && <BotProfileEditor key={guild.id} guild={guild} bot={data.bot} onChange={reload} />}
+                  {tab === 'server' && (
+                    <section className="card p-6" aria-label="Server">
+                      <div className="flex items-center gap-4">
+                        <GuildIcon g={guild} size="h-14 w-14" />
+                        <div>
+                          <h2 className="text-lg font-semibold text-white">{guild.guildName}</h2>
+                          <p className="text-sm text-zinc-400">{guild.memberCount ? `${guild.memberCount} leden · ` : ''}bot is aanwezig</p>
+                        </div>
+                      </div>
+                      <div className="mt-6 rounded-xl border border-rose-500/30 bg-rose-500/[.06] p-5">
+                        <h3 className="font-semibold text-white">Bot uit deze server halen</h3>
+                        <p className="mt-1 mb-4 text-sm text-zinc-400">
+                          De bot verlaat {guild.guildName} en alle instellingen voor deze server worden gewist. Je kunt hem later altijd opnieuw toevoegen met “Server toevoegen”.
+                        </p>
+                        <RemoveGuildButton guild={guild} onDone={reload} label="Bot uit deze server halen" />
+                      </div>
+                    </section>
+                  )}
+                </>
+              )}
+            </>
           )}
         </>
       )}
     </>
+  );
+}
+
+function GuildIcon({ g, size }: { g: Guild; size: string }) {
+  return g.guildIcon ? (
+    <img src={`https://cdn.discordapp.com/icons/${g.guildId}/${g.guildIcon}.png?size=64`} alt="" className={`${size} rounded-xl`} />
+  ) : (
+    <div className={`${size} grid shrink-0 place-items-center rounded-xl bg-[#5865f2] font-bold text-white`}>{g.guildName[0]}</div>
+  );
+}
+
+function RemoveGuildButton({ guild, onDone, label }: { guild: Guild; onDone: () => void; label: string }) {
+  const toast = useToast();
+  return (
+    <button
+      className="btn-danger"
+      onClick={async () => {
+        if (!confirm(`Weet je het zeker? De bot verlaat ${guild.guildName} en de instellingen voor deze server worden gewist.`)) return;
+        await api(`/api/discord/guilds/${guild.id}`, { method: 'DELETE' });
+        toast(`Bot is uit ${guild.guildName} gehaald`);
+        onDone();
+      }}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -204,16 +310,6 @@ function GuildEditor({ guild, onChange }: { guild: Guild; onChange: () => void }
 
       <div className="mt-5 flex flex-wrap justify-end gap-2 border-t border-white/[.06] pt-4">
         <button
-          className="btn-danger mr-auto"
-          onClick={async () => {
-            if (!confirm(`${g.guildName} ontkoppelen? De bot verlaat dan je server.`)) return;
-            await api(`/api/discord/guilds/${g.id}`, { method: 'DELETE' });
-            onChange();
-          }}
-        >
-          Ontkoppelen
-        </button>
-        <button
           className="btn-ghost"
           disabled={!guild.channelId || dirty}
           title={dirty ? 'Sla eerst op' : !guild.channelId ? 'Kies eerst een kanaal' : undefined}
@@ -268,7 +364,7 @@ export function DiscordSetup({ onDone }: { onDone: () => void }) {
           <code className="rounded bg-white/5 px-1.5 py-0.5 text-brand-400 select-all">{data.redirectUri}</code>
         </li>
         <li>
-          3. <b>Bot</b> → zet <b>Server Members Intent</b> aan (nodig om nieuwe leden te zien) → <b>Reset Token</b> en kopieer het token.
+          3. <b>Bot</b> → zet <b>Server Members Intent</b> én <b>Message Content Intent</b> aan (voor welkomst, AutoMod en levels) → <b>Reset Token</b> en kopieer het token.
         </li>
         <li>
           4. Kopieer de <b>Application ID</b> (General Information) en het <b>Client Secret</b> (OAuth2).

@@ -1,4 +1,5 @@
 import WebSocket from 'ws';
+import { EventEmitter } from 'node:events';
 import { eq } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import { db, schema } from '../db/index.js';
@@ -6,9 +7,15 @@ import { discordApp } from '../settings.js';
 import { avatarUrl, gatewayUrl, getBotUser, memberAvatarCandidates, sendWelcome, type DiscordUser } from './api.js';
 import { renderCard } from './card.js';
 
-export type BotStatus = { status: 'off' | 'connecting' | 'connected' | 'error'; botName: string | null; error: string | null; guilds: number };
+export type BotStatus = { status: 'off' | 'connecting' | 'connected' | 'error'; botName: string | null; error: string | null; guilds: number; messageContent: boolean; warning: string | null; avatarError: string | null };
 
-const INTENTS = 1 /* GUILDS */ | 2; /* GUILD_MEMBERS (privileged: "Server Members Intent") */
+const GUILDS = 1;
+const GUILD_MEMBERS = 2; // privileged: "Server Members Intent"
+const GUILD_MODERATION = 4;
+const GUILD_MESSAGES = 512;
+const GUILD_MESSAGE_REACTIONS = 1024;
+const MESSAGE_CONTENT = 32768; // privileged: "Message Content Intent" (AutoMod, levels)
+const FULL_INTENTS = GUILDS | GUILD_MEMBERS | GUILD_MODERATION | GUILD_MESSAGES | GUILD_MESSAGE_REACTIONS | MESSAGE_CONTENT;
 
 export function welcomeMessage(template: string, v: { mention: string; name: string; server: string; count: number }) {
   return template
@@ -24,7 +31,10 @@ export function welcomeMessage(template: string, v: { mention: string; name: str
  * RECONNECT / INVALID_SESSION and fatal close codes, and posts welcome images on GUILD_MEMBER_ADD.
  */
 export class DiscordBot {
-  status: BotStatus = { status: 'off', botName: null, error: null, guilds: 0 };
+  status: BotStatus = { status: 'off', botName: null, error: null, guilds: 0, messageContent: false, warning: null, avatarError: null };
+  /** Gateway events for the feature modules (moderation, roles, levels, ...). */
+  readonly events = new EventEmitter();
+  private intents = FULL_INTENTS;
   private ws: WebSocket | null = null;
   private heartbeat: NodeJS.Timeout | null = null;
   private retry: NodeJS.Timeout | null = null;
@@ -45,7 +55,8 @@ export class DiscordBot {
     this.stop();
     if (discordApp().source === 'none') return;
     this.stopped = false;
-    this.status = { status: 'connecting', botName: null, error: null, guilds: 0 };
+    this.intents = FULL_INTENTS;
+    this.status = { status: 'connecting', botName: null, error: null, guilds: 0, messageContent: false, warning: null, avatarError: null };
     try {
       const url = await gatewayUrl();
       this.connect(url);
@@ -63,7 +74,7 @@ export class DiscordBot {
     this.ws?.terminate();
     this.ws = null;
     this.seq = this.sessionId = this.resumeUrl = null;
-    this.status = { status: 'off', botName: null, error: null, guilds: 0 };
+    this.status = { status: 'off', botName: null, error: null, guilds: 0, messageContent: false, warning: null, avatarError: null };
   }
 
   memberCount(guildId: string) {
@@ -97,7 +108,7 @@ export class DiscordBot {
           this.heartbeat = setInterval(() => this.beat(), every);
           const token = discordApp().botToken;
           if (this.sessionId) this.send({ op: 6, d: { token, session_id: this.sessionId, seq: this.seq } });
-          else this.send({ op: 2, d: { token, intents: INTENTS, properties: { os: 'linux', browser: 'lumio', device: 'lumio' } } });
+          else this.send({ op: 2, d: { token, intents: this.intents, properties: { os: 'linux', browser: 'lumio', device: 'lumio' } } });
           break;
         }
         case 11:
@@ -123,7 +134,17 @@ export class DiscordBot {
       if (this.heartbeat) clearInterval(this.heartbeat);
       this.ws = null;
       if (code === 4004) return this.fail('Discord weigert het bot-token. Vul het opnieuw in onder Instellingen.');
-      if (code === 4014) return this.fail('Zet in het Discord Developer Portal bij Bot de "Server Members Intent" aan en sla het token opnieuw op.');
+      if (code === 4014) {
+        if (this.intents & MESSAGE_CONTENT) {
+          // Keep the bot working without message content; AutoMod and levels need it though.
+          this.intents &= ~MESSAGE_CONTENT;
+          this.sessionId = this.seq = null;
+          this.status.warning = 'De "Message Content Intent" staat uit in het Discord Developer Portal. Welkomst en rollen werken, maar AutoMod en levels pas als je hem aanzet (Bot → Privileged Gateway Intents).';
+          this.retry = setTimeout(async () => this.connect(await gatewayUrl().catch(() => base)), 500);
+          return;
+        }
+        return this.fail('Zet in het Discord Developer Portal bij Bot de "Server Members Intent" aan en sla het token opnieuw op.');
+      }
       if (code === 4010 || code === 4011 || code === 4012 || code === 4013) return this.fail(`Discord sloot de verbinding (code ${code})`);
       this.status.status = 'connecting';
       const delay = Math.min(60_000, 1000 * 2 ** this.attempt++) + Math.random() * 1000;
@@ -153,12 +174,14 @@ export class DiscordBot {
   }
 
   private dispatch(type: string, d: any) {
+    this.events.emit(type, d);
     switch (type) {
       case 'READY':
         this.sessionId = d.session_id;
         this.resumeUrl = d.resume_gateway_url;
         this.attempt = 0;
-        this.status = { status: 'connected', botName: d.user?.global_name ?? d.user?.username ?? null, error: null, guilds: d.guilds?.length ?? 0 };
+        this.status = { ...this.status, status: 'connected', botName: d.user?.global_name ?? d.user?.username ?? null, error: null, guilds: d.guilds?.length ?? 0, messageContent: Boolean(this.intents & MESSAGE_CONTENT) };
+        if (this.status.messageContent) this.status.warning = null;
         this.avatarUrl = d.user?.id ? avatarUrl({ id: d.user.id, avatar: d.user.avatar ?? null }) : null;
         break;
       case 'RESUMED':
@@ -167,10 +190,14 @@ export class DiscordBot {
         break;
       case 'GUILD_CREATE':
         this.memberCounts.set(d.id, d.member_count ?? 0);
-        db.update(schema.discordGuilds).set({ guildName: d.name, guildIcon: d.icon ?? null }).where(eq(schema.discordGuilds.guildId, d.id)).run();
+        db.update(schema.discordGuilds).set({ guildName: d.name, guildIcon: d.icon ?? null, removedAt: null }).where(eq(schema.discordGuilds.guildId, d.id)).run();
         break;
       case 'GUILD_DELETE':
-        if (!d.unavailable) this.memberCounts.delete(d.id);
+        if (!d.unavailable) {
+          // The bot was kicked or left via Discord itself: keep the settings, show it in the dashboard.
+          this.memberCounts.delete(d.id);
+          db.update(schema.discordGuilds).set({ removedAt: Date.now() }).where(eq(schema.discordGuilds.guildId, d.id)).run();
+        }
         break;
       case 'GUILD_MEMBER_ADD':
         this.memberCounts.set(d.guild_id, this.memberCount(d.guild_id) + 1);
@@ -180,7 +207,7 @@ export class DiscordBot {
   }
 
   /** Posts the welcome image for a new member (or a test for the streamer). */
-  async welcome(guildId: string, user: DiscordUser, opts: { test?: boolean; memberAvatar?: string | null } = {}) {
+  async welcome(guildId: string, user: DiscordUser, opts: { test?: boolean; memberAvatar?: string | null; avatars?: string[] } = {}) {
     const g = db.select().from(schema.discordGuilds).where(eq(schema.discordGuilds.guildId, guildId)).get();
     if (!g || !g.channelId || (!g.enabled && !opts.test) || user.bot) return false;
     const key = `${guildId}:${user.id}`;
@@ -189,9 +216,19 @@ export class DiscordBot {
     if (this.recent.size > 5000) this.recent.clear();
     const name = user.global_name || user.username;
     const count = this.memberCount(guildId);
-    const png = await renderCard(g.card, { name, server: g.guildName, count, avatar: memberAvatarCandidates(guildId, user, opts.memberAvatar) }, (reason) =>
-      this.log.warn({ guildId }, `welkomstplaatje: profielfoto niet geladen (${reason})`),
+    const errors: string[] = [];
+    let loaded: string | null = null;
+    const png = await renderCard(
+      g.card,
+      { name, server: g.guildName, count, avatar: opts.avatars ?? memberAvatarCandidates(guildId, user, opts.memberAvatar) },
+      (reason) => {
+        errors.push(reason);
+        this.log.warn({ guildId }, `welkomstplaatje: profielfoto niet geladen (${reason})`);
+      },
+      (src) => (loaded = src),
     );
+    // Shown in the dashboard so the streamer can see why a photo is missing without digging in logs.
+    this.status.avatarError = loaded ? null : `Profielfoto van ${name} kon niet worden geladen: ${errors.join(' | ') || 'geen foto gevonden'}`;
     // A test has no real Discord member to mention.
     const content = welcomeMessage(g.message, { mention: opts.test ? `**${name}**` : `<@${user.id}>`, name, server: g.guildName, count });
     await sendWelcome(g.channelId, content, png, opts.test ? null : user.id);

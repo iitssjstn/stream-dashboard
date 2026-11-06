@@ -6,6 +6,8 @@ export type Command = {
   id: number;
   name: string;
   trigger: Trigger;
+  /** Own description, e.g. the StreamElements overlay/alert it was imported from */
+  label: string | null;
   reply: string | null;
   aliases: string[];
   minAmount: number;

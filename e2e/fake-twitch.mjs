@@ -19,7 +19,7 @@ export function startFakeTwitch(port) {
     streamer1: { id: '1001', login: 'knuffelstreamer', display_name: 'KnuffelStreamer' },
     streamer2: { id: '1002', login: 'anderestreamer', display_name: 'AndereStreamer' },
   };
-  const state = { nextAccount: 'streamer1', tokens: new Map(), sockets: new Map(), log: [], sent: [], subs: [], eventsub: new Set(), discordPosts: [], discordGw: new Set(), discordLeft: [] };
+  const state = { nextAccount: 'streamer1', tokens: new Map(), sockets: new Map(), log: [], sent: [], subs: [], eventsub: new Set(), discordPosts: [], discordGw: new Set(), discordLeft: [], nextGuild: { id: '999000111222333444', name: 'Knuffel Discord' }, rejectMessageContent: false, identifies: [] };
   let n = 0;
   const issue = (acct) => {
     const access = `at_${acct}_${++n}`;
@@ -91,7 +91,7 @@ export function startFakeTwitch(port) {
       const back = new URL(url.searchParams.get('redirect_uri'));
       back.searchParams.set('code', 'discord-code');
       back.searchParams.set('state', url.searchParams.get('state'));
-      back.searchParams.set('guild_id', '999000111222333444');
+      back.searchParams.set('guild_id', state.nextGuild.id);
       back.searchParams.set('permissions', url.searchParams.get('permissions'));
       res.writeHead(302, { location: back.toString() }).end();
     } else if (url.pathname.startsWith('/discord/api/')) {
@@ -102,18 +102,19 @@ export function startFakeTwitch(port) {
       if (p === '/oauth2/token' && req.method === 'POST') {
         const b = await body(req);
         if (b.get('code') !== 'discord-code' || b.get('client_secret') !== 'discordsecret1234567890') return json(400, { error: 'invalid_grant' });
-        return json(200, { access_token: 'x', token_type: 'Bearer', guild: { id: '999000111222333444', name: 'Knuffel Discord', icon: null } });
+        return json(200, { access_token: 'x', token_type: 'Bearer', guild: { id: state.nextGuild.id, name: state.nextGuild.name, icon: null } });
       }
       if (auth !== `Bot ${'d'.repeat(30)}.discord.${'t'.repeat(30)}`) return json(401, { message: '401: Unauthorized' });
       if (p === '/users/@me') return json(200, { id: '123456789012345678', username: 'LumioBot', global_name: 'LumioBot', avatar: null, bot: true });
-      if (p === '/guilds/999000111222333444/channels') return json(200, [{ id: '111', name: 'welkom', type: 0, position: 1 }, { id: '113', name: 'algemeen', type: 0, position: 0 }, { id: '112', name: 'Voice', type: 2, position: 2 }]);
+      if (/^\/guilds\/\d+\/channels$/.test(p)) return json(200, [{ id: '111', name: 'welkom', type: 0, position: 1 }, { id: '113', name: 'algemeen', type: 0, position: 0 }, { id: '112', name: 'Voice', type: 2, position: 2 }]);
       if (p === '/guilds/999000111222333444/members/@me' && req.method === 'PATCH') {
         let b = '';
         for await (const c of req) b += c;
         state.discordProfile = JSON.parse(b);
         return json(200, { nick: state.discordProfile.nick });
       }
-      if (p === '/users/@me/guilds/999000111222333444' && req.method === 'DELETE') return state.discordLeft.push('999000111222333444'), json(204);
+      const leave = /^\/users\/@me\/guilds\/(\d+)$/.exec(p);
+      if (leave && req.method === 'DELETE') return state.discordLeft.push(leave[1]), json(204);
       const m = /^\/channels\/(\d+)\/messages$/.exec(p);
       if (m && req.method === 'POST') {
         const chunks = [];
@@ -187,7 +188,9 @@ export function startFakeTwitch(port) {
       if (p.op === 1) ws.send(JSON.stringify({ op: 11 }));
       if (p.op === 2) {
         if (p.d.token !== `${'d'.repeat(30)}.discord.${'t'.repeat(30)}`) return ws.close(4004, 'Authentication failed');
+        state.identifies.push(p.d.intents);
         if ((p.d.intents & 2) !== 2) return ws.close(4014, 'Disallowed intent');
+        if (state.rejectMessageContent && p.d.intents & 32768) return ws.close(4014, 'Disallowed intent');
         state.discordGw.add(ws);
         ws.send(JSON.stringify({ op: 0, s: ++dseq, t: 'READY', d: { session_id: 'sess', resume_gateway_url: 'ws://localhost:' + port + '/discord-gw', user: { id: '123456789012345678', username: 'LumioBot' }, guilds: [{ id: '999000111222333444', unavailable: true }] } }));
         ws.send(JSON.stringify({ op: 0, s: ++dseq, t: 'GUILD_CREATE', d: { id: '999000111222333444', name: 'Knuffel Discord', icon: null, member_count: 41 } }));

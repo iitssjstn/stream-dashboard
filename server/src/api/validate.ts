@@ -66,6 +66,7 @@ export function validateCommand(body: any) {
     name,
     trigger,
     reply,
+    label: str(body.label, 'Naam', 80, true),
     aliases: (aliases as string[]).filter((a) => a !== name),
     minAmount: int(body.minAmount ?? 0, 'Minimum', 0, 1_000_000),
     enabled: body.enabled !== false,

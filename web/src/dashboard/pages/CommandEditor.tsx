@@ -21,6 +21,7 @@ const fingerprint = (x: Draft) =>
 const blank: Draft = {
   name: '',
   trigger: 'chat',
+  label: null,
   reply: null,
   aliases: [],
   minAmount: 0,
@@ -208,6 +209,10 @@ export function CommandEditor() {
         <div className="space-y-5">
           {isAlert ? (
             <section className="card grid gap-4 p-5 sm:grid-cols-[1fr_auto]">
+              <Field label="Naam (alleen voor jou)" hint="Zodat je weet welke alert dit is, bijv. de naam van je oude StreamElements-overlay.">
+                <input className="input" maxLength={80} value={d.label ?? ''} placeholder={`${alertInfo?.label ?? 'Alert'}${d.minAmount ? ` vanaf ${d.minAmount}` : ''}`} onChange={(e) => set('label', e.target.value || null)} />
+              </Field>
+              <div />
               {alertInfo?.amount ? (
                 <Field label={`Vanaf hoeveel ${alertInfo.amount}?`} hint="Je kunt meerdere varianten maken; de variant met het hoogste passende minimum wordt afgespeeld.">
                   <input type="number" className="input" min={0} max={1000000} value={d.minAmount} onChange={(e) => set('minAmount', Math.max(0, Number(e.target.value) || 0))} />

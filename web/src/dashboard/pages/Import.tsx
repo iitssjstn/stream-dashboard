@@ -6,7 +6,7 @@ import { MediaThumb } from '../components/Shared';
 
 type Cmd = { key: string; name: string; aliases: string[]; reply: string; permission: string; userCooldownSec: number; globalCooldownSec: number; enabled: boolean; warnings: string[] };
 type Tmr = { key: string; name: string; messages: string[]; intervalMin: number; offlineIntervalMin: number; minChatLines: number; enabled: boolean; warnings: string[] };
-type Alr = { key: string; label: string; trigger: string; enabled: boolean; minAmount: number; text: string; imageUrl: string | null; soundUrl: string | null; durationMs: number; warnings: string[] };
+type Alr = { key: string; label: string; overlay: string; trigger: string; enabled: boolean; minAmount: number; text: string; imageUrl: string | null; soundUrl: string | null; durationMs: number; warnings: string[] };
 type Preview = { channel: { name: string }; commands: Cmd[]; timers: Tmr[]; alerts: Alr[]; skipped: { what: string; reason: string }[]; existingCommands: string[] };
 type Result = { created: number; updated: number; skipped: number; timers: number; alerts: number; errors: string[] };
 
@@ -159,8 +159,12 @@ export function ImportPage() {
                   {a.imageUrl ? <MediaThumb src={a.imageUrl} alt="" className="checker h-10 w-10 rounded-lg object-contain" /> : <span className="grid h-10 w-10 place-items-center rounded-lg bg-white/5 text-lg">🔔</span>}
                   <span className="min-w-0">
                     <span className="font-semibold text-white">
-                      {ALERT_TYPES.find((t) => t.trigger === a.trigger)?.label}
-                      {a.minAmount ? ` vanaf ${a.minAmount}` : ''}
+                      {a.overlay ? `${a.overlay} — ` : ''}
+                      {a.label}
+                    </span>
+                    <span className="ml-2 text-xs text-zinc-500">
+                      ({ALERT_TYPES.find((t) => t.trigger === a.trigger)?.label}
+                      {a.minAmount ? ` vanaf ${a.minAmount}` : ''})
                     </span>
                     <span className="block truncate text-sm text-zinc-400">{a.text || <i>geen tekst</i>}</span>
                     <span className="text-xs text-zinc-500">

@@ -422,6 +422,7 @@ try {
   check(await p1.getByText('Variabelen niet ondersteund (blijven als tekst staan): ${uptime}').isVisible(), 'Import: niet-ondersteunde variabelen worden gemeld');
   check(!(await p1.getByText('Video wordt niet ondersteund').isVisible()), 'Import: video-alerts worden gewoon overgenomen (geen waarschuwing meer)');
   check(await p1.getByText('Twitch heeft hosts afgeschaft').isVisible(), 'Import: host-alert overgeslagen met uitleg');
+  check(await p1.getByText('Alerts — Subscriber gift').isVisible(), 'Importoverzicht toont overlay- en variatienaam');
   await sleep(300);
   await p1.screenshot({ path: path.join(OUT, '14-import-preview.png'), fullPage: true });
   await p1.getByRole('button', { name: /onderdelen importeren/ }).click();
@@ -438,6 +439,7 @@ try {
   check(imported.find((c) => c.name === 'alert-follow')?.enabled === false, 'Lumio-standaard follow-alert is uitgezet zodat er geen dubbele alert komt');
   check(imported.some((c) => c.trigger === 'resub' && c.minAmount === 2) && imported.some((c) => c.trigger === 'gift' && c.text === '{user} gifted de chat a subscription!'), 'Sub-variaties: resub (vanaf 2 maanden) en gift overgenomen');
   check(imported.some((c) => c.trigger === 'raid' && c.minAmount === 5), 'Raid minimum (5 kijkers) overgenomen');
+  check(imported.find((c) => c.name === 'se-follow-0')?.label === 'Alerts — Follow' && imported.some((c) => c.label === 'Alerts — Subscriber gift'), 'Alerts krijgen de naam van hun StreamElements-overlay en variatie');
   check(imported.find((c) => c.name === 'mega-cheer')?.enabled === true, 'Zelfgemaakte alert-varianten blijven aan na import');
   check(imported.find((c) => c.name === 'se-cheer-0')?.imageUrl === 'https://cdn.example.com/cheer.webm' && imported.find((c) => c.name === 'se-cheer-0')?.animation === 'image', 'Video-alert (WebM) uit StreamElements overgenomen');
   tw.chat('knuffelstreamer', { login: 'fan9', display: 'Fan9', userId: '7009', id: 'msg-i1', text: '!links' });
@@ -470,7 +472,7 @@ try {
   check((await p2.evaluate(() => fetch('/api/admin/discord').then((r) => r.status))) === 403, 'Alleen de eigenaar beheert de Discord-bot');
 
   await p1.goto(`${APP}/discord`);
-  await p1.getByRole('link', { name: 'Verbind je Discord-server' }).first().click();
+  await p1.getByRole('link', { name: 'Server toevoegen' }).first().click();
   await p1.getByRole('region', { name: 'Discord-server Knuffel Discord' }).waitFor();
   check(true, 'Streamer verbindt zijn Discord-server met één klik (OAuth bot-uitnodiging)');
   const guildBox = p1.getByRole('region', { name: 'Discord-server Knuffel Discord' });
@@ -545,6 +547,7 @@ try {
     return (await fetch('/api/uploads', { method: 'POST', body: fd })).json();
   });
   await p1.reload();
+  await p1.getByRole('tab', { name: 'Bot-profiel' }).click();
   const profileBox = p1.getByRole('region', { name: 'Bot-profiel op Knuffel Discord' });
   await profileBox.waitFor();
   await profileBox.getByLabel('Naam van de bot').fill('KnuffelBot');
@@ -558,6 +561,39 @@ try {
 
   await sleep(400);
   await p1.screenshot({ path: path.join(OUT, '18-discord.png'), fullPage: true });
+
+  // ===== Discord basics: several servers, bot kicked in Discord, removing the bot, intents fallback =====
+  tw.state.nextGuild = { id: '888000111222333444', name: 'Tweede Server' };
+  await p1.goto(`${APP}/discord`);
+  await p1.getByRole('link', { name: 'Nog een server' }).click();
+  await p1.getByRole('button', { name: 'Tweede Server' }).waitFor();
+  check(new URL(p1.url()).searchParams.get('server') === '888000111222333444' && (await api1('/api/discord')).json.guilds.length === 2, 'Tweede server toevoegen; dashboard springt naar die server');
+  await p1.getByRole('button', { name: 'Knuffel Discord' }).click();
+  check(new URL(p1.url()).searchParams.get('server') === '999000111222333444', 'Wisselen tussen servers');
+  for (const ws of tw.state.discordGw) ws.send(JSON.stringify({ op: 0, s: 950, t: 'GUILD_DELETE', d: { id: '888000111222333444' } }));
+  await p1.getByRole('button', { name: 'Tweede Server' }).click();
+  await p1.getByText('De bot zit niet meer in Tweede Server').waitFor({ timeout: 8000 });
+  check(true, 'Bot in Discord uit de server gezet → dashboard legt uit wat er aan de hand is');
+  await p1.getByRole('link', { name: 'Server toevoegen' }).first().click();
+  await p1.getByRole('tab', { name: 'Welkom' }).waitFor();
+  check((await api1('/api/discord')).json.guilds.find((g) => g.guildId === '888000111222333444').removedAt === null, 'Opnieuw toevoegen herstelt de server met bewaarde instellingen');
+  await p1.getByRole('tab', { name: 'Server' }).click();
+  p1.once('dialog', (dlg) => dlg.accept());
+  await p1.getByRole('button', { name: 'Bot uit deze server halen' }).click();
+  await p1.getByText('Bot is uit Tweede Server gehaald').waitFor();
+  check(tw.state.discordLeft.includes('888000111222333444') && (await api1('/api/discord')).json.guilds.length === 1, 'Bot uit een server halen: bot verlaat de server en instellingen worden gewist');
+  tw.state.nextGuild = { id: '999000111222333444', name: 'Knuffel Discord' };
+
+  tw.state.rejectMessageContent = true;
+  await api1('/api/admin/discord', 'PUT', { clientId: '123456789012345678', clientSecret: 'discordsecret1234567890', botToken: BOT_TOKEN });
+  const fellBack = await waitFor(async () => {
+    const b = (await api1('/api/discord')).json.bot;
+    return b.status === 'connected' && !b.messageContent && b.warning?.includes('Message Content Intent');
+  }, 10000);
+  check(Boolean(fellBack), 'Message Content Intent uit: bot blijft werken en het dashboard zegt wat je moet aanzetten');
+  tw.state.rejectMessageContent = false;
+  await api1('/api/admin/discord', 'PUT', { clientId: '123456789012345678', clientSecret: 'discordsecret1234567890', botToken: BOT_TOKEN });
+  check(Boolean(await waitFor(async () => (await api1('/api/discord')).json.bot.messageContent === true, 10000)), 'Met alle intents aan: volledige functionaliteit');
 
   // ===== 19. Video: upload a real WebM clip and play it via a chat command, for exactly its own length =====
   const vid = await p1.evaluate(async () => {

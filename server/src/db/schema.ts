@@ -66,6 +66,8 @@ export const commands = sqliteTable(
     /** Built-in animation id ('hug', 'highfive', ...) or 'image' for a custom image/GIF */
     /** chat = triggered by a chat command; otherwise an alert: follow | subscriber | resub | gift | cheer | raid */
     trigger: text('trigger').notNull().default('chat'),
+    /** Own description, e.g. the StreamElements overlay/alert it was imported from */
+    label: text('label'),
     /** Chat message the bot sends back (optional). Supports {user} {target} {channel} {count} {random:1-100} {args} */
     reply: text('reply'),
     /** Extra command names, e.g. ["socials","links"] */
@@ -184,6 +186,8 @@ export const discordGuilds = sqliteTable(
     message: text('message').notNull().default('Welkom {user} in {server}! 🎉'),
     card: text('card', { mode: 'json' }).$type<WelcomeCard>().notNull(),
     /** How the shared bot presents itself on this server (per-server nickname, avatar, bio) */
+    /** Set when the bot was removed from the server in Discord itself (kick/leave); cleared when it is back */
+    removedAt: integer('removed_at'),
     botProfile: text('bot_profile', { mode: 'json' }).$type<BotProfile>().notNull().default({ nick: null, avatar: null, bio: null }),
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),

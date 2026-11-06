@@ -6,13 +6,33 @@ import { randomToken } from '../crypto.js';
 import { currentUser, requireUser } from '../auth/session.js';
 import { discordApp, ownerUserId, saveDiscordApp } from '../settings.js';
 import type { WelcomeCard } from '../db/schema.js';
-import { DiscordError, exchangeBotCode, leaveGuild, modifyCurrentMember, textChannels } from './api.js';
+import { defaultAvatarUrl, DiscordError, exchangeBotCode, leaveGuild, modifyCurrentMember, textChannels } from './api.js';
 import { avatarDataUri, renderCard } from './card.js';
 import { DiscordBot } from './bot.js';
 
 const STATE_COOKIE = 'lumio_discord_state';
-/** View Channels + Send Messages + Embed Links + Attach Files + Change Nickname */
-const BOT_PERMISSIONS = String(1024 + 2048 + 16384 + 32768 + 67108864);
+/**
+ * Everything the bot's features need, asked once when a server is added:
+ * welcome, profile, moderation (kick/ban/timeout/delete), roles, tickets (channels) and logs.
+ */
+const P = {
+  KICK_MEMBERS: 1n << 1n,
+  BAN_MEMBERS: 1n << 2n,
+  MANAGE_CHANNELS: 1n << 4n,
+  ADD_REACTIONS: 1n << 6n,
+  VIEW_AUDIT_LOG: 1n << 7n,
+  VIEW_CHANNEL: 1n << 10n,
+  SEND_MESSAGES: 1n << 11n,
+  MANAGE_MESSAGES: 1n << 13n,
+  EMBED_LINKS: 1n << 14n,
+  ATTACH_FILES: 1n << 15n,
+  READ_MESSAGE_HISTORY: 1n << 16n,
+  CHANGE_NICKNAME: 1n << 26n,
+  MANAGE_ROLES: 1n << 28n,
+  SEND_MESSAGES_IN_THREADS: 1n << 38n,
+  MODERATE_MEMBERS: 1n << 40n,
+};
+const BOT_PERMISSIONS = String(Object.values(P).reduce((a, b) => a | b, 0n));
 
 export const defaultCard = (): WelcomeCard => ({
   background: null,
@@ -54,7 +74,7 @@ export async function discordRoutes(app: FastifyInstance, { bot }: { bot: Discor
     reply.setCookie(STATE_COOKIE, state, { path: '/auth', httpOnly: true, sameSite: 'lax', secure: config.secureCookies, signed: true, maxAge: 600 });
     const u = new URL(config.discord.authorizeUrl);
     u.searchParams.set('client_id', d.clientId);
-    u.searchParams.set('scope', 'bot');
+    u.searchParams.set('scope', 'bot applications.commands');
     u.searchParams.set('permissions', BOT_PERMISSIONS);
     u.searchParams.set('response_type', 'code');
     u.searchParams.set('redirect_uri', config.discord.redirectUri);
@@ -77,9 +97,9 @@ export async function discordRoutes(app: FastifyInstance, { bot }: { bot: Discor
       const existing = db.select().from(schema.discordGuilds).where(eq(schema.discordGuilds.guildId, guild.id)).get();
       if (existing && existing.userId !== user.id) return back('Deze Discord-server is al gekoppeld aan een andere streamer.');
       const now = Date.now();
-      if (existing) db.update(schema.discordGuilds).set({ guildName: guild.name, guildIcon: guild.icon, updatedAt: now }).where(eq(schema.discordGuilds.id, existing.id)).run();
+      if (existing) db.update(schema.discordGuilds).set({ guildName: guild.name, guildIcon: guild.icon, removedAt: null, updatedAt: now }).where(eq(schema.discordGuilds.id, existing.id)).run();
       else db.insert(schema.discordGuilds).values({ userId: user.id, guildId: guild.id, guildName: guild.name, guildIcon: guild.icon, card: defaultCard(), createdAt: now, updatedAt: now }).run();
-      return back();
+      return reply.redirect(`${config.appUrl}/discord?connected=1&server=${encodeURIComponent(guild.id)}`);
     } catch (e) {
       return back((e as Error).message);
     }
@@ -164,7 +184,9 @@ export async function discordRoutes(app: FastifyInstance, { bot }: { bot: Discor
       const g = own(req.user.id, Number(req.params.id));
       if (!g) return reply.code(404).send({ error: 'Niet gevonden' });
       if (!g.channelId) return reply.code(400).send({ error: 'Kies eerst een kanaal' });
-      await bot.welcome(g.guildId, { id: '0', username: req.user.displayName, global_name: req.user.displayName, avatar: null }, { test: true });
+      // The test uses the streamer's own (Twitch) profile photo, so the image looks like the real thing.
+      const ownPhoto = req.user.profileImageUrl && /^https:\/\/static-cdn\.jtvnw\.net\//.test(req.user.profileImageUrl) ? [req.user.profileImageUrl] : [];
+      await bot.welcome(g.guildId, { id: '0', username: req.user.displayName, global_name: req.user.displayName, avatar: null }, { test: true, avatars: [...ownPhoto, defaultAvatarUrl('0')] });
       return { ok: true };
     });
 
