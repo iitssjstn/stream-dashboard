@@ -17,6 +17,8 @@ import { EventSubManager } from './twitch/eventsub.js';
 import { TimerScheduler } from './timers/scheduler.js';
 import { seedDefaultAlerts } from './commands/seed.js';
 import { importRoutes } from './import/routes.js';
+import { discordRoutes } from './discord/routes.js';
+import { DiscordBot } from './discord/bot.js';
 import { authRoutes } from './auth/routes.js';
 import { setupRoutes } from './setup/routes.js';
 import { giphyRoutes } from './giphy/routes.js';
@@ -59,6 +61,8 @@ await app.register(setupRoutes, { chat, eventsub });
 await app.register(giphyRoutes);
 await app.register(apiRoutes, { prefix: '/api', chat, engine, hub, eventsub, timers });
 await app.register(importRoutes, { prefix: '/api/import', engine });
+const discordBot = new DiscordBot(app.log);
+await app.register(discordRoutes, { bot: discordBot });
 await app.register(overlayRoutes, { hub });
 
 // Public uploaded media (random, unguessable file names). nosniff + no SVG prevents script injection.
@@ -95,11 +99,13 @@ if (!twitchConfigured()) {
 }
 chat.startAll();
 eventsub.startAll();
+void discordBot.start();
 
 const shutdown = async () => {
   chat.stopAll();
   eventsub.stopAll();
   timers.close();
+  discordBot.stop();
   engine.close();
   hub.close();
   await app.close();

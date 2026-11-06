@@ -11,7 +11,7 @@ export function startFakeTwitch(port) {
     streamer1: { id: '1001', login: 'knuffelstreamer', display_name: 'KnuffelStreamer' },
     streamer2: { id: '1002', login: 'anderestreamer', display_name: 'AndereStreamer' },
   };
-  const state = { nextAccount: 'streamer1', tokens: new Map(), sockets: new Map(), log: [], sent: [], subs: [], eventsub: new Set() };
+  const state = { nextAccount: 'streamer1', tokens: new Map(), sockets: new Map(), log: [], sent: [], subs: [], eventsub: new Set(), discordPosts: [], discordGw: new Set(), discordLeft: [] };
   let n = 0;
   const issue = (acct) => {
     const access = `at_${acct}_${++n}`;
@@ -70,6 +70,43 @@ export function startFakeTwitch(port) {
       for await (const c of req) b += c;
       state.subs.push(JSON.parse(b));
       res.writeHead(202, { 'content-type': 'application/json' }).end('{"data":[]}');
+    } else if (url.pathname === '/discord/oauth2/authorize') {
+      // TEST-ONLY stand-in for Discord's "add bot to server" consent screen
+      const back = new URL(url.searchParams.get('redirect_uri'));
+      back.searchParams.set('code', 'discord-code');
+      back.searchParams.set('state', url.searchParams.get('state'));
+      back.searchParams.set('guild_id', '999000111222333444');
+      back.searchParams.set('permissions', url.searchParams.get('permissions'));
+      res.writeHead(302, { location: back.toString() }).end();
+    } else if (url.pathname.startsWith('/discord/api/')) {
+      // TEST-ONLY stand-in for discord.com/api/v10
+      const p = url.pathname.slice('/discord/api'.length);
+      const auth = req.headers.authorization ?? '';
+      const json = (code, body) => res.writeHead(code, { 'content-type': 'application/json' }).end(body === undefined ? '' : JSON.stringify(body));
+      if (p === '/oauth2/token' && req.method === 'POST') {
+        const b = await body(req);
+        if (b.get('code') !== 'discord-code' || b.get('client_secret') !== 'discordsecret1234567890') return json(400, { error: 'invalid_grant' });
+        return json(200, { access_token: 'x', token_type: 'Bearer', guild: { id: '999000111222333444', name: 'Knuffel Discord', icon: null } });
+      }
+      if (auth !== `Bot ${'d'.repeat(30)}.discord.${'t'.repeat(30)}`) return json(401, { message: '401: Unauthorized' });
+      if (p === '/users/@me') return json(200, { id: '123456789012345678', username: 'LumioBot', global_name: 'LumioBot', avatar: null, bot: true });
+      if (p === '/guilds/999000111222333444/channels') return json(200, [{ id: '111', name: 'welkom', type: 0, position: 1 }, { id: '113', name: 'algemeen', type: 0, position: 0 }, { id: '112', name: 'Voice', type: 2, position: 2 }]);
+      if (p === '/users/@me/guilds/999000111222333444' && req.method === 'DELETE') return state.discordLeft.push('999000111222333444'), json(204);
+      const m = /^\/channels\/(\d+)\/messages$/.exec(p);
+      if (m && req.method === 'POST') {
+        const chunks = [];
+        for await (const c of req) chunks.push(c);
+        const raw = Buffer.concat(chunks);
+        const boundary = /boundary=(.+)$/.exec(req.headers['content-type'])[1];
+        const parts = raw.toString('latin1').split(`--${boundary}`);
+        const payloadPart = parts.find((x) => x.includes('name="payload_json"'));
+        const filePart = parts.find((x) => x.includes('name="files[0]"'));
+        const payload = JSON.parse(Buffer.from(payloadPart.slice(payloadPart.indexOf('\r\n\r\n') + 4).trim(), 'latin1').toString('utf8'));
+        const file = Buffer.from(filePart.slice(filePart.indexOf('\r\n\r\n') + 4, -2), 'latin1');
+        state.discordPosts.push({ channel: m[1], payload, file });
+        return json(200, { id: String(Date.now()) });
+      }
+      return json(404, { message: 'Unknown' });
     } else if (url.pathname.startsWith('/se/')) {
       // TEST-ONLY stand-in for api.streamelements.com/kappa/v2, shaped like their published API spec
       if (req.headers.authorization !== 'Bearer aaa.bbb.ccc') return res.writeHead(401).end('{"message":"Unauthorized"}');
@@ -118,8 +155,30 @@ export function startFakeTwitch(port) {
   const wss = new WebSocketServer({ noServer: true });
   // TEST-ONLY stand-in for eventsub.wss.twitch.tv
   const ess = new WebSocketServer({ noServer: true });
+  // TEST-ONLY stand-in for the Discord Gateway
+  const dgw = new WebSocketServer({ noServer: true });
+  let dseq = 0;
+  dgw.on('connection', (ws) => {
+    ws.send(JSON.stringify({ op: 10, d: { heartbeat_interval: 30000 } }));
+    ws.on('message', (raw) => {
+      const p = JSON.parse(raw.toString());
+      if (p.op === 1) ws.send(JSON.stringify({ op: 11 }));
+      if (p.op === 2) {
+        if (p.d.token !== `${'d'.repeat(30)}.discord.${'t'.repeat(30)}`) return ws.close(4004, 'Authentication failed');
+        if ((p.d.intents & 2) !== 2) return ws.close(4014, 'Disallowed intent');
+        state.discordGw.add(ws);
+        ws.send(JSON.stringify({ op: 0, s: ++dseq, t: 'READY', d: { session_id: 'sess', resume_gateway_url: 'ws://localhost:' + port + '/discord-gw', user: { id: '123456789012345678', username: 'LumioBot' }, guilds: [{ id: '999000111222333444', unavailable: true }] } }));
+        ws.send(JSON.stringify({ op: 0, s: ++dseq, t: 'GUILD_CREATE', d: { id: '999000111222333444', name: 'Knuffel Discord', icon: null, member_count: 41 } }));
+      }
+    });
+    ws.on('close', () => state.discordGw.delete(ws));
+  });
+  /** Someone joins the Discord server. */
+  const discordJoin = (user) => {
+    for (const ws of state.discordGw) ws.send(JSON.stringify({ op: 0, s: ++dseq, t: 'GUILD_MEMBER_ADD', d: { guild_id: '999000111222333444', user, joined_at: new Date().toISOString() } }));
+  };
   server.on('upgrade', (req, socket, head) => {
-    const target = req.url.startsWith('/eventsub') ? ess : req.url.startsWith('/irc') ? wss : null;
+    const target = req.url.startsWith('/eventsub') ? ess : req.url.startsWith('/irc') ? wss : req.url.startsWith('/discord-gw') ? dgw : null;
     if (!target) return socket.destroy();
     target.handleUpgrade(req, socket, head, (ws) => target.emit('connection', ws, req));
   });
@@ -167,5 +226,5 @@ export function startFakeTwitch(port) {
     ws.send(`${tags} :${login}!${login}@${login}.tmi.twitch.tv PRIVMSG #${channel} :${text}\r\n`);
   };
 
-  return new Promise((resolve) => server.listen(port, () => resolve({ state, chat, event, close: () => { for (const ws of state.eventsub) ws.terminate(); ess.close(); wss.close(); server.close(); } })));
+  return new Promise((resolve) => server.listen(port, () => resolve({ state, chat, event, discordJoin, close: () => { for (const ws of state.eventsub) ws.terminate(); for (const ws of state.discordGw) ws.terminate(); dgw.close(); ess.close(); wss.close(); server.close(); } })));
 }

@@ -30,6 +30,8 @@ function watchOutput(p) {
   return p;
 }
 
+const discordEnv = { DISCORD_API_BASE: `http://localhost:${TW_PORT}/discord/api`, DISCORD_AUTHORIZE_URL: `http://localhost:${TW_PORT}/discord/oauth2/authorize`, DISCORD_GATEWAY_URL: `ws://localhost:${TW_PORT}/discord-gw` };
+
 // Set E2E_DOCKER_IMAGE=stream-dashboard:latest to run the same test against the Docker image.
 const IMAGE = process.env.E2E_DOCKER_IMAGE;
 function startApp() {
@@ -37,7 +39,7 @@ function startApp() {
     const name = 'lumio-e2e';
     spawn('docker', ['rm', '-f', name], { stdio: 'ignore' });
     const env = { PORT: APP_PORT, PUBLIC_URL: APP, LOG_LEVEL: 'warn',
-      TWITCH_ID_BASE: `http://localhost:${TW_PORT}`, TWITCH_API_BASE: `http://localhost:${TW_PORT}`, TWITCH_IRC_URL: `ws://localhost:${TW_PORT}/irc`, GIPHY_API_BASE: `http://localhost:${TW_PORT}`, TWITCH_EVENTSUB_URL: `ws://localhost:${TW_PORT}/eventsub`, SE_API_BASE: `http://localhost:${TW_PORT}/se`, TIMER_MINUTE_MS: '400' };
+      TWITCH_ID_BASE: `http://localhost:${TW_PORT}`, TWITCH_API_BASE: `http://localhost:${TW_PORT}`, TWITCH_IRC_URL: `ws://localhost:${TW_PORT}/irc`, GIPHY_API_BASE: `http://localhost:${TW_PORT}`, TWITCH_EVENTSUB_URL: `ws://localhost:${TW_PORT}/eventsub`, SE_API_BASE: `http://localhost:${TW_PORT}/se`, TIMER_MINUTE_MS: '400', ...discordEnv };
     const args = ['run', '--rm', '--name', name, '--network', 'host', '-v', 'lumio-e2e-data:/data', ...Object.entries(env).flatMap(([k, v]) => ['-e', `${k}=${v}`]), IMAGE];
     const p = watchOutput(spawn('docker', args, { stdio: ['ignore', 'pipe', 'inherit'] }));
     const kill = p.kill.bind(p);
@@ -49,7 +51,7 @@ function startApp() {
     env: {
       ...process.env, PORT: String(APP_PORT), PUBLIC_URL: APP, DATA_DIR: DATA, LOG_LEVEL: 'warn',
       TWITCH_ID_BASE: `http://localhost:${TW_PORT}`, TWITCH_API_BASE: `http://localhost:${TW_PORT}`,
-      TWITCH_IRC_URL: `ws://localhost:${TW_PORT}/irc`, GIPHY_API_BASE: `http://localhost:${TW_PORT}`, TWITCH_EVENTSUB_URL: `ws://localhost:${TW_PORT}/eventsub`, SE_API_BASE: `http://localhost:${TW_PORT}/se`, TIMER_MINUTE_MS: '400',
+      TWITCH_IRC_URL: `ws://localhost:${TW_PORT}/irc`, GIPHY_API_BASE: `http://localhost:${TW_PORT}`, TWITCH_EVENTSUB_URL: `ws://localhost:${TW_PORT}/eventsub`, SE_API_BASE: `http://localhost:${TW_PORT}/se`, TIMER_MINUTE_MS: '400', ...discordEnv,
     },
     stdio: ['ignore', 'pipe', 'inherit'],
   });
@@ -448,6 +450,55 @@ try {
   await p1.getByText('Twitch-events verbonden').waitFor();
   await sleep(400);
   await p1.screenshot({ path: path.join(OUT, '16-alerts.png'), fullPage: true });
+
+  // ===== 18. Discord: one-time bot setup, "connect your server", welcome images =====
+  const BOT_TOKEN = `${'d'.repeat(30)}.discord.${'t'.repeat(30)}`;
+  await p1.goto(`${APP}/discord`);
+  await p1.getByText('Discord-bot instellen (eenmalig, eigenaar)').waitFor();
+  await p1.getByLabel('Application ID').fill('123456789012345678');
+  await p1.getByLabel('Client Secret').fill('discordsecret1234567890');
+  await p1.getByLabel('Bot-token').fill(`${'x'.repeat(30)}.discord.${'t'.repeat(30)}`);
+  await p1.getByRole('button', { name: 'Bot opslaan' }).click();
+  await p1.getByText('Discord weigert het bot-token').waitFor();
+  check(true, 'Discord: verkeerd bot-token wordt geweigerd');
+  await p1.getByLabel('Bot-token').fill(BOT_TOKEN);
+  await p1.getByRole('button', { name: 'Bot opslaan' }).click();
+  await p1.getByText('Bot LumioBot is ingesteld').waitFor();
+  check(!(await p1.evaluate(async () => [await (await fetch('/api/admin/discord')).text(), await (await fetch('/api/discord')).text()].join(''))).includes('discord.ttt'), 'Discord: bot-token komt nooit terug in de browser');
+  check(Boolean(await waitFor(async () => (await api1('/api/discord')).json.bot.status === 'connected', 8000)), 'Discord-bot verbonden met de Gateway');
+  check((await p2.evaluate(() => fetch('/api/admin/discord').then((r) => r.status))) === 403, 'Alleen de eigenaar beheert de Discord-bot');
+
+  await p1.goto(`${APP}/discord`);
+  await p1.getByRole('link', { name: 'Verbind je Discord-server' }).first().click();
+  await p1.getByRole('region', { name: 'Discord-server Knuffel Discord' }).waitFor();
+  check(true, 'Streamer verbindt zijn Discord-server met één klik (OAuth bot-uitnodiging)');
+  const guildBox = p1.getByRole('region', { name: 'Discord-server Knuffel Discord' });
+  await guildBox.getByRole('combobox').selectOption({ label: '#welkom' });
+  check((await guildBox.getByRole('combobox').locator('option').allTextContents()).every((t) => !t.includes('Voice')), 'Alleen tekstkanalen zijn te kiezen');
+  await guildBox.getByLabel('Titel', { exact: true }).fill('Welkom {name}!');
+  const prev = guildBox.getByAltText('Voorbeeld van het welkomstplaatje');
+  await prev.waitFor();
+  await sleep(900);
+  check((await prev.evaluate((img) => img.naturalWidth)) === 1100, 'Live preview van het welkomstplaatje (door de server gerenderd)');
+  await guildBox.getByRole('button', { name: 'Opslaan' }).click();
+  await p1.getByText('Welkomstinstellingen opgeslagen').waitFor();
+
+  tw.discordJoin({ id: '555000000000000001', username: 'nieuwkomer', global_name: 'Nieuwkomer', avatar: null });
+  check(Boolean(await waitFor(() => tw.state.discordPosts.length === 1, 8000)), 'Iemand joint de Discord → welkomstbericht verstuurd');
+  const post = tw.state.discordPosts[0];
+  check(post.channel === '111' && post.payload.content === 'Welkom <@555000000000000001> in Knuffel Discord! 🎉' && post.payload.allowed_mentions.users[0] === '555000000000000001', `In het gekozen kanaal, met vermelding: "${post.payload.content}"`);
+  check(post.file.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) && post.file.length > 5000, `Met PNG-welkomstplaatje (${Math.round(post.file.length / 1024)} KB)`);
+  fs.writeFileSync(path.join(OUT, '17-discord-welkom.png'), post.file);
+  tw.discordJoin({ id: '555000000000000001', username: 'nieuwkomer', global_name: 'Nieuwkomer', avatar: null });
+  tw.discordJoin({ id: '666000000000000001', username: 'somebot', avatar: null, bot: true });
+  await sleep(1200);
+  check(tw.state.discordPosts.length === 1, 'Geen dubbel welkom en bots worden niet verwelkomd');
+  await guildBox.getByRole('button', { name: 'Test sturen' }).click();
+  await p1.getByText('Testbericht verstuurd in Discord').waitFor();
+  check(tw.state.discordPosts[1]?.payload.content === 'Welkom **KnuffelStreamer** in Knuffel Discord! 🎉' && tw.state.discordPosts[1].payload.allowed_mentions.users.length === 0, 'Test sturen werkt (zonder echte vermelding)');
+  check((await p2.evaluate(() => fetch('/api/discord').then((r) => r.json()))).guilds.length === 0, 'Andere streamer ziet jouw Discord-server niet');
+  await sleep(400);
+  await p1.screenshot({ path: path.join(OUT, '18-discord.png'), fullPage: true });
 } finally {
   await browser.close();
   app.kill('SIGTERM');

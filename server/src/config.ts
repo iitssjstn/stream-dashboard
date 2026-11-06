@@ -77,6 +77,13 @@ export const config = {
     /** Overridable for tests. */
     apiBase: env('GIPHY_API_BASE', 'https://api.giphy.com'),
   },
+  discord: {
+    apiBase: env('DISCORD_API_BASE', 'https://discord.com/api/v10'),
+    authorizeUrl: env('DISCORD_AUTHORIZE_URL', 'https://discord.com/oauth2/authorize'),
+    /** Normally discovered via GET /gateway/bot; override only for tests. */
+    gatewayUrl: env('DISCORD_GATEWAY_URL', ''),
+    redirectUri: env('DISCORD_REDIRECT_URI', `${publicUrl}/auth/discord/callback`),
+  },
   /** StreamElements API (overridable for tests). */
   streamElementsApi: env('SE_API_BASE', 'https://api.streamelements.com/kappa/v2'),
   /** Length of one timer "minute" in ms. Only shortened by the end-to-end test. */

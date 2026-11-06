@@ -11,6 +11,7 @@ Kijkers typen een command zoals `!knuffel` in je Twitch-chat en er verschijnt me
 - **Timers**: herhaalde chatberichten met een interval voor live en offline, plus een minimaal aantal chatberichten ertussen
 - **Alerts**: follow, sub, resub, gifted subs, bits en raid via Twitch EventSub, met varianten per drempel (bijv. "vanaf 500 bits")
 - **StreamElements-import**: chat-commands, timers en AlertBox-alerts in één keer overnemen
+- **Discord-bot**: streamers verbinden met één klik hun Discord-server; nieuwe leden krijgen een welkomstplaatje met hun avatar en naam
 
 ## Snel starten met Docker Compose
 
@@ -69,6 +70,19 @@ jouwdomein.nl {
 2. daarna wordt een Docker-image voor `linux/amd64` en `linux/arm64` (bijv. Raspberry Pi) gebouwd en gepubliceerd naar `ghcr.io/iitssjstn/stream-dashboard` met de tags `latest`, `sha-…` en bij een tag `v1.2.3` ook `1.2.3` en `1.2`.
 
 Het package is standaard privé. Maak het publiek via GitHub → je profiel → *Packages* → *stream-dashboard* → *Package settings*, of log eenmalig in met `docker login ghcr.io` (gebruikersnaam + een token met `read:packages`).
+
+## Discord-bot (welkomstplaatjes)
+
+Discord laat bots alleen handmatig aanmaken. De eigenaar van de installatie doet dat daarom **één keer**:
+
+1. Ga naar <https://discord.com/developers/applications> en kies **New Application**.
+2. Ga naar **OAuth2 → Redirects** en voeg `<PUBLIC_URL>/auth/discord/callback` toe.
+3. Ga naar **Bot**, zet **Server Members Intent** aan en kies **Reset Token**.
+4. Vul in Lumio onder **Instellingen** (of op de pagina **Discord**) de Application ID, het Client Secret en het bot-token in. Lumio controleert het token bij Discord en slaat alles versleuteld op.
+
+Daarna klikt elke streamer op de pagina **Discord** op **Verbind je Discord-server**, kiest zijn server en klikt op **Toestaan**. Vervolgens kiest hij het welkomstkanaal en stelt hij de tekst, achtergrond (upload of GIPHY) en kleuren in, met een live preview. Bij elke nieuwe join plaatst de bot het plaatje met de avatar en naam van het nieuwe lid.
+
+Je kunt de gegevens ook als Docker secrets meegeven: `discord_client_id`, `discord_client_secret` en `discord_bot_token`.
 
 ## StreamElements importeren
 

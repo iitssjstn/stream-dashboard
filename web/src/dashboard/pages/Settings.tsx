@@ -4,6 +4,7 @@ import { useMe } from '../App';
 import { api } from '../api';
 import { usePoll } from '../hooks';
 import { TwitchAppForm } from '../components/TwitchAppForm';
+import { DiscordSetup } from './Discord';
 import { PageHeader, Svg, Toggle, useToast } from '../ui';
 
 export function Settings() {
@@ -46,6 +47,7 @@ export function Settings() {
 
         {me.isOwner && <TwitchAppSettings />}
         {me.isOwner && <GiphySettings onChange={reload} />}
+        {me.isOwner && <DiscordSetup onDone={reload} />}
 
         <section className="card flex flex-wrap gap-3 p-5">
           <button

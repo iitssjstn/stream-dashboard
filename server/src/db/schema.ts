@@ -152,6 +152,39 @@ export const timers = sqliteTable(
   (t) => [index('timers_user_idx').on(t.userId)],
 );
 
+export type WelcomeCard = {
+  /** /uploads/... or https URL; null = gradient in accentColor */
+  background: string | null;
+  title: string;
+  subtitle: string;
+  accentColor: string;
+  textColor: string;
+  /** 0-90: darkens the background so text stays readable */
+  dim: number;
+};
+
+/** A Discord server connected by a streamer (via the shared Lumio bot) with its welcome settings. */
+export const discordGuilds = sqliteTable(
+  'discord_guilds',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    guildId: text('guild_id').notNull(),
+    guildName: text('guild_name').notNull(),
+    guildIcon: text('guild_icon'),
+    enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+    channelId: text('channel_id'),
+    /** Text above the image. {user} = mention, {name} = display name, {server}, {count} */
+    message: text('message').notNull().default('Welkom {user} in {server}! 🎉'),
+    card: text('card', { mode: 'json' }).$type<WelcomeCard>().notNull(),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (t) => [uniqueIndex('discord_guilds_guild_idx').on(t.guildId)],
+);
+
 /** Instance-wide settings (e.g. Twitch app credentials entered in the setup wizard). Secrets are stored encrypted. */
 export const appSettings = sqliteTable('app_settings', {
   key: text('key').primaryKey(),

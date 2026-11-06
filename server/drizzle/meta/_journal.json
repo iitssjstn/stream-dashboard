@@ -50,6 +50,13 @@
       "when": 1793988788001,
       "tag": "0006_chat_timers_alerts",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793989793765,
+      "tag": "0007_discord",
+      "breakpoints": true
     }
   ]
 }

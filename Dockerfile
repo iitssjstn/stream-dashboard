@@ -12,9 +12,10 @@ RUN npm run build
 FROM node:22-bookworm-slim AS server-deps
 WORKDIR /app/server
 COPY server/package.json server/package-lock.json ./
-# better-sqlite3 ships prebuilt binaries for linux x64/arm64 (glibc + musl), so no compiler is needed.
+# better-sqlite3 and @napi-rs/canvas ship prebuilt binaries for linux x64/arm64, so no compiler is needed.
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund \
- && node -e "new (require('better-sqlite3'))(':memory:').exec('select 1')"
+ && node -e "new (require('better-sqlite3'))(':memory:').exec('select 1')" \
+ && node -e "require('@napi-rs/canvas').createCanvas(10, 10).toBuffer('image/png')"
 
 # ---------- runtime ----------
 FROM node:22-bookworm-slim

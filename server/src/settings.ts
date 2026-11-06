@@ -55,6 +55,32 @@ export function saveGiphyKey(key: string | null) {
   else db.delete(schema.appSettings).where(eq(schema.appSettings.key, 'giphy_api_key')).run();
 }
 
+// ---- Discord bot: one shared bot per Lumio instance, set up once by the owner ----
+export type DiscordApp = { clientId: string; clientSecret: string; botToken: string; source: 'secret' | 'setup' | 'none' };
+let discordCache: DiscordApp | null = null;
+export function discordApp(): DiscordApp {
+  if (discordCache) return discordCache;
+  const id = readSecret('DISCORD_CLIENT_ID');
+  const secret = readSecret('DISCORD_CLIENT_SECRET');
+  const token = readSecret('DISCORD_BOT_TOKEN');
+  if (id && secret && token) return (discordCache = { clientId: id, clientSecret: secret, botToken: token, source: 'secret' });
+  const sId = get('discord_client_id');
+  const sSecret = get('discord_client_secret');
+  const sToken = get('discord_bot_token');
+  if (sId && sSecret && sToken) return (discordCache = { clientId: sId, clientSecret: decrypt(sSecret), botToken: decrypt(sToken), source: 'setup' });
+  return { clientId: '', clientSecret: '', botToken: '', source: 'none' };
+}
+export function saveDiscordApp(app: { clientId: string; clientSecret: string; botToken: string } | null) {
+  if (app) {
+    set('discord_client_id', app.clientId);
+    set('discord_client_secret', encrypt(app.clientSecret));
+    set('discord_bot_token', encrypt(app.botToken));
+  } else {
+    for (const k of ['discord_client_id', 'discord_client_secret', 'discord_bot_token']) db.delete(schema.appSettings).where(eq(schema.appSettings.key, k)).run();
+  }
+  discordCache = null;
+}
+
 // ---- owner: the first streamer who logs in after setup may change instance settings ----
 export const ownerUserId = () => Number(get('owner_user_id')) || null;
 export function claimOwnerIfUnset(userId: number) {
