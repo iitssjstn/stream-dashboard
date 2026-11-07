@@ -46,7 +46,7 @@ export function AlertsPage() {
           </div>
           {st.missingScopes.length > 0 && (
             <div className="mt-3 rounded-xl border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
-              Voor follow-, sub- en bits-alerts heeft Lumio extra Twitch-rechten nodig. Koppel Twitch één keer opnieuw om ze te geven.
+              Voor follow-, sub- en bits-alerts heeft Waviloop extra Twitch-rechten nodig. Koppel Twitch één keer opnieuw om ze te geven.
               <a href="/auth/twitch/login" className="ml-2 font-semibold underline">
                 Opnieuw koppelen
               </a>

@@ -5,6 +5,7 @@ import { config } from '../config.js';
 import { randomToken } from '../crypto.js';
 import type { User } from '../db/schema.js';
 
+// Former project name kept on purpose: renaming would log everyone out.
 export const SESSION_COOKIE = 'lumio_session';
 const SESSION_TTL = 30 * 24 * 3600 * 1000;
 

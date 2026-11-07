@@ -45,10 +45,13 @@ export function Landing() {
       <section className="grid flex-1 items-center gap-12 py-12 lg:grid-cols-2">
         <div className="fade-in">
           <span className="chip mb-5 border border-brand-500/30 bg-brand-500/10 text-brand-400">Interactieve OBS-overlays voor Twitch</span>
-          <h1 className="text-4xl leading-[1.05] font-bold tracking-tight text-white sm:text-6xl">
-            Laat je chat <span className="bg-gradient-to-r from-brand-400 to-sky2-400 bg-clip-text text-transparent">je stream</span> tot leven brengen.
+          <h1 className="font-display text-5xl leading-[1.02] font-semibold tracking-tight text-white sm:text-7xl">
+            Make your stream <span className="bg-gradient-to-r from-brand-400 to-sky2-400 bg-clip-text text-transparent">come alive.</span>
           </h1>
-          <p className="mt-5 max-w-lg text-lg text-zinc-400">
+          <p className="mt-5 text-xl font-semibold text-zinc-200 sm:text-2xl">
+            Laat je chat je stream tot leven brengen.
+          </p>
+          <p className="mt-3 max-w-lg text-lg text-zinc-400">
             Kijkers typen <code className="rounded bg-white/5 px-1.5 py-0.5 text-brand-400">!knuffel</code> en er verschijnt meteen een anime-animatie in OBS. Eigen commands, GIF's,
             geluiden, cooldowns en permissies.
           </p>

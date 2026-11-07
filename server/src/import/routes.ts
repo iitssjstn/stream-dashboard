@@ -91,7 +91,7 @@ export async function importRoutes(app: FastifyInstance, { engine }: { engine: C
 
         // ---- alerts ----
         const alerts = (b.alerts ?? []).slice(0, 100);
-        // Imported alerts replace Lumio's built-in default alert of the same type, so viewers don't get two.
+        // Imported alerts replace Waviloop's built-in default alert of the same type, so viewers don't get two.
         // Alerts the streamer made themselves are left alone.
         for (const trig of new Set(alerts.filter((a) => a.enabled).map((a) => a.trigger))) {
           db.update(schema.commands)

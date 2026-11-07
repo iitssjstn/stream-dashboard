@@ -36,11 +36,11 @@ const discordEnv = { DISCORD_API_BASE: `http://localhost:${TW_PORT}/discord/api`
 const IMAGE = process.env.E2E_DOCKER_IMAGE;
 function startApp() {
   if (IMAGE) {
-    const name = 'lumio-e2e';
+    const name = 'waviloop-e2e';
     spawn('docker', ['rm', '-f', name], { stdio: 'ignore' });
     const env = { PORT: APP_PORT, PUBLIC_URL: APP, LOG_LEVEL: 'warn',
       TWITCH_ID_BASE: `http://localhost:${TW_PORT}`, TWITCH_API_BASE: `http://localhost:${TW_PORT}`, TWITCH_IRC_URL: `ws://localhost:${TW_PORT}/irc`, GIPHY_API_BASE: `http://localhost:${TW_PORT}`, TWITCH_EVENTSUB_URL: `ws://localhost:${TW_PORT}/eventsub`, SE_API_BASE: `http://localhost:${TW_PORT}/se`, TIMER_MINUTE_MS: '400', ...discordEnv };
-    const args = ['run', '--rm', '--name', name, '--network', 'host', '-v', 'lumio-e2e-data:/data', ...Object.entries(env).flatMap(([k, v]) => ['-e', `${k}=${v}`]), IMAGE];
+    const args = ['run', '--rm', '--name', name, '--network', 'host', '-v', 'waviloop-e2e-data:/data', ...Object.entries(env).flatMap(([k, v]) => ['-e', `${k}=${v}`]), IMAGE];
     const p = watchOutput(spawn('docker', args, { stdio: ['ignore', 'pipe', 'inherit'] }));
     const kill = p.kill.bind(p);
     p.kill = () => { spawn('docker', ['stop', name], { stdio: 'ignore' }); return kill('SIGTERM'); };
@@ -436,7 +436,7 @@ try {
   check(timersNow.some((t) => t.name === 'Socials timer' && t.intervalMin === 20 && t.minChatLines === 5 && t.messages[0] === 'Volg me op Insta: @knuffel'), 'Timer geïmporteerd (interval en chatLines)');
   const seFollow = imported.find((c) => c.name === 'se-follow-0');
   check(seFollow?.enabled && seFollow.animation === 'image' && seFollow.imageUrl.includes('default.gif') && seFollow.text === '{user} volgt nu!' && seFollow.style.accentColor === '#3f51b5', 'Follow-alert geïmporteerd met afbeelding, geluid, tekst en kleur');
-  check(imported.find((c) => c.name === 'alert-follow')?.enabled === false, 'Lumio-standaard follow-alert is uitgezet zodat er geen dubbele alert komt');
+  check(imported.find((c) => c.name === 'alert-follow')?.enabled === false, 'Waviloop-standaard follow-alert is uitgezet zodat er geen dubbele alert komt');
   check(imported.some((c) => c.trigger === 'resub' && c.minAmount === 2) && imported.some((c) => c.trigger === 'gift' && c.text === '{user} gifted de chat a subscription!'), 'Sub-variaties: resub (vanaf 2 maanden) en gift overgenomen');
   check(imported.some((c) => c.trigger === 'raid' && c.minAmount === 5), 'Raid minimum (5 kijkers) overgenomen');
   check(imported.find((c) => c.name === 'se-follow-0')?.label === 'Alerts — Follow' && imported.some((c) => c.label === 'Alerts — Subscriber gift'), 'Alerts krijgen de naam van hun StreamElements-overlay en variatie');
@@ -466,7 +466,7 @@ try {
   check(true, 'Discord: verkeerd bot-token wordt geweigerd');
   await p1.getByLabel('Bot-token').fill(BOT_TOKEN);
   await p1.getByRole('button', { name: 'Bot opslaan' }).click();
-  await p1.getByText('Bot LumioBot is ingesteld').waitFor();
+  await p1.getByText('Bot WaviloopBot is ingesteld').waitFor();
   check(!(await p1.evaluate(async () => [await (await fetch('/api/admin/discord')).text(), await (await fetch('/api/discord')).text()].join(''))).includes('discord.ttt'), 'Discord: bot-token komt nooit terug in de browser');
   check(Boolean(await waitFor(async () => (await api1('/api/discord')).json.bot.status === 'connected', 8000)), 'Discord-bot verbonden met de Gateway');
   check((await p2.evaluate(() => fetch('/api/admin/discord').then((r) => r.status))) === 403, 'Alleen de eigenaar beheert de Discord-bot');

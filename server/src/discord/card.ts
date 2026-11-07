@@ -44,7 +44,7 @@ export async function loadMediaBytes(src: string | null): Promise<Buffer | null>
       const res = await fetch(url, {
         signal: AbortSignal.timeout(8000),
         redirect: 'manual',
-        headers: { 'user-agent': 'LumioBot/1.0 (+https://github.com/iitssjstn/stream-dashboard)', accept: 'image/png,image/*;q=0.8' },
+        headers: { 'user-agent': 'WaviloopBot/1.0 (+https://github.com/iitssjstn/stream-dashboard)', accept: 'image/png,image/*;q=0.8' },
       });
       if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
         url = new URL(res.headers.get('location')!, url);

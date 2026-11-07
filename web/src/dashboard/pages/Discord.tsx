@@ -357,7 +357,7 @@ export function DiscordSetup({ onDone }: { onDone: () => void }) {
           <a className="font-semibold text-brand-400 underline" href="https://discord.com/developers/applications" target="_blank" rel="noreferrer">
             discord.com/developers/applications
           </a>{' '}
-          → <b>New Application</b> (bijv. “Lumio”).
+          → <b>New Application</b> (bijv. “Waviloop”).
         </li>
         <li>
           2. <b>OAuth2</b> → <b>Redirects</b> → voeg toe:{' '}
@@ -441,7 +441,7 @@ function BotProfileEditor({ guild, bot, onChange }: { guild: Guild; bot: BotStat
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
         <div className="space-y-4">
           <Field label="Naam van de bot" hint="Max. 32 tekens. Leeg = standaardnaam.">
-            <input className="input" maxLength={32} placeholder={bot.botName ?? 'Lumio'} value={p.nick ?? ''} onChange={(e) => setP({ ...p, nick: e.target.value || null })} />
+            <input className="input" maxLength={32} placeholder={bot.botName ?? 'Waviloop'} value={p.nick ?? ''} onChange={(e) => setP({ ...p, nick: e.target.value || null })} />
           </Field>
           <div>
             <span className="label">Profielfoto (PNG, JPG, GIF of WEBP; GIF mag bewegen)</span>

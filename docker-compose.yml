@@ -1,5 +1,5 @@
 services:
-  lumio:
+  waviloop:
     # Prebuilt by GitHub Actions (.github/workflows/build.yml). `docker compose up -d --build` builds locally instead.
     image: ghcr.io/iitssjstn/stream-dashboard:latest
     build: .
@@ -14,6 +14,7 @@ services:
     ports:
       - "${HOST_PORT:-3000}:3000"
     volumes:
+      # Volume name kept from the former project name (Lumio), so existing data stays.
       - lumio-data:/data
 
 volumes:

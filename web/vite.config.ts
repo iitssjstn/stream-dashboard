@@ -9,7 +9,7 @@ const { version } = JSON.parse(readFileSync(resolve(import.meta.dirname, 'packag
 
 /** In dev, serve the overlay entry for /overlay/<token> just like the Fastify server does in production. */
 const overlayDevRoute = (): Plugin => ({
-  name: 'lumio-overlay-dev-route',
+  name: 'waviloop-overlay-dev-route',
   configureServer(server) {
     server.middlewares.use((req, _res, next) => {
       if (req.url?.startsWith('/overlay/')) req.url = '/overlay.html';

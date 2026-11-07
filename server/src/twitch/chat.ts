@@ -117,7 +117,7 @@ export class TwitchChatConnection extends EventEmitter<{
     this.keepaliveTimer = setInterval(() => {
       const idle = Date.now() - this.lastSeen;
       if (idle > 6 * 60_000 + 10_000) ws.terminate();
-      else if (idle > 4 * 60_000 && ws.readyState === WebSocket.OPEN) ws.send('PING :lumio');
+      else if (idle > 4 * 60_000 && ws.readyState === WebSocket.OPEN) ws.send('PING :waviloop');
     }, 30_000);
   }
 

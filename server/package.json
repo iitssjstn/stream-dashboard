@@ -1,5 +1,5 @@
 {
-  "name": "@lumio/server",
+  "name": "@waviloop/server",
   "version": "1.0.0",
   "scripts": {
     "dev": "node --env-file-if-exists=../.env --import tsx --watch src/index.ts",

@@ -110,7 +110,7 @@ function Authed() {
     <Ctx.Provider value={{ me, reload }}>
       <div className="flex min-h-screen">
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col gap-6 border-r border-white/[.06] bg-ink-950/50 p-5 backdrop-blur-xl lg:flex">
-          <Logo />
+          <Logo tagline />
           {nav}
           <div className="mt-auto space-y-2">
             <a
@@ -120,7 +120,7 @@ function Authed() {
               className="block text-center text-[11px] text-zinc-500 hover:text-zinc-300"
               title="Wat is er nieuw?"
             >
-              Lumio v{__APP_VERSION__}
+              Waviloop v{__APP_VERSION__}
             </a>
             {account}
           </div>

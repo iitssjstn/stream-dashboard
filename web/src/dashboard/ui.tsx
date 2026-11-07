@@ -132,11 +132,16 @@ export function Svg({ i, className = 'h-5 w-5' }: { i: keyof typeof Icon; classN
   );
 }
 
-export function Logo() {
+export const SLOGAN = 'Make your stream come alive.';
+
+export function Logo({ tagline = false }: { tagline?: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
       <img src="/favicon.svg" alt="" className="h-8 w-8" />
-      <span className="font-display text-xl font-semibold tracking-wide text-white">Lumio</span>
+      <div className="leading-tight">
+        <span className="font-display block text-xl font-semibold tracking-wide text-white">Waviloop</span>
+        {tagline && <span className="block text-[11px] font-medium text-zinc-400">{SLOGAN}</span>}
+      </div>
     </div>
   );
 }

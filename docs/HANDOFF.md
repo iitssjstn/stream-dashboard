@@ -4,7 +4,9 @@
 
 **Laatst bijgewerkt:** 2026-11-07, versie **1.0.0**
 
-## Wat is Lumio
+## Wat is Waviloop
+
+Slogan: **Make your stream come alive.** (Engels, zo laten.)
 
 Een webapp die lijkt op StreamElements, met een eigen ontwerp:
 
@@ -16,6 +18,8 @@ Een webapp die lijkt op StreamElements, met een eigen ontwerp:
 - **Dashboard** in het Nederlands: donker, paars/blauw, neon-kaarten.
 
 Repo: `iitssjstn/stream-dashboard` (openbaar). Productie draait bij de eigenaar via Docker Compose achter Nginx Proxy Manager (met **Websockets Support aan**).
+
+> **Naam:** het project heette eerst *Lumio* en heet sinds 2026-11-07 **Waviloop**. Enkele interne namen zijn bewust gebleven, omdat bestaande installaties ervan afhangen: het databasebestand `lumio.sqlite`, de cookies `lumio_session`/`lumio_*_state`, het Docker-volume `lumio-data` en de CSS-prefix `lm-`. Verander die niet.
 
 ## Architectuur (kort)
 

@@ -1,5 +1,5 @@
 /**
- * StreamElements -> Lumio conversion. Field names follow StreamElements' published API spec
+ * StreamElements -> Waviloop conversion. Field names follow StreamElements' published API spec
  * (github.com/StreamElements/api-docs): /channels/me, /bot/commands/{channel},
  * /bot/timers/{channel}, /overlays/{channel} and the "se-widget-alert-box" widget settings.
  */
@@ -29,7 +29,7 @@ async function se<T>(path: string, jwt: string): Promise<T> {
 
 // ---- variables ----
 
-/** Converts StreamElements chat variables ($(x) or ${x}) to Lumio's {x}. Unknown ones are kept and reported. */
+/** Converts StreamElements chat variables ($(x) or ${x}) to Waviloop's {x}. Unknown ones are kept and reported. */
 export function convertChatVars(input: string) {
   const unsupported = new Set<string>();
   let usesTarget = false;
@@ -51,7 +51,7 @@ export function convertChatVars(input: string) {
   return { text, unsupported: [...unsupported], usesTarget };
 }
 
-/** Converts AlertBox placeholders ({name}, {amount}, {sender}, {message}) to Lumio's. */
+/** Converts AlertBox placeholders ({name}, {amount}, {sender}, {message}) to Waviloop's. */
 export function convertAlertText(input: string, trigger?: string) {
   const unsupported = new Set<string>();
   const text = input.replace(/\{(\w+)\}/g, (whole, key: string) => {
@@ -156,7 +156,7 @@ export function convertCommands(raw: any[], skipped: ImportSkipped[]): ImportCom
   for (const c of raw ?? []) {
     const name = cleanName(c.command);
     if (!name || !NAME_RE.test(name)) {
-      skipped.push({ what: `command "${c.command ?? '?'}"`, reason: 'naam bevat tekens die Lumio niet ondersteunt' });
+      skipped.push({ what: `command "${c.command ?? '?'}"`, reason: 'naam bevat tekens die Waviloop niet ondersteunt' });
       continue;
     }
     if (typeof c.reply !== 'string' || !c.reply.trim()) {
@@ -206,7 +206,7 @@ export function convertTimers(raw: any[], skipped: ImportSkipped[]): ImportTimer
     const online = t.online ?? {};
     const offline = t.offline ?? {};
     const onlineOn = online.enabled !== false;
-    if (!onlineOn && offline.enabled) warnings.push('Stond alleen offline aan; in Lumio loopt hij ook tijdens de stream (pas het interval aan als je dat niet wilt)');
+    if (!onlineOn && offline.enabled) warnings.push('Stond alleen offline aan; in Waviloop loopt hij ook tijdens de stream (pas het interval aan als je dat niet wilt)');
     out.push({
       key: `timer:${t._id ?? name}`,
       name,
@@ -329,7 +329,7 @@ export async function fetchPreview(jwt: string): Promise<ImportPreview> {
   };
 }
 
-/** Builds a full Lumio command body for validateCommand(). */
+/** Builds a full Waviloop command body for validateCommand(). */
 export function commandBody(c: ImportCommand) {
   return {
     name: c.name,

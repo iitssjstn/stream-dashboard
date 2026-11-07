@@ -1,4 +1,8 @@
-# Lumio – interactieve Twitch-overlays
+# Waviloop
+
+**Make your stream come alive.**
+
+Interactieve Twitch-overlays, alerts, timers en een Discord-bot.
 
 Kijkers typen een command zoals `!knuffel` in je Twitch-chat en er verschijnt meteen een geanimeerde anime-scène in je OBS-stream. Je stelt per command de animatie, afbeelding/GIF, tekst, duur, cooldowns, permissies en geluid in.
 
@@ -79,7 +83,7 @@ Discord laat bots alleen handmatig aanmaken. De eigenaar van de installatie doet
 1. Ga naar <https://discord.com/developers/applications> en kies **New Application**.
 2. Ga naar **OAuth2 → Redirects** en voeg `<PUBLIC_URL>/auth/discord/callback` toe.
 3. Ga naar **Bot**, zet **Server Members Intent** aan en kies **Reset Token**.
-4. Vul in Lumio onder **Instellingen** (of op de pagina **Discord**) de Application ID, het Client Secret en het bot-token in. Lumio controleert het token bij Discord en slaat alles versleuteld op.
+4. Vul in Waviloop onder **Instellingen** (of op de pagina **Discord**) de Application ID, het Client Secret en het bot-token in. Waviloop controleert het token bij Discord en slaat alles versleuteld op.
 
 Daarna klikt elke streamer op de pagina **Discord** op **Verbind je Discord-server**, kiest zijn server en klikt op **Toestaan**. Vervolgens kiest hij het welkomstkanaal en stelt hij de tekst, achtergrond (upload of GIPHY) en kleuren in, met een live preview. Bij elke nieuwe join plaatst de bot het plaatje met de avatar en naam van het nieuwe lid.
 
@@ -90,21 +94,21 @@ Je kunt de gegevens ook als Docker secrets meegeven: `discord_client_id`, `disco
 ## StreamElements importeren
 
 1. Open in StreamElements **Account → Channels**, klik op **Show secrets** en kopieer het **JWT Token**.
-2. Plak het in Lumio onder **Importeren** en kies **Ophalen**. Het token wordt alleen voor die aanvraag gebruikt en niet opgeslagen.
+2. Plak het in Waviloop onder **Importeren** en kies **Ophalen**. Het token wordt alleen voor die aanvraag gebruikt en niet opgeslagen.
 3. Je krijgt een overzicht met per onderdeel eventuele waarschuwingen. Vink aan wat je wilt overnemen en kies **Importeren**.
 
 Wat er gebeurt:
 
-- **Variabelen** worden omgezet: `${user}` → `{user}`, `${touser}` → `{target}`, `${random.1-10}` → `{random:1-10}`. Variabelen die Lumio niet kent, zoals `${uptime}`, blijven als tekst staan en worden gemeld.
+- **Variabelen** worden omgezet: `${user}` → `{user}`, `${touser}` → `{target}`, `${random.1-10}` → `{random:1-10}`. Variabelen die Waviloop niet kent, zoals `${uptime}`, blijven als tekst staan en worden gemeld.
 - **Rechten** gaan van `accessLevel` naar Iedereen, Subscribers, VIP's, Moderators of Streamer.
-- **Alerts** nemen afbeelding, geluid, tekst, duur, minimumbedrag en varianten over. Geïmporteerde alerts zetten de standaard-Lumio-alert van hetzelfde type uit, maar alerts die je zelf hebt gemaakt blijven aan.
+- **Alerts** nemen afbeelding, geluid, tekst, duur, minimumbedrag en varianten over. Geïmporteerde alerts zetten de standaard-Waviloop-alert van hetzelfde type uit, maar alerts die je zelf hebt gemaakt blijven aan.
 - **Niet mogelijk**: tips (eigen StreamElements-betalingen), hosts (bestaan niet meer op Twitch), video-alerts, TTS, loyaliteitspunten en keyword- of regex-triggers.
 
-> Alerts hebben extra Twitch-rechten nodig (`moderator:read:followers`, `channel:read:subscriptions`, `bits:read`). Heb je Lumio vóór deze versie gekoppeld? Klik dan één keer op **Opnieuw koppelen** op de Alerts-pagina.
+> Alerts hebben extra Twitch-rechten nodig (`moderator:read:followers`, `channel:read:subscriptions`, `bits:read`). Heb je Waviloop vóór deze versie gekoppeld? Klik dan één keer op **Opnieuw koppelen** op de Alerts-pagina.
 
 ## Versies & releases
 
-Lumio gebruikt versienummers volgens SemVer. In [`CHANGELOG.md`](CHANGELOG.md) staat per versie wat er nieuw is, en de versie die je draait zie je linksonder in het dashboard (boven je naam) en via `/healthz`.
+Waviloop gebruikt versienummers volgens SemVer. In [`CHANGELOG.md`](CHANGELOG.md) staat per versie wat er nieuw is, en de versie die je draait zie je linksonder in het dashboard (boven je naam) en via `/healthz`.
 
 - **`latest`** volgt de nieuwste code op `main`.
 - **Een vaste versie** draai je zo: `image: ghcr.io/iitssjstn/stream-dashboard:1.0.0`. Met `:1.0` krijg je automatisch alleen de bugfixes binnen 1.0.

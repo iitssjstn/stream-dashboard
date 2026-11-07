@@ -1,11 +1,11 @@
 ---
 name: hervat
-description: Hervat het werk aan Lumio (stream-dashboard) in een nieuwe chat - leest docs/HANDOFF.md, de changelog, git en de laatste GitHub Actions-builds en vat samen waar we zijn. Met "/hervat opslaan" wordt de huidige stand in docs/HANDOFF.md vastgelegd en gepusht, zodat een volgende chat verder kan.
+description: Hervat het werk aan Waviloop (stream-dashboard) in een nieuwe chat - leest docs/HANDOFF.md, de changelog, git en de laatste GitHub Actions-builds en vat samen waar we zijn. Met "/hervat opslaan" wordt de huidige stand in docs/HANDOFF.md vastgelegd en gepusht, zodat een volgende chat verder kan.
 ---
 
-# Hervat: verder werken aan Lumio
+# Hervat: verder werken aan Waviloop
 
-Lumio is een eigen alternatief voor StreamElements: Twitch-chatcommands met animaties in een OBS-overlay, alerts, timers, een StreamElements-import en een Discord-bot. Alle kennis die een nieuwe chat nodig heeft staat in **`docs/HANDOFF.md`**. Deze skill heeft twee standen.
+Waviloop is een eigen alternatief voor StreamElements: Twitch-chatcommands met animaties in een OBS-overlay, alerts, timers, een StreamElements-import en een Discord-bot. Alle kennis die een nieuwe chat nodig heeft staat in **`docs/HANDOFF.md`**. Deze skill heeft twee standen.
 
 Praat altijd **Nederlands** met de gebruiker.
 

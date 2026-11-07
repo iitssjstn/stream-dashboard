@@ -92,7 +92,7 @@ if (fs.existsSync(config.webDist)) {
 }
 
 await app.listen({ port: config.port, host: config.host });
-app.log.info(`Lumio v${config.version} gestart`);
+app.log.info(`Waviloop v${config.version} gestart`);
 if (!twitchConfigured()) {
   const code = ensureSetupCode();
   const line = '='.repeat(64);

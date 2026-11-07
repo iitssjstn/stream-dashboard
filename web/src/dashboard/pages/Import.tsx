@@ -76,7 +76,7 @@ export function ImportPage() {
               {result.created} commands toegevoegd, {result.updated} bijgewerkt{result.skipped ? `, ${result.skipped} overgeslagen (bestonden al)` : ''}
             </li>
             <li>{result.timers} timers</li>
-            <li>{result.alerts} alerts (de standaard-Lumio-alerts van die types zijn uitgezet)</li>
+            <li>{result.alerts} alerts (de standaard-Waviloop-alerts van die types zijn uitgezet)</li>
           </ul>
           {result.errors.length > 0 && (
             <ul className="mt-3 list-inside list-disc text-sm text-rose-300">
@@ -120,7 +120,7 @@ export function ImportPage() {
           <section className="card mb-5 flex flex-col gap-3 p-5 sm:flex-row sm:items-center">
             <div className="flex-1 text-sm text-zinc-300">
               Gevonden in <b className="text-white">{preview.channel.name}</b>: {preview.commands.length} commands, {preview.timers.length} timers, {preview.alerts.length} alerts.
-              {preview.existingCommands.length > 0 && <span className="block text-amber-300">{preview.existingCommands.length} command(s) bestaan al in Lumio.</span>}
+              {preview.existingCommands.length > 0 && <span className="block text-amber-300">{preview.existingCommands.length} command(s) bestaan al in Waviloop.</span>}
             </div>
             <label className="flex items-center gap-3 text-sm text-zinc-300">
               <Toggle checked={overwrite} onChange={setOverwrite} label="Bestaande overschrijven" /> Bestaande overschrijven

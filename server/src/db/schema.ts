@@ -169,7 +169,7 @@ export type WelcomeCard = {
   dim: number;
 };
 
-/** A Discord server connected by a streamer (via the shared Lumio bot) with its welcome settings. */
+/** A Discord server connected by a streamer (via the shared Waviloop bot) with its welcome settings. */
 export const discordGuilds = sqliteTable(
   'discord_guilds',
   {

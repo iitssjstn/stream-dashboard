@@ -65,6 +65,7 @@ export const config = {
   secureCookies: publicUrl.startsWith('https://'),
   dataDir,
   uploadDir: path.join(dataDir, 'uploads'),
+  // Kept from the project's former name (Lumio) so existing installations keep their data.
   dbFile: path.join(dataDir, 'lumio.sqlite'),
   encryptionKey: loadSecret(),
   twitch: {

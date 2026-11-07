@@ -108,7 +108,7 @@ export class DiscordBot {
           this.heartbeat = setInterval(() => this.beat(), every);
           const token = discordApp().botToken;
           if (this.sessionId) this.send({ op: 6, d: { token, session_id: this.sessionId, seq: this.seq } });
-          else this.send({ op: 2, d: { token, intents: this.intents, properties: { os: 'linux', browser: 'lumio', device: 'lumio' } } });
+          else this.send({ op: 2, d: { token, intents: this.intents, properties: { os: 'linux', browser: 'waviloop', device: 'waviloop' } } });
           break;
         }
         case 11:

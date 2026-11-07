@@ -105,7 +105,7 @@ export function startFakeTwitch(port) {
         return json(200, { access_token: 'x', token_type: 'Bearer', guild: { id: state.nextGuild.id, name: state.nextGuild.name, icon: null } });
       }
       if (auth !== `Bot ${'d'.repeat(30)}.discord.${'t'.repeat(30)}`) return json(401, { message: '401: Unauthorized' });
-      if (p === '/users/@me') return json(200, { id: '123456789012345678', username: 'LumioBot', global_name: 'LumioBot', avatar: null, bot: true });
+      if (p === '/users/@me') return json(200, { id: '123456789012345678', username: 'WaviloopBot', global_name: 'WaviloopBot', avatar: null, bot: true });
       if (/^\/guilds\/\d+\/channels$/.test(p)) return json(200, [{ id: '111', name: 'welkom', type: 0, position: 1 }, { id: '113', name: 'algemeen', type: 0, position: 0 }, { id: '112', name: 'Voice', type: 2, position: 2 }]);
       if (p === '/guilds/999000111222333444/members/@me' && req.method === 'PATCH') {
         let b = '';
@@ -192,7 +192,7 @@ export function startFakeTwitch(port) {
         if ((p.d.intents & 2) !== 2) return ws.close(4014, 'Disallowed intent');
         if (state.rejectMessageContent && p.d.intents & 32768) return ws.close(4014, 'Disallowed intent');
         state.discordGw.add(ws);
-        ws.send(JSON.stringify({ op: 0, s: ++dseq, t: 'READY', d: { session_id: 'sess', resume_gateway_url: 'ws://localhost:' + port + '/discord-gw', user: { id: '123456789012345678', username: 'LumioBot' }, guilds: [{ id: '999000111222333444', unavailable: true }] } }));
+        ws.send(JSON.stringify({ op: 0, s: ++dseq, t: 'READY', d: { session_id: 'sess', resume_gateway_url: 'ws://localhost:' + port + '/discord-gw', user: { id: '123456789012345678', username: 'WaviloopBot' }, guilds: [{ id: '999000111222333444', unavailable: true }] } }));
         ws.send(JSON.stringify({ op: 0, s: ++dseq, t: 'GUILD_CREATE', d: { id: '999000111222333444', name: 'Knuffel Discord', icon: null, member_count: 41 } }));
       }
     });

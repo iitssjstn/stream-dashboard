@@ -134,4 +134,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           V: ${{ needs.version.outputs.version }}
-        run: gh release create "v$V" --target "$GITHUB_SHA" --title "Lumio v$V" --notes-file notes.md
+        run: gh release create "v$V" --target "$GITHUB_SHA" --title "Waviloop v$V – Make your stream come alive." --notes-file notes.md

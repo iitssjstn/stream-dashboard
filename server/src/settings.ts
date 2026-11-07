@@ -55,7 +55,7 @@ export function saveGiphyKey(key: string | null) {
   else db.delete(schema.appSettings).where(eq(schema.appSettings.key, 'giphy_api_key')).run();
 }
 
-// ---- Discord bot: one shared bot per Lumio instance, set up once by the owner ----
+// ---- Discord bot: one shared bot per Waviloop instance, set up once by the owner ----
 export type DiscordApp = { clientId: string; clientSecret: string; botToken: string; source: 'secret' | 'setup' | 'none' };
 let discordCache: DiscordApp | null = null;
 export function discordApp(): DiscordApp {
