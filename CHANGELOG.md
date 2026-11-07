@@ -10,6 +10,8 @@ Nieuwe wijzigingen komen eerst onder **[Unreleased]**. Bij een release krijgen z
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-07
+
 ### Gewijzigd
 - Nieuwe naam: **Lumio heet nu Waviloop**, met de slogan *Make your stream come alive.* Je gegevens en je login blijven gewoon werken (interne namen zoals het databasebestand, de cookies en het Docker-volume `lumio-data` zijn bewust niet veranderd).
 
