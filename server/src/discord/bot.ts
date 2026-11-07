@@ -133,19 +133,19 @@ export class DiscordBot {
       if (this.ws !== ws || this.stopped) return;
       if (this.heartbeat) clearInterval(this.heartbeat);
       this.ws = null;
-      if (code === 4004) return this.fail('Discord weigert het bot-token. Vul het opnieuw in onder Instellingen.');
+      if (code === 4004) return this.fail('Discord rejected the bot token. Enter it again under Settings.');
       if (code === 4014) {
         if (this.intents & MESSAGE_CONTENT) {
           // Keep the bot working without message content; AutoMod and levels need it though.
           this.intents &= ~MESSAGE_CONTENT;
           this.sessionId = this.seq = null;
-          this.status.warning = 'De "Message Content Intent" staat uit in het Discord Developer Portal. Welkomst en rollen werken, maar AutoMod en levels pas als je hem aanzet (Bot → Privileged Gateway Intents).';
+          this.status.warning = 'The "Message Content Intent" is off in the Discord Developer Portal. Welcome messages and roles work, but AutoMod and levels only once you turn it on (Bot → Privileged Gateway Intents).';
           this.retry = setTimeout(async () => this.connect(await gatewayUrl().catch(() => base)), 500);
           return;
         }
-        return this.fail('Zet in het Discord Developer Portal bij Bot de "Server Members Intent" aan en sla het token opnieuw op.');
+        return this.fail('Turn on the "Server Members Intent" under Bot in the Discord Developer Portal and save the token again.');
       }
-      if (code === 4010 || code === 4011 || code === 4012 || code === 4013) return this.fail(`Discord sloot de verbinding (code ${code})`);
+      if (code === 4010 || code === 4011 || code === 4012 || code === 4013) return this.fail(`Discord closed the connection (code ${code})`);
       this.status.status = 'connecting';
       const delay = Math.min(60_000, 1000 * 2 ** this.attempt++) + Math.random() * 1000;
       this.retry = setTimeout(async () => {
@@ -223,12 +223,12 @@ export class DiscordBot {
       { name, server: g.guildName, count, avatar: opts.avatars ?? memberAvatarCandidates(guildId, user, opts.memberAvatar) },
       (reason) => {
         errors.push(reason);
-        this.log.warn({ guildId }, `welkomstplaatje: profielfoto niet geladen (${reason})`);
+        this.log.warn({ guildId }, `welcome image: profile picture not loaded (${reason})`);
       },
       (src) => (loaded = src),
     );
     // Shown in the dashboard so the streamer can see why a photo is missing without digging in logs.
-    this.status.avatarError = loaded ? null : `Profielfoto van ${name} kon niet worden geladen: ${errors.join(' | ') || 'geen foto gevonden'}`;
+    this.status.avatarError = loaded ? null : `Profile picture of ${name} could not be loaded: ${errors.join(' | ') || 'no photo found'}`;
     // A test has no real Discord member to mention.
     const content = welcomeMessage(g.message, { mention: opts.test ? `**${name}**` : `<@${user.id}>`, name, server: g.guildName, count });
     await sendWelcome(g.channelId, content, png, opts.test ? null : user.id);

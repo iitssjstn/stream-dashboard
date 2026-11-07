@@ -40,12 +40,12 @@ let watchdog: number | undefined;
 function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}/ws/overlay/${encodeURIComponent(token)}`);
-  setStatus('verbinden…', false);
+  setStatus('connecting…', false);
 
   ws.onopen = () => {
     attempt = 0;
     lastMessage = Date.now();
-    setStatus('verbonden', true);
+    setStatus('connected', true);
   };
 
   ws.onmessage = (e) => {
@@ -69,11 +69,11 @@ function connect() {
     ws = null;
     if (e.code === 4004 || e.code === 4001) {
       // Token unknown or revoked: keep retrying slowly in case it was restored, but never spam.
-      setStatus('overlay-URL ongeldig', false);
+      setStatus('overlay URL invalid', false);
       return void setTimeout(connect, 30_000);
     }
     const delay = Math.min(15_000, 500 * 2 ** attempt++) + Math.random() * 400;
-    setStatus(`verbinding verbroken, opnieuw over ${Math.round(delay / 1000)}s`, false);
+    setStatus(`connection lost, retrying in ${Math.round(delay / 1000)}s`, false);
     setTimeout(connect, delay);
   };
 

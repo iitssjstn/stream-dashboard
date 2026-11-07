@@ -16,10 +16,10 @@ export async function discordRest<T>(path: string, init: RequestInit = {}, token
     headers: { authorization: `Bot ${token}`, 'user-agent': 'DiscordBot (https://github.com/iitssjstn/stream-dashboard, 1.0)', ...init.headers },
     signal: AbortSignal.timeout(15_000),
   });
-  if (res.status === 401) throw new DiscordError(401, 'Discord weigert het bot-token');
-  if (res.status === 403) throw new DiscordError(403, 'De bot heeft geen toegang (rechten in dit kanaal?)');
-  if (res.status === 404) throw new DiscordError(404, 'Niet gevonden op Discord');
-  if (!res.ok) throw new DiscordError(res.status, `Discord gaf een fout (${res.status}): ${(await res.text()).slice(0, 200)}`);
+  if (res.status === 401) throw new DiscordError(401, 'Discord rejected the bot token');
+  if (res.status === 403) throw new DiscordError(403, 'The bot has no access (permissions in this channel?)');
+  if (res.status === 404) throw new DiscordError(404, 'Not found on Discord');
+  if (!res.ok) throw new DiscordError(res.status, `Discord returned an error (${res.status}): ${(await res.text()).slice(0, 200)}`);
   return (res.status === 204 ? undefined : await res.json()) as T;
 }
 
@@ -59,9 +59,9 @@ export async function exchangeBotCode(code: string) {
     body: new URLSearchParams({ client_id: app.clientId, client_secret: app.clientSecret, grant_type: 'authorization_code', code, redirect_uri: config.discord.redirectUri }),
     signal: AbortSignal.timeout(15_000),
   });
-  if (!res.ok) throw new DiscordError(400, `Discord-koppeling mislukt (${res.status})`);
+  if (!res.ok) throw new DiscordError(400, `Discord connection failed (${res.status})`);
   const json = (await res.json()) as { guild?: { id: string; name: string; icon: string | null } };
-  if (!json.guild?.id) throw new DiscordError(400, 'Discord gaf geen server terug');
+  if (!json.guild?.id) throw new DiscordError(400, 'Discord did not return a server');
   return json.guild;
 }
 

@@ -8,17 +8,19 @@ import { figure } from '../../overlay/characters';
 import { isVideo, WALKABLE } from '../../overlay/renderer';
 import { MediaPicker } from '../components/Shared';
 import { Field, PageHeader, Svg, Toggle, useToast } from '../ui';
+import { t, Trans } from '../i18n';
 
 type Draft = Omit<Command, 'id'> & { id?: number };
 
 /** Stable fingerprint of the editable fields, used to detect unsaved changes. */
 const fingerprint = (x: Draft) =>
-  JSON.stringify(Object.keys(blank).map((k) => {
+  JSON.stringify(Object.keys(makeBlank()).map((k) => {
     const v = x[k as keyof Draft];
     return v && typeof v === 'object' ? Object.entries(v).sort(([a], [b]) => a.localeCompare(b)) : v;
   }));
 
-const blank: Draft = {
+/** Defaults for a new command, in the chosen language. */
+const makeBlank = (): Draft => ({
   name: '',
   trigger: 'chat',
   label: null,
@@ -33,7 +35,7 @@ const blank: Draft = {
   imageUrl: null,
   soundUrl: null,
   soundVolume: 70,
-  text: '{user} geeft {target} een knuffel!',
+  text: t('{user} gives {target} a hug!'),
   durationMs: 5000,
   userCooldownSec: 30,
   globalCooldownSec: 5,
@@ -41,9 +43,9 @@ const blank: Draft = {
   showUsername: true,
   showText: true,
   targetMode: 'optional',
-  targetFallback: 'de streamer',
+  targetFallback: t('the streamer'),
   style: { fontFamily: 'Fredoka', fontSize: 44, textColor: '#ffffff', accentColor: '#a855f7', x: 50, y: 62, scale: 1, effect: 'pop', particles: 'hearts', textShadow: true },
-};
+});
 
 export function CommandEditor() {
   const { id } = useParams();
@@ -52,13 +54,13 @@ export function CommandEditor() {
   const newTrigger = (params.get('trigger') ?? 'chat') as Trigger;
   const newDraft: Draft =
     newTrigger === 'chat'
-      ? blank
+      ? makeBlank()
       : {
-          ...blank,
+          ...makeBlank(),
           trigger: newTrigger,
           name: `alert-${newTrigger}-${Date.now().toString(36)}`.slice(0, 30),
           animation: 'love',
-          text: newTrigger === 'follow' ? 'Bedankt voor de follow, {user}!' : '{user}: {amount}!',
+          text: newTrigger === 'follow' ? t('Thanks for the follow, {user}!') : '{user}: {amount}!',
           targetMode: 'none',
           userCooldownSec: 0,
           globalCooldownSec: 0,
@@ -97,7 +99,7 @@ export function CommandEditor() {
       if (!a || a.target === '_blank' || e.defaultPrevented) return;
       const url = new URL(a.href, location.href);
       if (url.origin !== location.origin || url.pathname === location.pathname) return;
-      if (!confirm('Je hebt wijzigingen die nog niet zijn opgeslagen. Weet je zeker dat je deze pagina wilt verlaten?')) {
+      if (!confirm(t('You have unsaved changes. Are you sure you want to leave this page?'))) {
         e.preventDefault();
         e.stopPropagation();
       }
@@ -115,7 +117,7 @@ export function CommandEditor() {
   }, [dirty]);
 
   const goBack = () => {
-    if (dirty && !confirm('Je hebt wijzigingen die nog niet zijn opgeslagen. Toch teruggaan?')) return;
+    if (dirty && !confirm(t('You have unsaved changes. Go back anyway?'))) return;
     nav(d && d.trigger !== 'chat' ? '/alerts' : '/commands');
   };
 
@@ -150,7 +152,7 @@ export function CommandEditor() {
       else setD(saved);
     } catch (e) {
       setSaveError((e as Error).message);
-      toast(`Niet opgeslagen: ${(e as Error).message}`, 'error');
+      toast(t('Not saved: {reason}', { reason: (e as Error).message }), 'error');
     } finally {
       setSaving(false);
     }
@@ -161,30 +163,30 @@ export function CommandEditor() {
   const alertInfo = ALERT_TYPES.find((a) => a.trigger === d.trigger);
   const tabs = (
     [
-      ['visual', 'Animatie'],
-      ['text', 'Tekst & stijl'],
-      ['chat', 'Chat-antwoord'],
-      ['rules', 'Cooldowns & rechten'],
-      ['sound', 'Geluid'],
+      ['visual', t('Animation')],
+      ['text', t('Text & style')],
+      ['chat', t('Chat reply')],
+      ['rules', t('Cooldowns & permissions')],
+      ['sound', t('Sound')],
     ] as const
   ).filter(([k]) => !(isAlert && k === 'rules'));
   const varsHint = isAlert
-    ? `Variabelen: ${alertInfo?.vars ?? '{user}'}`
-    : 'Variabelen: {user} = kijker, {target} = @genoemde naam, {channel}, {count} = aantal keer gebruikt, {args} = tekst na het command, {random:1-100}.';
+    ? t('Variables: {list}', { list: alertInfo?.vars ?? '{user}' })
+    : t('Variables: {user} = viewer, {target} = @mentioned name, {channel}, {count} = times used, {args} = text after the command, {random:1-100}.');
 
   return (
     <>
       <button onClick={goBack} className="mb-3 -ml-1 inline-flex cursor-pointer items-center gap-1 rounded-lg px-1 py-1 text-sm font-semibold text-zinc-400 transition hover:text-white">
-        <Svg i="back" className="h-4 w-4" /> {isAlert ? 'Terug naar alerts' : 'Terug naar commands'}
+        <Svg i="back" className="h-4 w-4" /> {isAlert ? t('Back to alerts') : t('Back to commands')}
       </button>
       <PageHeader
-        title={isAlert ? `Alert: ${alertInfo?.label ?? d.trigger}${d.minAmount ? ` (vanaf ${d.minAmount} ${alertInfo?.amount ?? ''})` : ''}` : isNew ? 'Nieuw command' : `!${d.name}`}
-        subtitle="Wijzigingen zie je direct in de preview. Klik of sleep in de preview om de positie te kiezen."
+        title={isAlert ? `Alert: ${alertInfo?.label ?? d.trigger}${d.minAmount ? ` (${t('from {n} {unit}', { n: d.minAmount, unit: alertInfo?.amount ?? '' })})` : ''}` : isNew ? t('New command') : `!${d.name}`}
+        subtitle={t('Changes show up in the preview right away. Click or drag in the preview to choose the position.')}
         actions={
           <>
-            {dirty && <span className="chip self-center bg-amber-500/15 text-amber-300">niet opgeslagen</span>}
+            {dirty && <span className="chip self-center bg-amber-500/15 text-amber-300">{t('not saved')}</span>}
             <button className="btn-ghost" onClick={goBack}>
-              Terug
+              {t('Back')}
             </button>
             {!isNew && (
               <button
@@ -192,14 +194,14 @@ export function CommandEditor() {
                 onClick={async () => {
                   await save();
                   const r = await api<{ delivered: number }>(`/api/commands/${id}/test`, { method: 'POST' });
-                  toast(r.delivered ? 'Afgespeeld in OBS' : 'Geen overlay open in OBS', r.delivered ? 'ok' : 'error');
+                  toast(r.delivered ? t('Played in OBS') : t('No overlay open in OBS'), r.delivered ? 'ok' : 'error');
                 }}
               >
-                <Svg i="play" className="h-3.5 w-3.5" /> Opslaan & test in OBS
+                <Svg i="play" className="h-3.5 w-3.5" /> {t('Save & test in OBS')}
               </button>
             )}
             <button className="btn-primary" disabled={saving} onClick={save}>
-              {saving ? 'Opslaan…' : 'Opslaan'}
+              {saving ? t('Saving…') : t('Save')}
             </button>
           </>
         }
@@ -209,38 +211,38 @@ export function CommandEditor() {
         <div className="space-y-5">
           {isAlert ? (
             <section className="card grid gap-4 p-5 sm:grid-cols-[1fr_auto]">
-              <Field label="Naam (alleen voor jou)" hint="Zodat je weet welke alert dit is, bijv. de naam van je oude StreamElements-overlay.">
-                <input className="input" maxLength={80} value={d.label ?? ''} placeholder={`${alertInfo?.label ?? 'Alert'}${d.minAmount ? ` vanaf ${d.minAmount}` : ''}`} onChange={(e) => set('label', e.target.value || null)} />
+              <Field label={t('Name (only for you)')} hint={t('So you know which alert this is, e.g. the name of your old StreamElements overlay.')}>
+                <input className="input" maxLength={80} value={d.label ?? ''} placeholder={`${alertInfo?.label ?? 'Alert'}${d.minAmount ? ` ${t('from {n}', { n: d.minAmount })}` : ''}`} onChange={(e) => set('label', e.target.value || null)} />
               </Field>
               <div />
               {alertInfo?.amount ? (
-                <Field label={`Vanaf hoeveel ${alertInfo.amount}?`} hint="Je kunt meerdere varianten maken; de variant met het hoogste passende minimum wordt afgespeeld.">
+                <Field label={t('From how many {unit}?', { unit: alertInfo.amount })} hint={t('You can create several variants; the one with the highest matching minimum is played.')}>
                   <input type="number" className="input" min={0} max={1000000} value={d.minAmount} onChange={(e) => set('minAmount', Math.max(0, Number(e.target.value) || 0))} />
                 </Field>
               ) : (
-                <p className="self-center text-sm text-zinc-400">Speelt af bij elke {alertInfo?.label.toLowerCase()} op Twitch.</p>
+                <p className="self-center text-sm text-zinc-400">{t('Plays on every {what} on Twitch.', { what: alertInfo?.label.toLowerCase() ?? '' })}</p>
               )}
               <div className="flex items-end gap-3 pb-2">
-                <span className="text-sm text-zinc-300">Ingeschakeld</span>
+                <span className="text-sm text-zinc-300">{t('Enabled')}</span>
                 <Toggle checked={d.enabled} onChange={(v) => set('enabled', v)} />
               </div>
             </section>
           ) : (
           <section className="card grid gap-4 p-5 sm:grid-cols-[1fr_auto]">
-            <Field label="Commandnaam" hint="Kijkers typen dit in de chat. Optioneel met @naam erachter: {target}.">
+            <Field label={t('Command name')} hint={t('Viewers type this in chat. Optionally followed by @name: {target}.')}>
               <div className="flex items-center rounded-xl border border-white/10 bg-ink-950/60 focus-within:border-brand-500/70">
                 <span className="pl-3.5 font-mono text-brand-400">!</span>
                 <input
                   className="w-full bg-transparent px-1 py-2.5 font-mono text-sm text-white outline-none"
                   value={d.name}
-                  placeholder="knuffel"
+                  placeholder={t('hug')}
                   maxLength={30}
                   onChange={(e) => set('name', e.target.value.replace(/^!/, '').replace(/\s/g, '').toLowerCase())}
                 />
               </div>
             </Field>
             <div className="flex items-end gap-3 pb-2">
-              <span className="text-sm text-zinc-300">Ingeschakeld</span>
+              <span className="text-sm text-zinc-300">{t('Enabled')}</span>
               <Toggle checked={d.enabled} onChange={(v) => set('enabled', v)} />
             </div>
           </section>
@@ -261,7 +263,7 @@ export function CommandEditor() {
           {tab === 'visual' && (
             <section className="card space-y-5 p-5">
               <div>
-                <span className="label">Animatie</span>
+                <span className="label">{t('Animation')}</span>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {Object.entries(LABELS.animation).map(([k, l]) => (
                     <button
@@ -279,21 +281,21 @@ export function CommandEditor() {
               {WALKABLE.has(d.animation) && (
                 <div className="flex items-center justify-between gap-4 rounded-xl border border-white/10 px-4 py-3">
                   <div>
-                    <div className="text-sm font-medium text-white">Naar elkaar toe lopen</div>
+                    <div className="text-sm font-medium text-white">{t('Walk towards each other')}</div>
                     <div className="text-xs text-zinc-500">
-                      De personages lopen eerst vanaf de zijkanten naar elkaar toe en {d.animation === 'hug' ? 'knuffelen' : d.animation === 'highfive' ? 'geven dan een high five' : 'gaan dan samen dansen'}. Duurt ca. 2 seconden extra.
+                      {d.animation === 'hug' ? t('The characters first walk in from the sides, then hug. Takes about 2 extra seconds.') : d.animation === 'highfive' ? t('The characters first walk in from the sides, then high-five. Takes about 2 extra seconds.') : t('The characters first walk in from the sides, then dance together. Takes about 2 extra seconds.')}
                     </div>
                   </div>
                   <Toggle
                     checked={d.walkIn}
-                    label="Naar elkaar toe lopen"
+                    label={t('Walk towards each other')}
                     onChange={(v) => setD({ ...d, walkIn: v, durationMs: v && d.durationMs < 7000 ? 7000 : d.durationMs })}
                   />
                 </div>
               )}
               {d.animation !== 'image' && (
                 <div>
-                  <span className="label">Stijl van de personages</span>
+                  <span className="label">{t('Character style')}</span>
                   <div className="grid grid-cols-2 gap-2">
                     {(['anime', 'people'] as const).map((k) => (
                       <button
@@ -308,7 +310,7 @@ export function CommandEditor() {
                         <span className="h-14 w-10 shrink-0" dangerouslySetInnerHTML={{ __html: figure(k, 0) }} />
                         <span>
                           <span className="block text-sm font-semibold">{LABELS.style[k]}</span>
-                          <span className="block text-xs text-zinc-500">{k === 'anime' ? 'Schattige chibi-figuurtjes' : 'Poppetjes met echte verhoudingen'}</span>
+                          <span className="block text-xs text-zinc-500">{k === 'anime' ? t('Cute chibi figures') : t('Figures with real proportions')}</span>
                         </span>
                       </button>
                     ))}
@@ -316,16 +318,16 @@ export function CommandEditor() {
                 </div>
               )}
               <div>
-                <span className="label">{d.animation === 'image' ? 'Afbeelding, GIF of video' : 'Extra afbeelding / GIF / video (optioneel)'}</span>
+                <span className="label">{d.animation === 'image' ? t('Image, GIF or video') : t('Extra image / GIF / video (optional)')}</span>
                 <MediaPicker kind="image" value={d.imageUrl} onChange={(v) => set('imageUrl', v)} />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Binnenkomst-effect">
+                <Field label={t('Entrance effect')}>
                   <select className="input" value={d.style.effect} onChange={(e) => style('effect', e.target.value as Draft['style']['effect'])}>
                     {Object.entries(LABELS.effect).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                   </select>
                 </Field>
-                <Field label="Deeltjes">
+                <Field label={t('Particles')}>
                   <select className="input" value={d.style.particles} onChange={(e) => style('particles', e.target.value as Draft['style']['particles'])}>
                     {Object.entries(LABELS.particles).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                   </select>
@@ -333,22 +335,22 @@ export function CommandEditor() {
                 {isVideo(d.imageUrl) && (
                   <div className="flex items-center justify-between gap-4 rounded-xl border border-white/10 px-4 py-3 sm:col-span-2">
                     <div>
-                      <div className="text-sm font-medium text-white">Duur = lengte van de video</div>
-                      <div className="text-xs text-zinc-500">Uit: de video herhaalt zich tot de ingestelde duur voorbij is. Geluid: de video speelt zijn eigen geluid af, tenzij je bij Geluid iets anders kiest.</div>
+                      <div className="text-sm font-medium text-white">{t('Duration = video length')}</div>
+                      <div className="text-xs text-zinc-500">{t('Off: the video loops until the set duration has passed. Sound: the video plays its own audio, unless you choose something else under Sound.')}</div>
                     </div>
-                    <Toggle checked={d.useVideoLength} onChange={(v) => set('useVideoLength', v)} label="Duur = lengte van de video" />
+                    <Toggle checked={d.useVideoLength} onChange={(v) => set('useVideoLength', v)} label={t('Duration = video length')} />
                   </div>
                 )}
-                <Field label={d.useVideoLength && isVideo(d.imageUrl) ? 'Zichtbaar: zo lang als de video' : `Zichtbaar: ${(d.durationMs / 1000).toFixed(1)} seconden`}>
+                <Field label={d.useVideoLength && isVideo(d.imageUrl) ? t('Visible: as long as the video') : t('Visible: {n} seconds', { n: (d.durationMs / 1000).toFixed(1) })}>
                   <input type="range" className="w-full disabled:opacity-40" disabled={d.useVideoLength && isVideo(d.imageUrl)} min={1500} max={20000} step={500} value={d.durationMs} onChange={(e) => set('durationMs', Number(e.target.value))} />
                 </Field>
-                <Field label={`Grootte: ${Math.round(d.style.scale * 100)}%`}>
+                <Field label={t('Size: {n}%', { n: Math.round(d.style.scale * 100) })}>
                   <input type="range" className="w-full" min={0.3} max={2.5} step={0.05} value={d.style.scale} onChange={(e) => style('scale', Number(e.target.value))} />
                 </Field>
-                <Field label={`Positie X: ${d.style.x}%`}>
+                <Field label={t('Position X: {n}%', { n: d.style.x })}>
                   <input type="range" className="w-full" min={0} max={100} value={d.style.x} onChange={(e) => style('x', Number(e.target.value))} />
                 </Field>
-                <Field label={`Positie Y: ${d.style.y}%`}>
+                <Field label={t('Position Y: {n}%', { n: d.style.y })}>
                   <input type="range" className="w-full" min={0} max={100} value={d.style.y} onChange={(e) => style('y', Number(e.target.value))} />
                 </Field>
               </div>
@@ -359,34 +361,38 @@ export function CommandEditor() {
             <section className="card space-y-5 p-5">
               <div className="flex items-center justify-between rounded-xl border border-white/10 px-4 py-3">
                 <div>
-                  <div className="text-sm font-medium text-white">Tekst tonen</div>
-                  <div className="text-xs text-zinc-500">Uit: alleen de animatie of GIF verschijnt, zonder tekstbalk.</div>
+                  <div className="text-sm font-medium text-white">{t('Show text')}</div>
+                  <div className="text-xs text-zinc-500">{t('Off: only the animation or GIF appears, without a text banner.')}</div>
                 </div>
-                <Toggle checked={d.showText} onChange={(v) => set('showText', v)} label="Tekst tonen" />
+                <Toggle checked={d.showText} onChange={(v) => set('showText', v)} label={t('Show text')} />
               </div>
               <div className={`space-y-5 transition ${d.showText ? '' : 'pointer-events-none opacity-40'}`} aria-disabled={!d.showText}>
-              <Field label="Tekst" hint={varsHint}>
+              <Field label={t('Text')} hint={varsHint}>
                 <input className="input" value={d.text} maxLength={200} onChange={(e) => set('text', e.target.value)} />
               </Field>
               <div className="flex items-center justify-between rounded-xl border border-white/10 px-4 py-3">
                 <div>
-                  <div className="text-sm font-medium text-white">Gebruikersnaam tonen</div>
-                  <div className="text-xs text-zinc-500">Uit: {'{user}'} wordt “Iemand”.</div>
+                  <div className="text-sm font-medium text-white">{t('Show username')}</div>
+                  <div className="text-xs text-zinc-500">{t('Off: {user} becomes “{someone}”.').replace('{someone}', t('Someone'))}</div>
                 </div>
                 <Toggle checked={d.showUsername} onChange={(v) => set('showUsername', v)} />
               </div>
               {!isAlert && (
               <div className="rounded-xl border border-white/10 p-4">
-                <span className="label">Naam van de ontvanger</span>
+                <span className="label">{t('Name of the recipient')}</span>
                 <p className="mb-3 text-xs text-zinc-500">
-                  Kijkers typen <code className="text-brand-400">!{d.name || 'knuffel'} @naam</code>. Die naam komt op de plek van <code>{'{target}'}</code> in de tekst.
+                  <Trans
+                    text="Viewers type {cmd}. That name replaces {target} in the text."
+                    cmd={<code className="text-brand-400">!{d.name || t('hug')} @{t('name')}</code>}
+                    target={<code>{'{target}'}</code>}
+                  />
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   {(
                     [
-                      ['optional', 'Optioneel'],
-                      ['required', 'Verplicht'],
-                      ['none', 'Geen naam'],
+                      ['optional', t('Optional')],
+                      ['required', t('Required')],
+                      ['none', t('No name')],
                     ] as const
                   ).map(([k, l]) => (
                     <button
@@ -400,13 +406,13 @@ export function CommandEditor() {
                   ))}
                 </div>
                 <p className="mt-2 text-xs text-zinc-500">
-                  {d.targetMode === 'optional' && 'Zonder naam wordt de tekst hieronder gebruikt.'}
-                  {d.targetMode === 'required' && 'Zonder naam gebeurt er niets (en gaat er geen cooldown af). In de preview zie je “Vriendje” als voorbeeld.'}
-                  {d.targetMode === 'none' && 'Namen achter het command worden genegeerd; {target} wordt de tekst hieronder.'}
+                  {d.targetMode === 'optional' && t('Without a name, the text below is used.')}
+                  {d.targetMode === 'required' && t('Without a name nothing happens (and no cooldown is used). The preview shows “{example}” as an example.').replace('{example}', t('Buddy'))}
+                  {d.targetMode === 'none' && t('Names after the command are ignored; {target} becomes the text below.')}
                 </p>
                 {d.targetMode !== 'required' && (
                   <div className="mt-3">
-                    <Field label="Tekst als er geen naam is">
+                    <Field label={t('Text when there is no name')}>
                       <input className="input" value={d.targetFallback} maxLength={40} onChange={(e) => set('targetFallback', e.target.value)} />
                     </Field>
                   </div>
@@ -414,23 +420,23 @@ export function CommandEditor() {
               </div>
               )}
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Lettertype">
+                <Field label={t('Font')}>
                   <select className="input" value={d.style.fontFamily} onChange={(e) => style('fontFamily', e.target.value)}>
                     {FONTS.map((f) => <option key={f}>{f}</option>)}
                   </select>
                 </Field>
-                <Field label={`Lettergrootte: ${d.style.fontSize}px`}>
+                <Field label={t('Font size: {n}px', { n: d.style.fontSize })}>
                   <input type="range" className="w-full" min={16} max={120} value={d.style.fontSize} onChange={(e) => style('fontSize', Number(e.target.value))} />
                 </Field>
-                <Field label="Tekstkleur">
+                <Field label={t('Text colour')}>
                   <ColorInput value={d.style.textColor} onChange={(v) => style('textColor', v)} />
                 </Field>
-                <Field label="Accentkleur (label & namen)">
+                <Field label={t('Accent colour (banner & names)')}>
                   <ColorInput value={d.style.accentColor} onChange={(v) => style('accentColor', v)} />
                 </Field>
               </div>
               <div className="flex items-center justify-between rounded-xl border border-white/10 px-4 py-3">
-                <span className="text-sm font-medium text-white">Tekstschaduw</span>
+                <span className="text-sm font-medium text-white">{t('Text shadow')}</span>
                 <Toggle checked={d.style.textShadow} onChange={(v) => style('textShadow', v)} />
               </div>
               </div>
@@ -440,19 +446,19 @@ export function CommandEditor() {
           {tab === 'chat' && (
             <section className="card space-y-5 p-5">
               <Field
-                label="Chat-antwoord (optioneel)"
-                hint={`De bot (jouw Twitch-account) stuurt dit bericht in de chat. ${varsHint} Begint nooit met een chatcommando, behalve /me.`}
+                label={t('Chat reply (optional)')}
+                hint={`${t('The bot (your Twitch account) sends this message in chat.')} ${varsHint} ${t('Never starts with a chat command, except /me.')}`}
               >
                 <textarea
                   className="input min-h-28"
                   maxLength={480}
                   value={d.reply ?? ''}
-                  placeholder={isAlert ? 'Bijv. Welkom {user}, bedankt voor de follow!' : 'Bijv. Volg me ook op Instagram: @jouwnaam'}
+                  placeholder={isAlert ? t('E.g. Welcome {user}, thanks for the follow!') : t('E.g. Follow me on Instagram too: @yourname')}
                   onChange={(e) => set('reply', e.target.value || null)}
                 />
               </Field>
               {!isAlert && (
-                <Field label="Aliassen" hint="Andere namen voor hetzelfde command, gescheiden door komma's. Bijv. socials, links">
+                <Field label={t('Aliases')} hint={t('Other names for the same command, separated by commas. E.g. socials, links')}>
                   <input
                     className="input font-mono"
                     value={d.aliases.join(', ')}
@@ -468,13 +474,13 @@ export function CommandEditor() {
                   />
                 </Field>
               )}
-              {d.animation === 'none' && <p className="text-xs text-zinc-500">Animatie staat op “Geen”: dit command stuurt alleen dit chatbericht.</p>}
+              {d.animation === 'none' && <p className="text-xs text-zinc-500">{t('Animation is set to “None”: this command only sends this chat message.')}</p>}
             </section>
           )}
 
           {tab === 'rules' && (
             <section className="card space-y-5 p-5">
-              <Field label="Wie mag dit command gebruiken?">
+              <Field label={t('Who can use this command?')}>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {Object.entries(LABELS.permission).map(([k, l]) => (
                     <button
@@ -489,14 +495,14 @@ export function CommandEditor() {
                 </div>
               </Field>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Cooldown per gebruiker (sec)" hint="Hoe vaak één kijker het mag gebruiken.">
+                <Field label={t('Cooldown per user (sec)')} hint={t('How often one viewer can use it.')}>
                   <input type="number" className="input" min={0} max={86400} value={d.userCooldownSec} onChange={(e) => set('userCooldownSec', Number(e.target.value))} />
                 </Field>
-                <Field label="Globale cooldown (sec)" hint="Wachttijd voor iedereen na gebruik.">
+                <Field label={t('Global cooldown (sec)')} hint={t('Wait time for everyone after use.')}>
                   <input type="number" className="input" min={0} max={86400} value={d.globalCooldownSec} onChange={(e) => set('globalCooldownSec', Number(e.target.value))} />
                 </Field>
               </div>
-              <p className="text-xs text-zinc-500">Als streamer negeer je cooldowns, zodat je altijd kunt testen. Events in een drukke chat worden netjes na elkaar afgespeeld (wachtrij).</p>
+              <p className="text-xs text-zinc-500">{t('As the streamer you skip cooldowns, so you can always test. Events in a busy chat are played one after another (queue).')}</p>
             </section>
           )}
 
@@ -506,7 +512,7 @@ export function CommandEditor() {
               <Field label={`Volume: ${d.soundVolume}%`}>
                 <input type="range" className="w-full" min={0} max={100} value={d.soundVolume} onChange={(e) => set('soundVolume', Number(e.target.value))} />
               </Field>
-              <p className="text-xs text-zinc-500">Tip: vink in OBS “Audio regelen via OBS” aan bij de Browser Source.</p>
+              <p className="text-xs text-zinc-500">{t('Tip: in OBS, tick “Control audio via OBS” on the Browser Source.')}</p>
             </section>
           )}
         </div>
@@ -516,16 +522,16 @@ export function CommandEditor() {
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-white">Live preview</h2>
               <button className="btn-ghost px-3 py-1.5 text-xs" onClick={() => setReplay((r) => r + 1)}>
-                <Svg i="refresh" className="h-3.5 w-3.5" /> Opnieuw
+                <Svg i="refresh" className="h-3.5 w-3.5" /> {t('Replay')}
               </button>
             </div>
             {d.animation === 'none' ? (
               <div className="checker grid aspect-video place-items-center rounded-xl border border-white/10 p-6 text-center">
                 <div>
-                  <div className="text-sm text-zinc-400">Geen overlay-animatie, alleen een chatbericht:</div>
+                  <div className="text-sm text-zinc-400">{t('No overlay animation, only a chat message:')}</div>
                   <div className="mx-auto mt-3 max-w-md rounded-2xl rounded-bl-sm bg-ink-700 px-4 py-2.5 text-left text-sm text-zinc-100">
                     <span className="font-semibold text-brand-400">{me.user.displayName}: </span>
-                    {d.reply || <i className="text-zinc-500">vul een chat-antwoord in</i>}
+                    {d.reply || <i className="text-zinc-500">{t('enter a chat reply')}</i>}
                   </div>
                 </div>
               </div>
@@ -539,7 +545,7 @@ export function CommandEditor() {
             />
             )}
             <p className="mt-3 text-xs text-zinc-500">
-              Zo ziet het eruit in je {me.overlay.width}×{me.overlay.height} overlay. Het geblokte vlak is transparant in OBS.
+              {t('This is how it looks in your {w}×{h} overlay. The checkered area is transparent in OBS.', { w: me.overlay.width, h: me.overlay.height })}
             </p>
           </div>
         </div>
@@ -557,9 +563,9 @@ export function CommandEditor() {
               !
             </span>
             <div className="min-w-0">
-              <div className="text-sm font-semibold text-amber-200">Niet opgeslagen wijzigingen</div>
+              <div className="text-sm font-semibold text-amber-200">{t('Unsaved changes')}</div>
               <div className="truncate text-xs text-zinc-400">
-                {saveError ? <span className="text-rose-300">Opslaan mislukt: {saveError}</span> : <>Nog niet actief in je stream. Opslaan kan ook met Ctrl+S.</>}
+                {saveError ? <span className="text-rose-300">{t('Saving failed: {reason}', { reason: saveError })}</span> : <>{t('Not active in your stream yet. You can also save with Ctrl+S.')}</>}
               </div>
             </div>
           </div>
@@ -572,11 +578,11 @@ export function CommandEditor() {
                   setSaveError(null);
                 }}
               >
-                Ongedaan maken
+                {t('Undo')}
               </button>
             )}
             <button className="btn-primary flex-1 py-2 sm:flex-none" disabled={saving} onClick={save}>
-              {saving ? 'Opslaan…' : 'Opslaan'}
+              {saving ? t('Saving…') : t('Save')}
             </button>
           </div>
         </div>,

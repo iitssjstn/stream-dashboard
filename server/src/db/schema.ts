@@ -20,6 +20,8 @@ export const users = sqliteTable(
     overlayWidth: integer('overlay_width').notNull().default(1920),
     overlayHeight: integer('overlay_height').notNull().default(1080),
     chatEnabled: integer('chat_enabled', { mode: 'boolean' }).notNull().default(true),
+    /** UI language and language of default content: en | nl */
+    locale: text('locale').notNull().default('en'),
     /** Set when Twitch rejects the token and it could not be refreshed */
     authError: text('auth_error'),
     createdAt: integer('created_at').notNull(),
@@ -96,6 +98,7 @@ export const commands = sqliteTable(
     showText: integer('show_text', { mode: 'boolean' }).notNull().default(true),
     /** optional: `!knuffel @naam` fills {target}, otherwise targetFallback | required: ignored without a name | none: names are ignored */
     targetMode: text('target_mode').notNull().default('optional'),
+    // Database default kept from the first version; the app always sets this explicitly.
     targetFallback: text('target_fallback').notNull().default('de streamer'),
     style: text('style', { mode: 'json' }).$type<CommandStyle>().notNull(),
     createdAt: integer('created_at').notNull(),
@@ -183,6 +186,7 @@ export const discordGuilds = sqliteTable(
     enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
     channelId: text('channel_id'),
     /** Text above the image. {user} = mention, {name} = display name, {server}, {count} */
+    // Database default kept from the first version; the app always sets this explicitly.
     message: text('message').notNull().default('Welkom {user} in {server}! 🎉'),
     card: text('card', { mode: 'json' }).$type<WelcomeCard>().notNull(),
     /** How the shared bot presents itself on this server (per-server nickname, avatar, bio) */

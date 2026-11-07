@@ -1,8 +1,10 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { Navigate, NavLink, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { usePoll } from './hooks';
 import type { Me } from './api';
-import { Logo, StatusDot, Svg, type Icon } from './ui';
+import { LanguageSwitch, Logo, StatusDot, Svg, type Icon } from './ui';
+import { getLang, setLang, t, type Lang } from './i18n';
+import { api } from './api';
 import { Landing } from './pages/Landing';
 import { Dashboard } from './pages/Dashboard';
 import { Commands } from './pages/Commands';
@@ -46,16 +48,21 @@ const NAV: { to: string; label: string; icon: keyof typeof Icon }[] = [
   { to: '/alerts', label: 'Alerts', icon: 'bell' },
   { to: '/timers', label: 'Timers', icon: 'clock' },
   { to: '/overlay', label: 'Overlay', icon: 'layers' },
-  { to: '/activity', label: 'Activiteit', icon: 'activity' },
+  { to: '/activity', label: 'Activity', icon: 'activity' },
   { to: '/discord', label: 'Discord', icon: 'chat' },
-  { to: '/import', label: 'Importeren', icon: 'download' },
-  { to: '/settings', label: 'Instellingen', icon: 'cog' },
+  { to: '/import', label: 'Import', icon: 'download' },
+  { to: '/settings', label: 'Settings', icon: 'cog' },
 ];
 
 function Authed() {
   const { data: me, error, reload } = usePoll<Me>('/api/me', 5000);
   const [open, setOpen] = useState(false);
   const loc = useLocation();
+  // The account's language wins over the browser's (so it follows you to other devices).
+  useEffect(() => {
+    if (me?.user.locale && me.user.locale !== getLang()) setLang(me.user.locale as Lang);
+  }, [me?.user.locale]);
+  const saveLang = (lang: Lang) => void api('/api/settings', { method: 'PATCH', json: { locale: lang } }).then(() => reload());
 
   if (error && (error as any).status === 401) return <Navigate to="/" replace />;
   if (!me)
@@ -83,7 +90,7 @@ function Authed() {
           }
         >
           <Svg i={n.icon} className="h-[18px] w-[18px]" />
-          {n.label}
+          {t(n.label)}
         </NavLink>
       ))}
     </nav>
@@ -100,7 +107,7 @@ function Authed() {
         <div className="truncate text-sm font-semibold text-white">{me.user.displayName}</div>
         <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
           <StatusDot tone={chatTone} />
-          <span className="font-semibold tracking-wider uppercase">{me.chat.status === 'connected' ? 'chat live' : me.chat.status === 'connecting' ? 'verbinden' : 'offline'}</span>
+          <span className="font-semibold tracking-wider uppercase">{me.chat.status === 'connected' ? t('chat live') : me.chat.status === 'connecting' ? t('connecting') : t('offline')}</span>
         </div>
       </div>
     </div>
@@ -118,10 +125,11 @@ function Authed() {
               target="_blank"
               rel="noreferrer"
               className="block text-center text-[11px] text-zinc-500 hover:text-zinc-300"
-              title="Wat is er nieuw?"
+              title={t("What's new?")}
             >
               Waviloop v{__APP_VERSION__}
             </a>
+            <LanguageSwitch compact onChange={saveLang} />
             {account}
           </div>
         </aside>
@@ -136,14 +144,17 @@ function Authed() {
           {open && (
             <div className="fade-in border-b border-white/[.06] bg-ink-900/95 p-4 lg:hidden">
               {nav}
-              <div className="mt-4">{account}</div>
+              <div className="mt-4 space-y-2">
+                <LanguageSwitch compact onChange={saveLang} />
+                {account}
+              </div>
             </div>
           )}
           {me.user.authError && (
             <div className="mx-4 mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200 sm:mx-8">
-              {me.user.authError}{' '}
+              {t(me.user.authError)}{' '}
               <a className="font-semibold underline" href="/auth/twitch/login">
-                Opnieuw koppelen
+                {t('Reconnect')}
               </a>
             </div>
           )}

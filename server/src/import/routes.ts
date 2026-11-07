@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { and, eq, inArray } from 'drizzle-orm';
-import { DEFAULT_ALERTS } from '../commands/defaults.js';
+import { DEFAULT_ALERT_NAMES } from '../commands/defaults.js';
 import { db, schema } from '../db/index.js';
 import { requireUser } from '../auth/session.js';
 import { validateCommand, validateTimer, ValidationError } from '../api/validate.js';
@@ -21,7 +21,7 @@ export async function importRoutes(app: FastifyInstance, { engine }: { engine: C
     { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
     async (req, reply) => {
       const jwt = (req.body?.jwt ?? '').trim();
-      if (!/^[\w-]+\.[\w-]+\.[\w-]+$/.test(jwt) || jwt.length > 4096) return reply.code(400).send({ error: 'Dit lijkt geen geldig JWT-token' });
+      if (!/^[\w-]+\.[\w-]+\.[\w-]+$/.test(jwt) || jwt.length > 4096) return reply.code(400).send({ error: 'This does not look like a valid JWT token' });
       try {
         const preview = await fetchPreview(jwt);
         const existing = new Set(
@@ -31,7 +31,7 @@ export async function importRoutes(app: FastifyInstance, { engine }: { engine: C
       } catch (e) {
         if (e instanceof SeError) return reply.code(e.status).send({ error: e.message });
         req.log.error({ err: (e as Error).message }, 'streamelements preview failed');
-        return reply.code(502).send({ error: 'Ophalen bij StreamElements mislukt' });
+        return reply.code(502).send({ error: 'Fetching from StreamElements failed' });
       }
     },
   );
@@ -50,7 +50,10 @@ export async function importRoutes(app: FastifyInstance, { engine }: { engine: C
         // ---- chat commands ----
         for (const c of (b.commands ?? []).slice(0, 500)) {
           try {
-            const data = validateCommand(commandBody(c));
+            const body = commandBody(c);
+            // Default fallback text in the streamer's language.
+            if (req.user.locale === 'nl' && body.targetFallback === 'the streamer') body.targetFallback = 'de streamer';
+            const data = validateCommand(body);
             const current = all();
             const existing = current.find((x) => x.name === data.name);
             const taken = new Set(current.filter((x) => x.id !== existing?.id).flatMap((x) => [x.name, ...(x.aliases ?? [])]));
@@ -96,7 +99,7 @@ export async function importRoutes(app: FastifyInstance, { engine }: { engine: C
         for (const trig of new Set(alerts.filter((a) => a.enabled).map((a) => a.trigger))) {
           db.update(schema.commands)
             .set({ enabled: false, updatedAt: now })
-            .where(and(eq(schema.commands.userId, userId), eq(schema.commands.trigger, trig), inArray(schema.commands.name, DEFAULT_ALERTS.map((a) => a.name))))
+            .where(and(eq(schema.commands.userId, userId), eq(schema.commands.trigger, trig), inArray(schema.commands.name, DEFAULT_ALERT_NAMES)))
             .run();
         }
         for (const a of alerts) {
@@ -106,7 +109,9 @@ export async function importRoutes(app: FastifyInstance, { engine }: { engine: C
             const existing = current.find((x) => x.name === base);
             let name = base;
             if (existing && !overwrite) for (let i = 2; current.some((x) => x.name === name); i++) name = `${base}-${i}`;
-            const data = validateCommand(alertBody(a, name));
+            const ab = alertBody(a, name);
+            if (req.user.locale === 'nl') ab.text = ab.text.replace(/\bthe chat\b/g, 'de chat');
+            const data = validateCommand(ab);
             if (existing && overwrite) db.update(schema.commands).set({ ...data, updatedAt: now }).where(eq(schema.commands.id, existing.id)).run();
             else db.insert(schema.commands).values({ ...data, userId, createdAt: now, updatedAt: now }).run();
             result.alerts++;

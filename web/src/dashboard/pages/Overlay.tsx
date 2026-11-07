@@ -6,12 +6,13 @@ import { usePoll } from '../hooks';
 import { CopyUrl } from '../components/Shared';
 import { OverlayPreview } from '../components/OverlayPreview';
 import { PageHeader, StatusDot, Svg, useToast } from '../ui';
+import { t } from '../i18n';
 
 const PRESETS = [
   [1920, 1080, '1080p'],
   [1280, 720, '720p'],
   [2560, 1440, '1440p'],
-  [1080, 1920, 'Verticaal'],
+  [1080, 1920, 'Vertical'],
 ] as const;
 
 export function OverlayPage() {
@@ -29,7 +30,7 @@ export function OverlayPage() {
     setW(width);
     setH(height);
     await api('/api/settings', { method: 'PATCH', json: { overlayWidth: width, overlayHeight: height } });
-    toast(`Resolutie ingesteld op ${width}×${height}. Pas ook de Browser Source in OBS aan.`);
+    toast(t('Resolution set to {w}×{h}. Also update the Browser Source in OBS.', { w: width, h: height }));
     void reload();
   };
 
@@ -37,27 +38,27 @@ export function OverlayPage() {
 
   return (
     <>
-      <PageHeader title="Overlay" subtitle="Eén URL voor al je interactieve elementen. Werkt los van dit dashboard." />
+      <PageHeader title="Overlay" subtitle={t('One URL for all your interactive elements. Works independently of this dashboard.')} />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="card space-y-4 p-5 lg:col-span-2">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-white">Jouw overlay-URL</h2>
+            <h2 className="font-semibold text-white">{t('Your overlay URL')}</h2>
             <span className="flex items-center gap-2 text-sm text-zinc-300">
               <StatusDot tone={me.overlay.connectedClients ? 'ok' : 'off'} />
-              {me.overlay.connectedClients ? `${me.overlay.connectedClients} browser source(s) verbonden` : 'Nog niet geopend in OBS'}
+              {me.overlay.connectedClients ? t('{n} browser source(s) connected', { n: me.overlay.connectedClients }) : t('Not opened in OBS yet')}
             </span>
           </div>
           <CopyUrl url={me.overlay.url} />
           <p className="text-xs text-zinc-500">
-            Deze URL is geheim: iedereen die hem heeft kan je overlay zien. Gelekt? Maak een nieuwe aan, de oude stopt direct met werken. Voeg <code>?debug</code> toe aan de URL om de verbindingsstatus in beeld te zien.
+            {t('This URL is secret: anyone who has it can see your overlay. Leaked? Create a new one; the old one stops working immediately. Add ?debug to the URL to show the connection status on screen.')}
           </p>
           <button
             className="btn-danger"
             onClick={async () => {
-              if (!confirm('Nieuwe URL maken? Je moet daarna de Browser Source in OBS bijwerken.')) return;
+              if (!confirm(t('Create a new URL? You will need to update the Browser Source in OBS afterwards.'))) return;
               await api('/api/overlay/regenerate', { method: 'POST' });
-              toast('Nieuwe overlay-URL aangemaakt');
+              toast(t('New overlay URL created'));
               void reload();
             }}
           >
@@ -66,7 +67,7 @@ export function OverlayPage() {
         </section>
 
         <section className="card space-y-4 p-5">
-          <h2 className="font-semibold text-white">Resolutie</h2>
+          <h2 className="font-semibold text-white">{t('Resolution')}</h2>
           <div className="grid grid-cols-2 gap-2">
             {PRESETS.map(([pw, ph, l]) => (
               <button
@@ -74,22 +75,22 @@ export function OverlayPage() {
                 onClick={() => saveRes(pw, ph)}
                 className={`cursor-pointer rounded-xl border px-3 py-2.5 text-sm transition ${w === pw && h === ph ? 'border-brand-500 bg-brand-500/10 text-white' : 'border-white/10 text-zinc-300 hover:bg-white/[.04]'}`}
               >
-                <div className="font-semibold">{l}</div>
+                <div className="font-semibold">{t(l)}</div>
                 <div className="text-xs text-zinc-500">{pw}×{ph}</div>
               </button>
             ))}
           </div>
           <div className="flex items-end gap-2">
             <label className="flex-1">
-              <span className="label">Breedte</span>
+              <span className="label">{t('Width')}</span>
               <input className="input" type="number" value={w} onChange={(e) => setW(Number(e.target.value))} />
             </label>
             <label className="flex-1">
-              <span className="label">Hoogte</span>
+              <span className="label">{t('Height')}</span>
               <input className="input" type="number" value={h} onChange={(e) => setH(Number(e.target.value))} />
             </label>
             <button className="btn-ghost" onClick={() => saveRes(w, h)}>
-              Opslaan
+              {t('Save')}
             </button>
           </div>
         </section>
@@ -97,8 +98,8 @@ export function OverlayPage() {
 
       <section className="card mt-6 p-5">
         <div className="mb-4">
-          <h2 className="font-semibold text-white">Indeling</h2>
-          <p className="text-sm text-zinc-400">Kies rechts een command, of klik op een vak, en sleep het naar zijn plek. Het geselecteerde command speelt af in de preview.</p>
+          <h2 className="font-semibold text-white">{t('Layout')}</h2>
+          <p className="text-sm text-zinc-400">{t('Pick a command on the right, or click a box, and drag it into place. The selected command plays in the preview.')}</p>
         </div>
         {cmds && (
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
@@ -122,7 +123,7 @@ export function OverlayPage() {
               }}
               preview={sel}
             />
-            <ul className="flex max-h-[520px] flex-col gap-1.5 overflow-y-auto pr-1" aria-label="Commands in de overlay">
+            <ul className="flex max-h-[520px] flex-col gap-1.5 overflow-y-auto pr-1" aria-label={t('Commands in the overlay')}>
               {cmds.map((c, i) => {
                 const active = c.id === selected;
                 return (
@@ -143,7 +144,7 @@ export function OverlayPage() {
                       <div className="flex items-center gap-2.5">
                         <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: colorFor(i) }} />
                         <span className="truncate font-mono text-sm font-semibold text-white">{c.trigger === 'chat' ? `!${c.name}` : `🔔 ${c.trigger}${c.minAmount ? ` ${c.minAmount}+` : ''}`}</span>
-                        {!c.enabled && <span className="chip ml-auto bg-white/[.06] px-2 py-0.5 text-[10px] text-zinc-400">uit</span>}
+                        {!c.enabled && <span className="chip ml-auto bg-white/[.06] px-2 py-0.5 text-[10px] text-zinc-400">{t('off')}</span>}
                       </div>
                       <div className="mt-0.5 pl-[22px] text-xs text-zinc-500">
                         {LABELS.animation[c.animation] ?? c.animation} · x {c.style.x}% · y {c.style.y}%
@@ -155,13 +156,13 @@ export function OverlayPage() {
                             className="btn-ghost px-2.5 py-1.5 text-xs"
                             onClick={async () => {
                               const r = await api<{ delivered: number }>(`/api/commands/${c.id}/test`, { method: 'POST' });
-                              toast(r.delivered ? 'Afgespeeld in OBS' : 'Geen overlay open in OBS', r.delivered ? 'ok' : 'error');
+                              toast(r.delivered ? t('Played in OBS') : t('No overlay open in OBS'), r.delivered ? 'ok' : 'error');
                             }}
                           >
-                            <Svg i="play" className="h-3 w-3" /> Test in OBS
+                            <Svg i="play" className="h-3 w-3" /> {t('Test in OBS')}
                           </button>
                           <Link to={`/commands/${c.id}`} className="btn-ghost px-2.5 py-1.5 text-xs">
-                            <Svg i="edit" className="h-3.5 w-3.5" /> Bewerken
+                            <Svg i="edit" className="h-3.5 w-3.5" /> {t('Edit')}
                           </Link>
                         </div>
                       )}

@@ -40,14 +40,14 @@ export async function giphyRoutes(app: FastifyInstance) {
     { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } },
     async (req, reply) => {
       const { key } = giphyKey();
-      if (!key) return reply.code(409).send({ error: 'GIPHY is nog niet ingesteld (Instellingen → GIPHY).' });
+      if (!key) return reply.code(409).send({ error: 'GIPHY has not been set up yet (Settings → GIPHY).' });
       const q = (req.query.q ?? '').trim().slice(0, 50);
       const offset = String(Math.min(4975, Math.max(0, Number(req.query.offset) || 0)));
       const params = { limit: '24', offset, rating: 'pg-13', bundle: 'messaging_non_clips', ...(q ? { q, lang: 'nl' } : {}) };
       const res = await giphy(q ? 'search' : 'trending', params, key);
-      if (res.status === 401 || res.status === 403) return reply.code(502).send({ error: 'GIPHY weigert de API-sleutel.' });
-      if (res.status === 429) return reply.code(429).send({ error: 'GIPHY-limiet bereikt, probeer het straks opnieuw.' });
-      if (!res.ok) return reply.code(502).send({ error: `GIPHY gaf een fout (${res.status}).` });
+      if (res.status === 401 || res.status === 403) return reply.code(502).send({ error: 'GIPHY rejected the API key.' });
+      if (res.status === 429) return reply.code(429).send({ error: 'GIPHY limit reached, please try again later.' });
+      if (!res.ok) return reply.code(502).send({ error: `GIPHY returned an error (${res.status}).` });
       const json = (await res.json()) as { data: GiphyGif[]; pagination?: { total_count: number; offset: number; count: number } };
       const results = json.data.map(toResult).filter((r): r is GifResult => r !== null);
       const p = json.pagination;
@@ -57,7 +57,7 @@ export async function giphyRoutes(app: FastifyInstance) {
 
   // ---- owner-only key management (the key itself is never returned) ----
   const ownerOnly = async (req: { user: { id: number } }, reply: { code: (n: number) => { send: (b: unknown) => unknown } }) => {
-    if (req.user.id !== ownerUserId()) return reply.code(403).send({ error: 'Alleen de eigenaar mag dit wijzigen.' });
+    if (req.user.id !== ownerUserId()) return reply.code(403).send({ error: 'Only the owner can change this.' });
   };
 
   app.get('/api/admin/giphy', { preHandler: ownerOnly }, async () => ({ source: giphyKey().source }));
@@ -66,12 +66,12 @@ export async function giphyRoutes(app: FastifyInstance) {
     '/api/admin/giphy',
     { preHandler: ownerOnly, config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
     async (req, reply) => {
-      if (giphyKey().source === 'secret') return reply.code(409).send({ error: 'De sleutel wordt beheerd via Docker secrets.' });
+      if (giphyKey().source === 'secret') return reply.code(409).send({ error: 'The key is managed via Docker secrets.' });
       const key = (req.body?.apiKey ?? '').trim();
-      if (!/^[a-zA-Z0-9]{16,64}$/.test(key)) return reply.code(400).send({ error: 'Ongeldige GIPHY API-sleutel' });
+      if (!/^[a-zA-Z0-9]{16,64}$/.test(key)) return reply.code(400).send({ error: 'Invalid GIPHY API key' });
       const res = await giphy('trending', { limit: '1' }, key).catch(() => null);
-      if (!res) return reply.code(502).send({ error: 'GIPHY is niet bereikbaar.' });
-      if (!res.ok) return reply.code(400).send({ error: 'GIPHY accepteert deze API-sleutel niet.' });
+      if (!res) return reply.code(502).send({ error: 'GIPHY is unreachable.' });
+      if (!res.ok) return reply.code(400).send({ error: 'GIPHY does not accept this API key.' });
       saveGiphyKey(key);
       req.log.info({ userId: req.user.id }, 'GIPHY key saved');
       return { ok: true };
@@ -79,7 +79,7 @@ export async function giphyRoutes(app: FastifyInstance) {
   );
 
   app.delete('/api/admin/giphy', { preHandler: ownerOnly }, async (_req, reply) => {
-    if (giphyKey().source === 'secret') return reply.code(409).send({ error: 'De sleutel wordt beheerd via Docker secrets.' });
+    if (giphyKey().source === 'secret') return reply.code(409).send({ error: 'The key is managed via Docker secrets.' });
     saveGiphyKey(null);
     return { ok: true };
   });

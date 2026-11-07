@@ -127,6 +127,10 @@ Een nieuwe versie uitbrengen (voor ontwikkelaars):
 
 Zodra er op `main` een versienummer staat waarvoor nog geen tag bestaat, test GitHub Actions die versie. Daarna publiceert het het Docker-image (`:1.1.0` en `:1.1`) en maakt het de tag `v1.1.0` met een GitHub Release, met de tekst uit de changelog.
 
+## Taal
+
+Waviloop is standaard **Engels**; **Nederlands** is een taaloptie (zijbalk, startpagina of *Settings → Language*). Nieuwe teksten schrijf je in het Engels met `t('…')` of `<Trans>` (`web/src/dashboard/i18n.tsx`) en de Nederlandse vertaling zet je in `web/src/dashboard/locales/nl.ts` (de Engelse tekst is de sleutel).
+
 ## Architectuur
 
 ```

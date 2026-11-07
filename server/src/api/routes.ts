@@ -10,7 +10,7 @@ import { requireUser } from '../auth/session.js';
 import { giphyKey, ownerUserId, twitchConfigured } from '../settings.js';
 import { validateCommand, validateTimer, ValidationError } from './validate.js';
 import { renderText, safeReply } from '../commands/engine.js';
-import { ANIMATIONS, EFFECTS, PARTICLES, PERMISSIONS } from '../commands/defaults.js';
+import { ANIMATIONS, asLocale, EFFECTS, PARTICLES, PERMISSIONS } from '../commands/defaults.js';
 import type { ChatManager } from '../twitch/manager.js';
 import type { EventSubManager } from '../twitch/eventsub.js';
 import type { TimerScheduler } from '../timers/scheduler.js';
@@ -41,10 +41,10 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
   app.setErrorHandler((error, _req, reply) => {
     const err = error as Error & { code?: string; statusCode?: number };
     if (err instanceof ValidationError) return reply.code(400).send({ error: err.message });
-    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') return reply.code(409).send({ error: 'Dit command bestaat al' });
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') return reply.code(409).send({ error: 'This command already exists' });
     if (err.statusCode && err.statusCode < 500) return reply.code(err.statusCode).send({ error: err.message });
     app.log.error(err);
-    return reply.code(500).send({ error: 'Interne fout' });
+    return reply.code(500).send({ error: 'Internal error' });
   });
 
   app.get('/me', async (req) => {
@@ -76,6 +76,7 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
         profileImageUrl: u.profileImageUrl,
         scopes: u.scopes.split(' ').filter(Boolean),
         authError: u.authError,
+        locale: u.locale,
       },
       overlay: {
         url: overlayUrl(u),
@@ -94,12 +95,13 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
 
   app.get('/meta', async () => ({ animations: ANIMATIONS, permissions: PERMISSIONS, effects: EFFECTS, particles: PARTICLES }));
 
-  app.patch<{ Body: { overlayWidth?: number; overlayHeight?: number; chatEnabled?: boolean } }>('/settings', async (req) => {
+  app.patch<{ Body: { overlayWidth?: number; overlayHeight?: number; chatEnabled?: boolean; locale?: string } }>('/settings', async (req) => {
     const b = req.body ?? {};
     const patch: Partial<User> = { updatedAt: Date.now() };
     if (b.overlayWidth !== undefined) patch.overlayWidth = Math.min(7680, Math.max(320, Math.round(Number(b.overlayWidth))));
     if (b.overlayHeight !== undefined) patch.overlayHeight = Math.min(4320, Math.max(240, Math.round(Number(b.overlayHeight))));
     if (b.chatEnabled !== undefined) patch.chatEnabled = Boolean(b.chatEnabled);
+    if (b.locale !== undefined) patch.locale = asLocale(b.locale);
     db.update(schema.users).set(patch).where(eq(schema.users.id, req.user.id)).run();
     const u = db.select().from(schema.users).where(eq(schema.users.id, req.user.id)).get()!;
     hub.broadcast(u.id, { type: 'config', width: u.overlayWidth, height: u.overlayHeight, channel: u.login });
@@ -152,7 +154,7 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
       .where(and(eq(schema.commands.id, Number(req.params.id)), eq(schema.commands.userId, req.user.id)))
       .returning()
       .get();
-    if (!row) return reply.code(404).send({ error: 'Command niet gevonden' });
+    if (!row) return reply.code(404).send({ error: 'Command not found' });
     engine.invalidate(req.user.id);
     return row;
   });
@@ -168,9 +170,9 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
   /** Sends a command through the real overlay pipeline – handy while positioning the browser source in OBS. */
   app.post<{ Params: { id: string } }>('/commands/:id/test', async (req, reply) => {
     const cmd = engine.getCommand(req.user.id, Number(req.params.id));
-    if (!cmd) return reply.code(404).send({ error: 'Command niet gevonden' });
+    if (!cmd) return reply.code(404).send({ error: 'Command not found' });
     // Alerts are tested with sample values so {amount}, {months} etc. show something sensible.
-    const sample = { amount: Math.max(cmd.minAmount, cmd.trigger === 'cheer' ? 100 : cmd.trigger === 'raid' ? 25 : 3), months: 6, tier: '1', message: 'Dit is een testbericht', args: '' };
+    const sample = { amount: Math.max(cmd.minAmount, cmd.trigger === 'cheer' ? 100 : cmd.trigger === 'raid' ? 25 : 3), months: 6, tier: '1', message: 'This is a test message', args: '' };
     return engine.fire(req.user.id, cmd, req.user.displayName, null, req.user.login, 'test', cmd.trigger === 'chat' ? {} : sample);
   });
 
@@ -197,7 +199,7 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
   app.put<{ Params: { id: string } }>('/timers/:id', async (req, reply) => {
     const data = validateTimer(req.body);
     const row = db.update(schema.timers).set({ ...data, updatedAt: Date.now() }).where(ownTimer(req.user.id, Number(req.params.id))).returning().get();
-    if (!row) return reply.code(404).send({ error: 'Timer niet gevonden' });
+    if (!row) return reply.code(404).send({ error: 'Timer not found' });
     timers.reset(row.id);
     return row;
   });
@@ -211,7 +213,7 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
   /** Sends the timer's next message right away (handy to check the text). */
   app.post<{ Params: { id: string } }>('/timers/:id/test', async (req, reply) => {
     const t = db.select().from(schema.timers).where(ownTimer(req.user.id, Number(req.params.id))).get();
-    if (!t) return reply.code(404).send({ error: 'Timer niet gevonden' });
+    if (!t) return reply.code(404).send({ error: 'Timer not found' });
     chat.say(req.user.id, safeReply(renderText(t.messages[0], { user: req.user.displayName, target: req.user.displayName, channel: req.user.login }, 480)));
     return { ok: true };
   });
@@ -242,11 +244,11 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
 
   app.post('/uploads', async (req, reply) => {
     const file = await req.file();
-    if (!file) return reply.code(400).send({ error: 'Geen bestand ontvangen' });
+    if (!file) return reply.code(400).send({ error: 'No file received' });
     const ext = UPLOAD_TYPES[file.mimetype];
     if (!ext) {
       file.file.resume();
-      return reply.code(415).send({ error: 'Alleen PNG, JPG, GIF, WEBP, MP3, WAV, OGG, MP4 of WEBM' });
+      return reply.code(415).send({ error: 'Only PNG, JPG, GIF, WEBP, MP3, WAV, OGG, MP4 or WEBM' });
     }
     const id = `${randomToken(12)}${ext}`;
     const dest = path.join(config.uploadDir, id);
@@ -255,7 +257,7 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
     const size = fs.statSync(dest).size;
     if (file.file.truncated || (!isVideo && size > 15 * 1024 * 1024)) {
       fs.rmSync(dest, { force: true });
-      return reply.code(413).send({ error: isVideo ? 'Video is groter dan 60 MB' : 'Bestand is groter dan 15 MB' });
+      return reply.code(413).send({ error: isVideo ? 'Video is larger than 60 MB' : 'File is larger than 15 MB' });
     }
     db.insert(schema.uploads)
       .values({ id, userId: req.user.id, originalName: file.filename.slice(0, 200), mime: file.mimetype, size, createdAt: Date.now() })

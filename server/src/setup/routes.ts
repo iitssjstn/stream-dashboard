@@ -14,15 +14,15 @@ const SECRET_RE = /^[a-zA-Z0-9]{10,128}$/;
 async function validateAndSave(body: Body): Promise<{ status: number; error: string } | null> {
   const clientId = (body.clientId ?? '').trim();
   const clientSecret = (body.clientSecret ?? '').trim();
-  if (!ID_RE.test(clientId)) return { status: 400, error: 'Ongeldige Client ID' };
-  if (!SECRET_RE.test(clientSecret)) return { status: 400, error: 'Ongeldig Client Secret' };
+  if (!ID_RE.test(clientId)) return { status: 400, error: 'Invalid Client ID' };
+  if (!SECRET_RE.test(clientSecret)) return { status: 400, error: 'Invalid Client Secret' };
   let ok: boolean;
   try {
     ok = await verifyAppCredentials(clientId, clientSecret);
   } catch (e) {
     return { status: 502, error: (e as Error).message };
   }
-  if (!ok) return { status: 400, error: 'Twitch accepteert deze Client ID / Client Secret niet.' };
+  if (!ok) return { status: 400, error: 'Twitch does not accept this Client ID / Client Secret.' };
   saveTwitchCredentials(clientId, clientSecret);
   return null;
 }
@@ -33,10 +33,10 @@ export async function setupRoutes(app: FastifyInstance, { chat, eventsub }: { ch
     '/setup/twitch',
     { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
     async (req, reply) => {
-      if (twitchConfigured()) return reply.code(409).send({ error: 'Twitch is al ingesteld.' });
+      if (twitchConfigured()) return reply.code(409).send({ error: 'Twitch is already set up.' });
       if (!checkSetupCode(req.body?.code ?? '')) {
         req.log.warn('setup attempted with wrong setup code');
-        return reply.code(403).send({ error: 'Onjuiste setup-code. Je vindt hem in de serverlogs.' });
+        return reply.code(403).send({ error: 'Wrong setup code. You can find it in the server logs.' });
       }
       const res = await validateAndSave(req.body ?? {});
       if (res) return reply.code(res.status).send({ error: res.error });
@@ -49,7 +49,7 @@ export async function setupRoutes(app: FastifyInstance, { chat, eventsub }: { ch
   app.register(async (owner) => {
     owner.addHook('preHandler', requireUser);
     owner.addHook('preHandler', async (req, reply) => {
-      if (req.user.id !== ownerUserId()) return reply.code(403).send({ error: 'Alleen de eigenaar mag dit wijzigen.' });
+      if (req.user.id !== ownerUserId()) return reply.code(403).send({ error: 'Only the owner can change this.' });
     });
     owner.get('/api/admin/twitch-app', async () => {
       const c = twitchCredentials();
@@ -60,7 +60,7 @@ export async function setupRoutes(app: FastifyInstance, { chat, eventsub }: { ch
       { config: { rateLimit: { max: 5, timeWindow: '1 minute' } } },
       async (req, reply) => {
         if (twitchCredentials().source === 'secret') {
-          return reply.code(409).send({ error: 'De gegevens worden beheerd via Docker secrets en kunnen hier niet worden gewijzigd.' });
+          return reply.code(409).send({ error: 'The credentials are managed via Docker secrets and cannot be changed here.' });
         }
         const res = await validateAndSave(req.body ?? {});
         if (res) return reply.code(res.status).send({ error: res.error });

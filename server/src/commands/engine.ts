@@ -134,14 +134,14 @@ export class CommandEngine {
 
     const rank = roleRank(msg.roles);
     if (rank < (RANK[cmd.permission] ?? 0)) {
-      this.record(userId, cmd.name, msg.displayName, 'denied', `vereist ${cmd.permission}`);
+      this.record(userId, cmd.name, msg.displayName, 'denied', `requires ${cmd.permission}`);
       return;
     }
 
     const target = cmd.targetMode === 'none' ? null : parseTarget(rest.join(' '));
     if (cmd.targetMode === 'required' && !target) {
       // Checked before cooldowns, so a forgotten name doesn't cost the viewer their cooldown.
-      this.record(userId, cmd.name, msg.displayName, 'denied', `geen naam opgegeven (!${cmd.name} @naam)`);
+      this.record(userId, cmd.name, msg.displayName, 'denied', `no name given (!${cmd.name} @name)`);
       return;
     }
 
@@ -154,7 +154,7 @@ export class CommandEngine {
       const uUntil = this.userCooldown.get(uKey) ?? 0;
       if (now < gUntil || now < uUntil) {
         const left = Math.ceil((Math.max(gUntil, uUntil) - now) / 1000);
-        this.record(userId, cmd.name, msg.displayName, 'cooldown', `nog ${left}s`);
+        this.record(userId, cmd.name, msg.displayName, 'cooldown', `${left}s left`);
         return;
       }
     }
@@ -173,7 +173,7 @@ export class CommandEngine {
       .alerts.filter((c) => c.enabled && c.trigger === ev.type && amount >= c.minAmount)
       .sort((a, b) => b.minAmount - a.minAmount)[0];
     if (!cmd) {
-      this.record(userId, `alert:${ev.type}`, ev.user, 'denied', 'geen actieve alert voor dit type');
+      this.record(userId, `alert:${ev.type}`, ev.user, 'denied', 'no active alert for this type');
       return null;
     }
     return this.fire(userId, cmd, ev.user, null, channel, 'triggered', { amount, message: ev.message, tier: ev.tier, months: ev.months });
@@ -192,7 +192,8 @@ export class CommandEngine {
     const count = cmd.useCount + 1;
     db.update(schema.commands).set({ useCount: sql`${schema.commands.useCount} + 1` }).where(eq(schema.commands.id, cmd.id)).run();
     cmd.useCount = count; // keep the cached copy in sync
-    const shownUser = cmd.showUsername ? viewer : 'Iemand';
+    const locale = db.select({ locale: schema.users.locale }).from(schema.users).where(eq(schema.users.id, userId)).get()?.locale;
+    const shownUser = cmd.showUsername ? viewer : locale === 'nl' ? 'Iemand' : 'Someone';
     const vars: TemplateVars = { user: shownUser, target: target ?? cmd.targetFallback, channel, count, ...extra };
 
     let delivered = 0;
@@ -221,7 +222,7 @@ export class CommandEngine {
       this.sender(userId, safeReply(renderText(cmd.reply, { ...vars, user: viewer }, 480)));
     }
     const name = cmd.trigger === 'chat' ? cmd.name : `alert:${cmd.trigger}`;
-    const detail = cmd.animation !== 'none' && !delivered ? 'geen overlay verbonden (in wachtrij)' : cmd.animation === 'none' ? 'chat-antwoord' : null;
+    const detail = cmd.animation !== 'none' && !delivered ? 'no overlay connected (queued)' : cmd.animation === 'none' ? 'chat reply' : null;
     this.record(userId, name, viewer, status, detail);
     this.log.info({ userId, command: cmd.name, viewer, delivered }, 'command fired');
     return { delivered, eventId, replied: Boolean(cmd.reply) };

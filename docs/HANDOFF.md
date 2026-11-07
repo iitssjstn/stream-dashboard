@@ -15,7 +15,7 @@ Een webapp die lijkt op StreamElements, met een eigen ontwerp:
 - **Chat-antwoorden**, **timers** en **alerts** (follow, sub, resub, gift, bits, raid via Twitch EventSub).
 - **StreamElements-import**: commands, timers en alerts.
 - **Discord-bot**: één gedeelde bot; streamers voegen hem met één klik toe aan hun server(s). Welkomstplaatjes, een eigen bot-profiel per server.
-- **Dashboard** in het Nederlands: donker, paars/blauw, neon-kaarten.
+- **Dashboard** standaard Engels met Nederlands als taaloptie (i18n: Engelse tekst is de sleutel, `t()`/`<Trans>` in `web/src/dashboard/i18n.tsx`, vertalingen in `web/src/dashboard/locales/nl.ts`; patronen met `{x}` vertalen dynamische servermeldingen; taal in `users.locale` + cookie `waviloop_lang`). Donker, paars/blauw, neon-kaarten.
 
 Repo: `iitssjstn/stream-dashboard` (openbaar). Productie draait bij de eigenaar via Docker Compose achter Nginx Proxy Manager (met **Websockets Support aan**).
 
@@ -44,7 +44,7 @@ Geheimen (Twitch, GIPHY, Discord) worden **op de website** ingevuld en AES-256-G
 
 ## Werkafspraken
 
-- **Taal:** Nederlands met de gebruiker en in de UI; code en commentaar in het Engels.
+- **Taal:** Nederlands met de gebruiker; UI standaard Engels — elke nieuwe tekst Engels schrijven via `t()` én de Nederlandse vertaling aan `locales/nl.ts` toevoegen. Code en commentaar in het Engels.
 - **Geen sessielinks** in de repo, commits of PR's. Commitbericht in het Nederlands; afsluiten met alleen:
   `Co-Authored-By: Claude <noreply@anthropic.com>` (gebruik de modelnaam die je harness opgeeft, zonder sessieregel).
 - **Testen:** elke functie krijgt checks in `e2e/run.mjs`. Draai de test lokaal vóór het pushen.

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { api } from '../api';
 import { Svg } from '../ui';
+import { t } from '../i18n';
 
 type Gif = { id: string; title: string; preview: string; url: string; width: number; height: number };
 type Page = { results: Gif[]; nextOffset: number | null };
@@ -57,7 +58,7 @@ export function GiphyPicker({ onPick, onClose }: { onPick: (url: string) => void
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="GIF zoeken op GIPHY"
+        aria-label={t('Search GIFs on GIPHY')}
         className="fade-in flex h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-ink-850 shadow-2xl shadow-black/60 sm:h-[min(80vh,720px)] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
@@ -65,18 +66,18 @@ export function GiphyPicker({ onPick, onClose }: { onPick: (url: string) => void
           <input
             ref={input}
             className="input"
-            placeholder="Zoek een GIF, bijv. hug, high five, dance…"
+            placeholder={t('Search a GIF, e.g. hug, high five, dance…')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             maxLength={50}
           />
-          <button className="btn-ghost px-3" onClick={onClose} aria-label="Sluiten">
+          <button className="btn-ghost px-3" onClick={onClose} aria-label={t('Close')}>
             ✕
           </button>
         </div>
         <div className="thin-scroll flex-1 overflow-y-auto p-4">
           {error && <div className="mb-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">{error}</div>}
-          {!q && !error && <div className="mb-3 text-xs font-semibold tracking-wider text-zinc-500 uppercase">Trending</div>}
+          {!q && !error && <div className="mb-3 text-xs font-semibold tracking-wider text-zinc-500 uppercase">{t('Trending')}</div>}
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
             {gifs.map((g) => (
               <button
@@ -90,12 +91,12 @@ export function GiphyPicker({ onPick, onClose }: { onPick: (url: string) => void
               </button>
             ))}
           </div>
-          {!loading && !error && gifs.length === 0 && <div className="py-10 text-center text-sm text-zinc-500">Niets gevonden voor “{q}”.</div>}
-          {loading && <div className="py-6 text-center text-sm text-zinc-500">Laden…</div>}
+          {!loading && !error && gifs.length === 0 && <div className="py-10 text-center text-sm text-zinc-500">{t('Nothing found for “{q}”.', { q })}</div>}
+          {loading && <div className="py-6 text-center text-sm text-zinc-500">{t('Loading…')}</div>}
           {!loading && next !== null && gifs.length > 0 && (
             <div className="pt-2 text-center">
               <button className="btn-ghost" onClick={() => void load(q.trim(), next)}>
-                Meer laden
+                {t('Load more')}
               </button>
             </div>
           )}

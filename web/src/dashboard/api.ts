@@ -1,4 +1,5 @@
 import type { CommandStyle } from '../overlay/types';
+import { t } from './i18n';
 
 export type Trigger = 'chat' | 'follow' | 'subscriber' | 'resub' | 'gift' | 'cheer' | 'raid';
 
@@ -33,7 +34,7 @@ export type Command = {
 };
 
 export type Me = {
-  user: { id: number; login: string; displayName: string; profileImageUrl: string | null; scopes: string[]; authError: string | null };
+  user: { id: number; login: string; displayName: string; profileImageUrl: string | null; scopes: string[]; authError: string | null; locale: string };
   overlay: { url: string; width: number; height: number; connectedClients: number };
   chat: { enabled: boolean; status: 'disconnected' | 'connecting' | 'connected' | 'auth_failed'; lastError: string | null; connectedAt: number | null };
   alerts: { status: 'off' | 'connecting' | 'connected' | 'error'; subscribed: string[]; missingScopes: string[]; lastError: string | null };
@@ -61,38 +62,43 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
     body: json !== undefined ? JSON.stringify(json) : rest.body,
   });
   const data = res.headers.get('content-type')?.includes('json') ? await res.json() : await res.text();
-  if (!res.ok) throw new ApiError(res.status, (data as any)?.error ?? `Fout ${res.status}`);
+  // Server messages are English; t() shows them in the chosen language.
+  if (!res.ok) throw new ApiError(res.status, t((data as any)?.error ?? `Error ${res.status}`));
   return data as T;
 }
 
+/** Label maps whose values are translated when read (works with Object.entries too). */
+const translated = <T extends Record<string, string>>(o: T): T =>
+  new Proxy(o, { get: (target, k) => (typeof k === 'string' && k in target ? t(target[k as keyof T] as string) : Reflect.get(target, k)) });
+
 export const LABELS = {
-  animation: {
-    hug: 'Knuffel',
+  animation: translated({
+    hug: 'Hug',
     highfive: 'High five',
-    love: 'Liefde',
-    dance: 'Dansen',
-    wave: 'Zwaaien',
-    image: 'Eigen afbeelding / GIF',
-    none: 'Geen (alleen chat-antwoord)',
-  } as Record<string, string>,
-  permission: {
-    everyone: 'Iedereen',
+    love: 'Love',
+    dance: 'Dance',
+    wave: 'Wave',
+    image: 'Own image / GIF / video',
+    none: 'None (chat reply only)',
+  } as Record<string, string>),
+  permission: translated({
+    everyone: 'Everyone',
     subscriber: 'Subscribers+',
     vip: "VIP's+",
     moderator: 'Moderators+',
-    broadcaster: 'Alleen streamer',
-  } as Record<string, string>,
-  effect: {
+    broadcaster: 'Streamer only',
+  } as Record<string, string>),
+  effect: translated({
     pop: 'Pop',
-    'slide-up': 'Omhoog schuiven',
-    'slide-left': 'Van rechts schuiven',
-    fade: 'Vervagen',
-    bounce: 'Stuiteren',
-    zoom: 'Inzoomen',
-    spin: 'Draaien',
-  } as Record<string, string>,
-  style: { anime: 'Anime', people: 'Mensen' } as Record<string, string>,
-  particles: { none: 'Geen', hearts: 'Hartjes', stars: 'Sterren', confetti: 'Confetti', sparkles: 'Glinsters' } as Record<string, string>,
+    'slide-up': 'Slide up',
+    'slide-left': 'Slide in from right',
+    fade: 'Fade',
+    bounce: 'Bounce',
+    zoom: 'Zoom in',
+    spin: 'Spin',
+  } as Record<string, string>),
+  style: translated({ anime: 'Anime', people: 'People' } as Record<string, string>),
+  particles: translated({ none: 'None', hearts: 'Hearts', stars: 'Stars', confetti: 'Confetti', sparkles: 'Sparkles' } as Record<string, string>),
 };
 
 export type Timer = {
@@ -106,13 +112,24 @@ export type Timer = {
 };
 
 /** Alert types with their labels and what "minimum amount" means for each. */
+const alertType = (trigger: Exclude<Trigger, 'chat'>, label: string, amount: string | null, vars: string) => ({
+  trigger,
+  vars,
+  get label() {
+    return t(label);
+  },
+  get amount() {
+    return amount && t(amount);
+  },
+});
+
 export const ALERT_TYPES: { trigger: Exclude<Trigger, 'chat'>; label: string; amount: string | null; vars: string }[] = [
-  { trigger: 'follow', label: 'Follow', amount: null, vars: '{user}' },
-  { trigger: 'subscriber', label: 'Nieuwe sub', amount: null, vars: '{user} {tier}' },
-  { trigger: 'resub', label: 'Resub', amount: 'maanden', vars: '{user} {months} {tier} {message}' },
-  { trigger: 'gift', label: 'Gifted subs', amount: 'subs', vars: '{user} {amount} {tier}' },
-  { trigger: 'cheer', label: 'Bits', amount: 'bits', vars: '{user} {amount} {message}' },
-  { trigger: 'raid', label: 'Raid', amount: 'kijkers', vars: '{user} {amount}' },
+  alertType('follow', 'Follow', null, '{user}'),
+  alertType('subscriber', 'New sub', null, '{user} {tier}'),
+  alertType('resub', 'Resub', 'months', '{user} {months} {tier} {message}'),
+  alertType('gift', 'Gifted subs', 'subs', '{user} {amount} {tier}'),
+  alertType('cheer', 'Bits', 'bits', '{user} {amount} {message}'),
+  alertType('raid', 'Raid', 'viewers', '{user} {amount}'),
 ];
 
 export const FONTS = ['Fredoka', 'Poppins', 'Nunito', 'Baloo 2', 'Bangers', 'Luckiest Guy', 'Permanent Marker', 'Press Start 2P', 'Montserrat', 'Arial', 'Impact'];

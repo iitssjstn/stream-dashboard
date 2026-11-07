@@ -78,6 +78,13 @@
       "when": 1793994918151,
       "tag": "0010_command_label",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1794080570166,
+      "tag": "0011_user_locale",
+      "breakpoints": true
     }
   ]
 }

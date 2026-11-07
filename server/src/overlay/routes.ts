@@ -12,7 +12,7 @@ const findByToken = (token: string) =>
 export async function overlayRoutes(app: FastifyInstance, { hub }: { hub: OverlayHub }) {
   // The browser source page itself. Independent of the dashboard: a tiny vanilla bundle.
   app.get<{ Params: { token: string } }>('/overlay/:token', async (req, reply) => {
-    if (!findByToken(req.params.token)) return reply.code(404).type('text/html').send('<!doctype html><title>Overlay niet gevonden</title>');
+    if (!findByToken(req.params.token)) return reply.code(404).type('text/html').send('<!doctype html><title>Overlay not found</title>');
     const file = path.join(config.webDist, 'overlay.html');
     if (!fs.existsSync(file)) return reply.code(503).send('Web build ontbreekt: voer `npm run build` uit.');
     return reply

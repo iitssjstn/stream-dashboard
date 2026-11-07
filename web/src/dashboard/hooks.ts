@@ -1,3 +1,4 @@
+import { getLang, t } from './i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from './api';
 
@@ -36,11 +37,11 @@ export function usePoll<T>(path: string | null, intervalMs = 0) {
 
 export function timeAgo(ts: number) {
   const s = Math.round((Date.now() - ts) / 1000);
-  if (s < 10) return 'zojuist';
-  if (s < 60) return `${s}s geleden`;
+  if (s < 10) return t('just now');
+  if (s < 60) return t('{n}s ago', { n: s });
   const m = Math.round(s / 60);
-  if (m < 60) return `${m} min geleden`;
+  if (m < 60) return t('{n} min ago', { n: m });
   const h = Math.round(m / 60);
-  if (h < 24) return `${h} uur geleden`;
-  return new Date(ts).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
+  if (h < 24) return t('{n} h ago', { n: h });
+  return new Date(ts).toLocaleDateString(getLang() === 'nl' ? 'nl-NL' : 'en-GB', { day: 'numeric', month: 'short' });
 }

@@ -56,6 +56,6 @@ declare module 'fastify' {
 
 export async function requireUser(req: FastifyRequest, reply: FastifyReply) {
   const user = currentUser(req);
-  if (!user) return reply.code(401).send({ error: 'Niet ingelogd' });
+  if (!user) return reply.code(401).send({ error: 'Not logged in' });
   req.user = user;
 }

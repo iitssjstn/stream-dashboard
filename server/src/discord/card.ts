@@ -38,7 +38,7 @@ export async function loadMediaBytes(src: string | null): Promise<Buffer | null>
     for (let hop = 0; hop < 4; hop++) {
       const isCdn = url.origin === new URL(config.discord.cdnBase).origin;
       if (!isCdn && (url.protocol !== 'https:' || !ALLOWED_HOST.test(url.hostname))) {
-        lastMediaError = `host niet toegestaan: ${url.hostname}`;
+        lastMediaError = `host not allowed: ${url.hostname}`;
         return null;
       }
       const res = await fetch(url, {
@@ -55,13 +55,13 @@ export async function loadMediaBytes(src: string | null): Promise<Buffer | null>
         return null;
       }
       if (Number(res.headers.get('content-length') ?? 0) > MAX_BYTES) {
-        lastMediaError = 'bestand te groot';
+        lastMediaError = 'file too large';
         return null;
       }
       const buf = Buffer.from(await res.arrayBuffer());
       return buf.length <= MAX_BYTES ? buf : null;
     }
-    lastMediaError = 'te veel omleidingen';
+    lastMediaError = 'too many redirects';
     return null;
   } catch (e) {
     lastMediaError = (e as Error).message;
@@ -162,7 +162,7 @@ export async function renderCard(
       onAvatarLoaded?.(candidate);
       break;
     }
-    onAvatarError?.(`${candidate.replace(/\?.*$/, '')}: ${lastMediaError ?? 'onbekende fout'}`);
+    onAvatarError?.(`${candidate.replace(/\?.*$/, '')}: ${lastMediaError ?? 'unknown error'}`);
   }
   ctx.save();
   ctx.beginPath();

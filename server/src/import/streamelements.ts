@@ -20,9 +20,9 @@ async function se<T>(path: string, jwt: string): Promise<T> {
     headers: { authorization: `Bearer ${jwt}`, accept: 'application/json' },
     signal: AbortSignal.timeout(15_000),
   }).catch(() => {
-    throw new SeError(502, 'StreamElements is niet bereikbaar');
+    throw new SeError(502, 'StreamElements is unreachable');
   });
-  if (res.status === 401 || res.status === 403) throw new SeError(400, 'StreamElements weigert dit JWT-token (ongeldig of verlopen)');
+  if (res.status === 401 || res.status === 403) throw new SeError(400, 'StreamElements rejected this JWT token (invalid or expired)');
   if (!res.ok) throw new SeError(502, `StreamElements gaf een fout (${res.status}) bij ${path.split('/').slice(0, 3).join('/')}`);
   return (await res.json()) as T;
 }
@@ -58,7 +58,7 @@ export function convertAlertText(input: string, trigger?: string) {
     switch (key.toLowerCase()) {
       case 'name':
         // For gifts StreamElements' {name} is the recipient; Twitch announces a gift batch without recipients.
-        return trigger === 'gift' ? 'de chat' : '{user}';
+        return trigger === 'gift' ? 'the chat' : '{user}';
       case 'sender':
         return '{user}';
       case 'amount':
@@ -156,21 +156,21 @@ export function convertCommands(raw: any[], skipped: ImportSkipped[]): ImportCom
   for (const c of raw ?? []) {
     const name = cleanName(c.command);
     if (!name || !NAME_RE.test(name)) {
-      skipped.push({ what: `command "${c.command ?? '?'}"`, reason: 'naam bevat tekens die Waviloop niet ondersteunt' });
+      skipped.push({ what: `command "${c.command ?? '?'}"`, reason: 'name contains characters Waviloop does not support' });
       continue;
     }
     if (typeof c.reply !== 'string' || !c.reply.trim()) {
-      skipped.push({ what: `!${name}`, reason: 'heeft geen tekstantwoord' });
+      skipped.push({ what: `!${name}`, reason: 'has no text reply' });
       continue;
     }
     const warnings: string[] = [];
     const conv = convertChatVars(c.reply);
-    if (conv.unsupported.length) warnings.push(`Variabelen niet ondersteund (blijven als tekst staan): ${conv.unsupported.join(', ')}`);
-    if (c.type && c.type !== 'say') warnings.push(`Type "${c.type}" wordt als gewoon chatbericht verstuurd`);
-    if (num(c.cost, 0) > 0) warnings.push('Kosten in loyaliteitspunten worden niet overgenomen');
-    if (Array.isArray(c.keywords) && c.keywords.length) warnings.push('Keywords (trigger zonder !) worden niet overgenomen');
-    if (c.regex) warnings.push('Regex-trigger wordt niet overgenomen');
-    if (c.enabledOnline === false || c.enabledOffline === false) warnings.push('Alleen-online/alleen-offline wordt niet overgenomen');
+    if (conv.unsupported.length) warnings.push(`Variables not supported (kept as text): ${conv.unsupported.join(', ')}`);
+    if (c.type && c.type !== 'say') warnings.push(`Type "${c.type}" is sent as a normal chat message`);
+    if (num(c.cost, 0) > 0) warnings.push('Loyalty point costs are not imported');
+    if (Array.isArray(c.keywords) && c.keywords.length) warnings.push('Keywords (trigger without !) are not imported');
+    if (c.regex) warnings.push('Regex trigger is not imported');
+    if (c.enabledOnline === false || c.enabledOffline === false) warnings.push('Online-only/offline-only is not imported');
     const aliases = (Array.isArray(c.aliases) ? c.aliases : []).map(cleanName).filter((a: string) => NAME_RE.test(a) && a !== name);
     out.push({
       key: `cmd:${c._id ?? name}`,
@@ -181,7 +181,7 @@ export function convertCommands(raw: any[], skipped: ImportSkipped[]): ImportCom
       userCooldownSec: Math.max(0, Math.min(86_400, Math.round(num(c.cooldown?.user, 0)))),
       globalCooldownSec: Math.max(0, Math.min(86_400, Math.round(num(c.cooldown?.global, 0)))),
       enabled: c.enabled !== false,
-      targetFallback: conv.usesTarget ? '{user}' : 'de streamer',
+      targetFallback: conv.usesTarget ? '{user}' : 'the streamer',
       warnings,
     });
   }
@@ -194,19 +194,19 @@ export function convertTimers(raw: any[], skipped: ImportSkipped[]): ImportTimer
     const msgs: string[] = (Array.isArray(t.messages) ? t.messages : [t.message]).filter((m: unknown) => typeof m === 'string' && m.trim());
     const name = String(t.name ?? '').trim().slice(0, 60) || 'Timer';
     if (!msgs.length) {
-      skipped.push({ what: `timer "${name}"`, reason: 'heeft geen berichten' });
+      skipped.push({ what: `timer "${name}"`, reason: 'has no messages' });
       continue;
     }
     const warnings: string[] = [];
     const messages = msgs.slice(0, 20).map((m) => {
       const conv = convertChatVars(m);
-      if (conv.unsupported.length) warnings.push(`Variabelen niet ondersteund: ${conv.unsupported.join(', ')}`);
+      if (conv.unsupported.length) warnings.push(`Variables not supported: ${conv.unsupported.join(', ')}`);
       return conv.text.slice(0, 480);
     });
     const online = t.online ?? {};
     const offline = t.offline ?? {};
     const onlineOn = online.enabled !== false;
-    if (!onlineOn && offline.enabled) warnings.push('Stond alleen offline aan; in Waviloop loopt hij ook tijdens de stream (pas het interval aan als je dat niet wilt)');
+    if (!onlineOn && offline.enabled) warnings.push('Was only enabled offline; in Waviloop it also runs during the stream (adjust the interval if you do not want that)');
     out.push({
       key: `timer:${t._id ?? name}`,
       name,
@@ -237,10 +237,10 @@ function alertFrom(trigger: ImportAlert['trigger'], label: string, key: string, 
   const merged = { ...base, ...over, text: { ...base?.text, ...over?.text, css: { ...base?.text?.css, ...over?.text?.css } }, graphics: { ...base?.graphics, ...over?.graphics }, audio: { ...base?.audio, ...over?.audio } };
   const warnings: string[] = [];
   const conv = convertAlertText(String(merged.text?.message ?? ''), trigger);
-  if (conv.unsupported.length) warnings.push(`Placeholders niet ondersteund (weggelaten): ${conv.unsupported.join(', ')}`);
+  if (conv.unsupported.length) warnings.push(`Placeholders not supported (left out): ${conv.unsupported.join(', ')}`);
   // Images, GIFs and videos (MP4/WebM, also with transparency) are all played by the overlay.
   const imageUrl = httpsUrl(merged.graphics?.src);
-  if (merged.tts?.enabled) warnings.push('Text-to-speech wordt niet overgenomen');
+  if (merged.tts?.enabled) warnings.push('Text-to-speech is not imported');
   if (Array.isArray(merged.graphics?.list) || merged.enableRandomPick === false) {
     /* nothing: single graphic is used */
   }
@@ -276,24 +276,24 @@ export function convertAlertBoxes(widgets: { overlay: string; widget: any }[], s
       if (!(seType in ALERT_TYPES)) continue;
       const trigger = ALERT_TYPES[seType];
       if (!trigger) {
-        skipped.push({ what: `${overlay ? `${overlay}: ` : ''}${seType}-alert`, reason: seType === 'host' ? 'Twitch heeft hosts afgeschaft' : 'bestaat niet als Twitch-event (StreamElements-eigen)' });
+        skipped.push({ what: `${overlay ? `${overlay}: ` : ''}${seType}-alert`, reason: seType === 'host' ? 'Twitch has removed hosts' : 'does not exist as a Twitch event (StreamElements-only)' });
         continue;
       }
       const enabled = cfg?.enabled !== false;
       const prefix = `alert:${wi}:${seType}`;
       out.push(alertFrom(trigger, SE_TYPE_LABEL[seType] ?? seType, `${prefix}:base`, cfg, {}, Math.max(0, Math.round(num(cfg?.minAmount, 0))), enabled, overlay));
       (Array.isArray(cfg?.variations) ? cfg.variations : []).forEach((v: any, vi: number) => {
-        const label = v?.name ? String(v.name).slice(0, 50) : `${SE_TYPE_LABEL[seType] ?? seType} variatie ${vi + 1}`;
+        const label = v?.name ? String(v.name).slice(0, 50) : `${SE_TYPE_LABEL[seType] ?? seType} variation ${vi + 1}`;
         const settings = v?.settings ?? {};
         if (v?.type === 'gift' || v?.type === 'communityGift') {
-          if (seType !== 'subscriber') return skipped.push({ what: label, reason: 'onbekende variatie' });
+          if (seType !== 'subscriber') return skipped.push({ what: label, reason: 'unknown variation' });
           out.push(alertFrom('gift', label, `${prefix}:v${vi}`, cfg, settings, v?.type === 'communityGift' ? 2 : 0, enabled, overlay));
         } else if (v?.type === 'amount' && (v?.condition ?? 'ATLEAST') === 'ATLEAST') {
           const req = Math.max(0, Math.round(num(v?.requirement, 0)));
           // For subscriptions the "amount" is the number of months, i.e. a resub.
           out.push(alertFrom(seType === 'subscriber' ? 'resub' : trigger, label, `${prefix}:v${vi}`, cfg, settings, req, enabled, overlay));
         } else {
-          skipped.push({ what: label, reason: `variatie-type "${v?.type}${v?.condition ? ` ${v.condition}` : ''}" wordt niet ondersteund` });
+          skipped.push({ what: label, reason: `variation type "${v?.type}${v?.condition ? ` ${v.condition}` : ''}" is not supported` });
         }
       });
     }
@@ -304,7 +304,7 @@ export function convertAlertBoxes(widgets: { overlay: string; widget: any }[], s
 export async function fetchPreview(jwt: string): Promise<ImportPreview> {
   const me = await se<any>('/channels/me', jwt);
   const id = me?._id;
-  if (typeof id !== 'string' || !/^[a-f0-9]{24}$/i.test(id)) throw new SeError(502, 'Onverwacht antwoord van StreamElements (geen kanaal-id)');
+  if (typeof id !== 'string' || !/^[a-f0-9]{24}$/i.test(id)) throw new SeError(502, 'Unexpected response from StreamElements (no channel id)');
   const enc = encodeURIComponent(id);
   const skipped: ImportSkipped[] = [];
   const [rawCommands, rawTimers, overlays] = await Promise.all([

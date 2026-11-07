@@ -91,7 +91,7 @@ export async function verifyAppCredentials(clientId: string, clientSecret: strin
     return true;
   }
   if (res.status >= 400 && res.status < 500) return false;
-  throw new Error(`Twitch is niet bereikbaar (${res.status})`);
+  throw new Error(`Twitch is unreachable (${res.status})`);
 }
 
 async function helix(path: string, accessToken: string, init: RequestInit = {}) {

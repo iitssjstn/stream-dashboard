@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { t } from '../i18n';
 
 /**
  * Single-series sparkline for a stat tile: 2px line, soft area, hover crosshair + tooltip.
@@ -38,7 +39,7 @@ export function Sparkline({ values, firstHour, color = '#c084fc' }: { values: nu
         viewBox={`0 0 ${W} ${H}`}
         className="h-full w-full overflow-visible"
         role="img"
-        aria-label={`${total} plays in de laatste 24 uur, piek ${max === 1 && total === 0 ? 0 : max} per uur`}
+        aria-label={t('{total} plays in the last 24 hours, peak {max} per hour', { total, max: max === 1 && total === 0 ? 0 : max })}
         onPointerMove={(e) => {
           const r = e.currentTarget.getBoundingClientRect();
           const x = ((e.clientX - r.left) / r.width) * W;
@@ -68,7 +69,7 @@ export function Sparkline({ values, firstHour, color = '#c084fc' }: { values: nu
           className="pointer-events-none absolute bottom-full z-10 mb-1.5 -translate-x-1/2 rounded-lg border border-white/10 bg-ink-950/95 px-2.5 py-1.5 text-[11px] whitespace-nowrap text-zinc-300 shadow-xl"
           style={{ left: `${(pts[hover][0] / W) * 100}%` }}
         >
-          <span className="font-semibold text-white">{values[hover]}</span> {values[hover] === 1 ? 'play' : 'plays'} · {hourLabel(hover)}
+          <span className="font-semibold text-white">{values[hover]}</span> {values[hover] === 1 ? t('play') : t('plays')} · {hourLabel(hover)}
         </div>
       )}
     </div>

@@ -36,7 +36,7 @@ export async function getAccessToken(userId: number, force = false): Promise<str
     } catch (err) {
       if (err instanceof TwitchAuthError) {
         db.update(schema.users)
-          .set({ authError: 'Twitch-koppeling verlopen. Log opnieuw in om te herstellen.' })
+          .set({ authError: 'Twitch connection expired. Log in again to restore it.' })
           .where(eq(schema.users.id, userId))
           .run();
       }

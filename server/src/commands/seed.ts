@@ -1,6 +1,6 @@
 import { and, eq, ne } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
-import { DEFAULT_ALERTS } from './defaults.js';
+import { asLocale, defaultAlerts } from './defaults.js';
 
 /** Adds the default alerts for a streamer that has none yet (new accounts and accounts from before alerts existed). */
 export function seedDefaultAlerts(userId: number) {
@@ -11,7 +11,8 @@ export function seedDefaultAlerts(userId: number) {
     .get();
   if (has) return;
   const now = Date.now();
-  for (const a of DEFAULT_ALERTS) {
+  const user = db.select({ locale: schema.users.locale }).from(schema.users).where(eq(schema.users.id, userId)).get();
+  for (const a of defaultAlerts(asLocale(user?.locale))) {
     db.insert(schema.commands)
       .values({ ...a, userId, targetMode: 'none', permission: 'everyone', userCooldownSec: 0, globalCooldownSec: 0, createdAt: now, updatedAt: now })
       .onConflictDoNothing()

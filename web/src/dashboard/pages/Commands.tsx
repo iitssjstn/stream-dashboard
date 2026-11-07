@@ -4,6 +4,7 @@ import { api, LABELS, type Command } from '../api';
 import { usePoll } from '../hooks';
 import { useMe } from '../App';
 import { PageHeader, Svg, Toggle, useToast } from '../ui';
+import { t } from '../i18n';
 import { figure } from '../../overlay/characters';
 import { WALKABLE } from '../../overlay/renderer';
 import { MediaThumb } from '../components/Shared';
@@ -38,12 +39,12 @@ function useCommandActions(setData: (fn: (d: Command[] | null) => Command[] | nu
     },
     test: async (c: Command) => {
       const r = await api<{ delivered: number }>(`/api/commands/${c.id}/test`, { method: 'POST' });
-      toast(r.delivered ? `Test verstuurd naar ${r.delivered} overlay(s)` : 'Geen overlay open in OBS — event staat 30s in de wachtrij', r.delivered ? 'ok' : 'error');
+      toast(r.delivered ? t('Test sent to {n} overlay(s)', { n: r.delivered }) : t('No overlay open in OBS — the event waits in the queue for 30s'), r.delivered ? 'ok' : 'error');
     },
     remove: async (c: Command) => {
-      if (!confirm(`!${c.name} verwijderen?`)) return;
+      if (!confirm(t('Delete !{name}?', { name: c.name }))) return;
       await api(`/api/commands/${c.id}`, { method: 'DELETE' });
-      toast(`!${c.name} verwijderd`);
+      toast(t('!{name} deleted', { name: c.name }));
       void reload();
       void reloadMe();
     },
@@ -69,14 +70,14 @@ export function Commands() {
     <>
       <PageHeader
         title="Commands"
-        subtitle="Chatcommands die animaties in je overlay afspelen."
+        subtitle={t('Chat commands that play animations in your overlay.')}
         actions={
           <>
-            <div className="flex rounded-xl border border-white/10 bg-ink-950/50 p-1" role="group" aria-label="Weergave">
+            <div className="flex rounded-xl border border-white/10 bg-ink-950/50 p-1" role="group" aria-label={t('View')}>
               {(
                 [
                   ['grid', 'Grid', 'grid'],
-                  ['list', 'Lijst', 'list'],
+                  ['list', t('List'), 'list'],
                 ] as const
               ).map(([k, l, icon]) => (
                 <button
@@ -90,7 +91,7 @@ export function Commands() {
               ))}
             </div>
             <Link to="/commands/new" className="btn-primary">
-              <Svg i="plus" className="h-4 w-4" /> Nieuw command
+              <Svg i="plus" className="h-4 w-4" /> {t('New command')}
             </Link>
           </>
         }
@@ -152,14 +153,14 @@ function Chips({ c }: { c: Command }) {
       <span className="chip bg-white/[.06] text-zinc-300">{LABELS.permission[c.permission]}</span>
       <span className="chip bg-white/[.06] text-zinc-300">{(c.durationMs / 1000).toFixed(1)}s</span>
       <span className="chip bg-white/[.06] text-zinc-300">⏱ {c.userCooldownSec}s / {c.globalCooldownSec}s</span>
-      {c.walkIn && WALKABLE.has(c.animation) && <span className="chip bg-white/[.06] text-zinc-300">🚶 aanlopen</span>}
-      {c.targetMode === 'required' && <span className="chip bg-white/[.06] text-zinc-300">@naam verplicht</span>}
-      {c.soundUrl && <span className="chip bg-white/[.06] text-zinc-300">🔊 geluid</span>}
+      {c.walkIn && WALKABLE.has(c.animation) && <span className="chip bg-white/[.06] text-zinc-300">🚶 {t('walk-in')}</span>}
+      {c.targetMode === 'required' && <span className="chip bg-white/[.06] text-zinc-300">{t('@name required')}</span>}
+      {c.soundUrl && <span className="chip bg-white/[.06] text-zinc-300">🔊 {t('sound')}</span>}
     </>
   );
 }
 
-const textOf = (c: Command) => (c.animation === 'none' ? `💬 ${c.reply ?? ''}` : c.showText ? c.text : 'Alleen animatie / GIF, geen tekst');
+const textOf = (c: Command) => (c.animation === 'none' ? `💬 ${c.reply ?? ''}` : c.showText ? c.text : t('Animation / GIF only, no text'));
 
 function HeroGrid({ commands, actions }: { commands: Command[]; actions: Actions }) {
   const nav = useNavigate();
@@ -167,7 +168,7 @@ function HeroGrid({ commands, actions }: { commands: Command[]; actions: Actions
     <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
       {commands.map((c) => (
         <article key={c.id} className={`card group flex flex-col overflow-hidden transition hover:-translate-y-0.5 hover:border-brand-500/40 ${c.enabled ? '' : 'opacity-55'}`}>
-          <button className="block cursor-pointer text-left" onClick={() => nav(`/commands/${c.id}`)} aria-label={`!${c.name} bewerken`}>
+          <button className="block cursor-pointer text-left" onClick={() => nav(`/commands/${c.id}`)} aria-label={t('Edit !{name}', { name: c.name })}>
             <CommandHero c={c} />
           </button>
           <div className="flex flex-1 flex-col p-5">
@@ -175,7 +176,7 @@ function HeroGrid({ commands, actions }: { commands: Command[]; actions: Actions
               <Link to={`/commands/${c.id}`} className="truncate font-mono text-lg font-semibold text-white hover:text-brand-400">
                 !{c.name}
               </Link>
-              <Toggle checked={c.enabled} onChange={(v) => actions.toggle(c, v)} label={`!${c.name} aan/uit`} />
+              <Toggle checked={c.enabled} onChange={(v) => actions.toggle(c, v)} label={t('!{name} on/off', { name: c.name })} />
             </div>
             <p className={`mt-2 line-clamp-2 flex-1 text-sm ${c.showText || c.animation === 'none' ? 'text-zinc-300' : 'text-zinc-500 italic'}`}>{textOf(c)}</p>
             <div className="mt-3 flex flex-wrap gap-1.5">
@@ -183,12 +184,12 @@ function HeroGrid({ commands, actions }: { commands: Command[]; actions: Actions
             </div>
             <div className="mt-4 flex gap-2 border-t border-white/[.06] pt-4">
               <button className="btn-ghost flex-1 py-2" onClick={() => actions.test(c)}>
-                <Svg i="play" className="h-3.5 w-3.5" /> Test
+                <Svg i="play" className="h-3.5 w-3.5" /> {t('Test')}
               </button>
               <Link to={`/commands/${c.id}`} className="btn-ghost flex-1 py-2">
-                <Svg i="edit" className="h-4 w-4" /> Bewerken
+                <Svg i="edit" className="h-4 w-4" /> {t('Edit')}
               </Link>
-              <button className="btn-danger px-3 py-2" title="Verwijderen" aria-label={`!${c.name} verwijderen`} onClick={() => actions.remove(c)}>
+              <button className="btn-danger px-3 py-2" title={t('Delete')} aria-label={t('Delete !{name}', { name: c.name })} onClick={() => actions.remove(c)}>
                 <Svg i="trash" className="h-4 w-4" />
               </button>
             </div>
@@ -197,7 +198,7 @@ function HeroGrid({ commands, actions }: { commands: Command[]; actions: Actions
       ))}
       <Link to="/commands/new" className="card flex min-h-64 flex-col items-center justify-center gap-2 border-dashed text-zinc-400 transition hover:border-brand-500/40 hover:text-white">
         <Svg i="plus" className="h-6 w-6" />
-        <span className="text-sm font-semibold">Command toevoegen</span>
+        <span className="text-sm font-semibold">{t('Add command')}</span>
       </Link>
     </div>
   );
@@ -207,11 +208,11 @@ function CommandList({ commands, actions }: { commands: Command[]; actions: Acti
   return (
     <div className="card overflow-hidden">
       <div className="hidden grid-cols-[52px_minmax(130px,1fr)_minmax(0,1.6fr)_250px_196px] items-center gap-4 border-b border-white/[.06] px-5 py-3 text-[11px] font-semibold tracking-wider text-zinc-500 uppercase md:grid">
-        <span>Aan</span>
+        <span>{t('On')}</span>
         <span>Command</span>
-        <span>Tekst</span>
-        <span>Instellingen</span>
-        <span className="text-right">Acties</span>
+        <span>{t('Text')}</span>
+        <span>{t('Settings')}</span>
+        <span className="text-right">{t('Actions')}</span>
       </div>
       <ul className="divide-y divide-white/[.06]">
         {commands.map((c) => (
@@ -219,7 +220,7 @@ function CommandList({ commands, actions }: { commands: Command[]; actions: Acti
             key={c.id}
             className={`grid grid-cols-[auto_1fr_auto] items-center gap-x-4 gap-y-2 px-5 py-3.5 transition hover:bg-white/[.025] md:grid-cols-[52px_minmax(130px,1fr)_minmax(0,1.6fr)_250px_196px] ${c.enabled ? '' : 'opacity-55'}`}
           >
-            <Toggle checked={c.enabled} onChange={(v) => actions.toggle(c, v)} label={`!${c.name} aan/uit`} />
+            <Toggle checked={c.enabled} onChange={(v) => actions.toggle(c, v)} label={t('!{name} on/off', { name: c.name })} />
             <div className="min-w-0">
               <Link to={`/commands/${c.id}`} className="block truncate font-mono font-semibold text-white hover:text-brand-400">
                 <span className="mr-2 inline-block h-2.5 w-2.5 rounded-full align-middle" style={{ background: c.style.accentColor }} aria-hidden="true" />
@@ -235,13 +236,13 @@ function CommandList({ commands, actions }: { commands: Command[]; actions: Acti
               <Chips c={c} />
             </div>
             <div className="col-start-3 row-start-1 flex justify-end gap-2 md:col-start-auto md:row-start-auto">
-              <button className="btn-ghost px-3 py-2" title="Test in OBS" aria-label={`!${c.name} testen`} onClick={() => actions.test(c)}>
+              <button className="btn-ghost px-3 py-2" title={t('Test in OBS')} aria-label={t('Test !{name}', { name: c.name })} onClick={() => actions.test(c)}>
                 <Svg i="play" className="h-3.5 w-3.5" />
               </button>
               <Link to={`/commands/${c.id}`} className="btn-ghost px-3 py-2">
-                <Svg i="edit" className="h-4 w-4" /> <span className="hidden xl:inline">Bewerken</span>
+                <Svg i="edit" className="h-4 w-4" /> <span className="hidden xl:inline">{t('Edit')}</span>
               </Link>
-              <button className="btn-danger px-3 py-2" title="Verwijderen" aria-label={`!${c.name} verwijderen`} onClick={() => actions.remove(c)}>
+              <button className="btn-danger px-3 py-2" title={t('Delete')} aria-label={t('Delete !{name}', { name: c.name })} onClick={() => actions.remove(c)}>
                 <Svg i="trash" className="h-4 w-4" />
               </button>
             </div>
@@ -249,7 +250,7 @@ function CommandList({ commands, actions }: { commands: Command[]; actions: Acti
         ))}
       </ul>
       <Link to="/commands/new" className="flex items-center justify-center gap-2 border-t border-white/[.06] px-5 py-3.5 text-sm font-semibold text-zinc-400 transition hover:bg-white/[.025] hover:text-white">
-        <Svg i="plus" className="h-4 w-4" /> Command toevoegen
+        <Svg i="plus" className="h-4 w-4" /> {t('Add command')}
       </Link>
     </div>
   );

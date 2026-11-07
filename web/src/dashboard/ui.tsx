@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { LANGS, setLang, t, useLang, type Lang } from './i18n';
 
 type Toast = { id: number; text: string; tone: 'ok' | 'error' };
 const ToastCtx = createContext<(text: string, tone?: Toast['tone']) => void>(() => undefined);
@@ -142,6 +143,33 @@ export function Logo({ tagline = false }: { tagline?: boolean }) {
         <span className="font-display block text-xl font-semibold tracking-wide text-white">Waviloop</span>
         {tagline && <span className="block text-[11px] font-medium text-zinc-400">{SLOGAN}</span>}
       </div>
+    </div>
+  );
+}
+
+/** Language picker; when signed in the choice is also saved on the account. */
+export function LanguageSwitch({ onChange, compact = false }: { onChange?: (lang: Lang) => void; compact?: boolean }) {
+  const lang = useLang();
+  return (
+    <div className="flex rounded-xl border border-white/10 bg-ink-950/50 p-1" role="group" aria-label={t('Language')}>
+      {LANGS.map((l) => (
+        <button
+          key={l.code}
+          type="button"
+          aria-pressed={lang === l.code}
+          title={l.label}
+          onClick={() => {
+            setLang(l.code);
+            onChange?.(l.code);
+          }}
+          className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+            lang === l.code ? 'bg-white/[.1] text-white' : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          <span aria-hidden="true">{l.flag}</span>
+          {compact ? l.code.toUpperCase() : l.label}
+        </button>
+      ))}
     </div>
   );
 }

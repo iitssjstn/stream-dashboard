@@ -69,9 +69,16 @@ let app = startApp();
 await waitFor(() => fetch(`${APP}/healthz`).then((r) => r.ok));
 
 const browser = await chromium.launch();
+/** Dashboard context in Dutch (the language option); English is the default. */
+async function nlContext(opts = {}) {
+  const ctx = await browser.newContext(opts);
+  await ctx.addCookies([{ name: 'waviloop_lang', value: 'nl', url: APP }]);
+  await ctx.addInitScript(() => { try { localStorage.setItem('waviloop.lang', 'nl'); } catch {} });
+  return ctx;
+}
 try {
   // 1. Streamer logs in with Twitch
-  const dash = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const dash = await nlContext({ viewport: { width: 1440, height: 900 } });
   const page = await dash.newPage();
   await page.goto(APP);
   // 0. First-run setup wizard: Twitch app credentials entered on the website, guarded by the log-only code
@@ -108,7 +115,7 @@ try {
   const obs = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
   const overlay = await obs.newPage();
   await overlay.goto(me.overlay.url + '?debug');
-  await overlay.getByText('verbonden').waitFor();
+  await overlay.getByText('connected', { exact: true }).waitFor();
   const bg = await overlay.evaluate(() => getComputedStyle(document.body).backgroundColor);
   check(bg === 'rgba(0, 0, 0, 0)', `Overlay-achtergrond transparant (${bg})`);
   await overlay.goto(me.overlay.url); // without debug badge from here on
@@ -165,11 +172,15 @@ try {
   const p2 = await dash2.newPage();
   await p2.goto(`${APP}/auth/twitch/login`);
   await p2.waitForURL('**/dashboard');
-  await p2.getByText('Verbonden met Twitch').waitFor({ timeout: 10000 });
+  await p2.getByText('Connected to Twitch').waitFor({ timeout: 10000 });
   const me2 = await p2.evaluate(() => fetch('/api/me').then((r) => r.json()));
+  check(me2.user.locale === 'en', 'Nieuwe streamer zonder taalkeuze krijgt Engels als standaard');
+  const cmds2 = await p2.evaluate(() => fetch('/api/commands').then((r) => r.json()));
+  check(cmds2.some((c) => c.name === 'hug' && c.text === '{user} gives {target} a big hug!') && !cmds2.some((c) => c.name === 'knuffel'), 'Engelse standaard-commands (!hug) voor Engelstalige streamer');
+  check(await p2.getByRole('link', { name: 'Settings' }).first().isVisible(), 'Dashboard is standaard Engels');
   check(me2.overlay.url !== me.overlay.url, 'Tweede streamer krijgt een eigen overlay-URL');
   await waitFor(async () => (await overlay.locator('.lm-item').count()) === 0, 10000);
-  tw.chat('anderestreamer', { login: 'viewer2', display: 'Viewer2', userId: '6001', id: 'msg-7', text: '!knuffel' });
+  tw.chat('anderestreamer', { login: 'viewer2', display: 'Viewer2', userId: '6001', id: 'msg-7', text: '!hug' });
   await sleep(1200);
   check((await overlay.locator('.lm-item').count()) === 0, 'Event van streamer 2 komt NIET in overlay van streamer 1');
 
@@ -188,7 +199,7 @@ try {
   // 11. Activity log contains what happened
   const acts = await p2.evaluate(() => fetch('/api/activity').then((r) => r.json()));
   check(Array.isArray(acts) && acts.every((a) => a.viewer !== 'AnimeFan42'), 'Activiteit is per streamer gescheiden');
-  const ctx1 = await browser.newContext();
+  const ctx1 = await nlContext();
   tw.state.nextAccount = 'streamer1';
   const p1 = await ctx1.newPage();
   await p1.goto(`${APP}/auth/twitch/login`);
@@ -214,7 +225,7 @@ try {
   const loveText = await overlay.locator('.lm-text').textContent();
   check(loveText === 'Lover stuurt liefde naar BesteVriend!', `Met naam: "${loveText}"`);
   const denied = (await p1.evaluate(() => fetch('/api/activity').then((r) => r.json()))).find((a) => a.commandName === 'love' && a.status === 'denied');
-  check(denied?.detail?.includes('geen naam'), 'Activiteit toont "geen naam opgegeven"');
+  check(denied?.detail?.includes('no name given'), 'Activiteit toont "geen naam opgegeven"');
 
   // Text can be switched off entirely: only the animation / GIF is shown
   const dance = cmds.find((c) => c.name === 'dance');
@@ -226,11 +237,11 @@ try {
   check((await overlay.locator('.lm-text').count()) === 0, 'Zonder tekst: alleen de animatie in de overlay');
 
   // Character style "Mensen": human-proportioned figures instead of chibis
-  const hug = cmds.find((c) => c.name === 'hug');
+  const hug = cmds.find((c) => c.name === 'knuffel');
   const people = await p1.evaluate((c) => fetch(`/api/commands/${c.id}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...c, characterStyle: 'people', userCooldownSec: 0, globalCooldownSec: 0 }) }).then((r) => r.json()), hug);
   check(people.characterStyle === 'people', 'Stijl "Mensen" instellen per command');
   await waitFor(async () => (await overlay.locator('.lm-item').count()) === 0, 10000);
-  tw.chat('knuffelstreamer', { login: 'mens', display: 'Mens', userId: '5012', id: 'msg-12', text: '!hug' });
+  tw.chat('knuffelstreamer', { login: 'mens', display: 'Mens', userId: '5012', id: 'msg-12', text: '!knuffel' });
   await overlay.waitForSelector('.lm-scene-hug', { timeout: 3000 });
   check((await overlay.locator('.lm-scene-hug .lm-person').count()) === 2, 'Overlay toont de knuffel met twee "Mensen"-poppetjes');
   await sleep(1700);

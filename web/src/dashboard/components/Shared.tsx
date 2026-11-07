@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { api, type Activity, type Upload } from '../api';
 import { timeAgo, usePoll } from '../hooks';
 import { Svg, useToast } from '../ui';
+import { t, Trans } from '../i18n';
 import { useMe } from '../App';
 import { GiphyPicker, PoweredByGiphy } from './GiphyPicker';
 import { isVideo } from '../../overlay/renderer';
@@ -14,17 +15,17 @@ export function CopyUrl({ url }: { url: string }) {
     <div className="flex flex-col gap-2 sm:flex-row">
       <code className="input flex-1 truncate font-mono text-[13px] text-brand-400 select-all">{shown ? url : masked}</code>
       <div className="flex gap-2">
-        <button className="btn-ghost px-3" onClick={() => setShown((s) => !s)} title={shown ? 'Verbergen' : 'Tonen'}>
+        <button className="btn-ghost px-3" onClick={() => setShown((s) => !s)} title={shown ? t('Hide') : t('Show')}>
           <Svg i="eye" className="h-4 w-4" />
         </button>
         <button
           className="btn-primary"
           onClick={async () => {
             await navigator.clipboard.writeText(url);
-            toast('Overlay-URL gekopieerd. Plak hem in OBS als Browser Source.');
+            toast(t('Overlay URL copied. Paste it into OBS as a Browser Source.'));
           }}
         >
-          <Svg i="copy" className="h-4 w-4" /> Kopieer URL
+          <Svg i="copy" className="h-4 w-4" /> {t('Copy URL')}
         </button>
       </div>
     </div>
@@ -32,10 +33,10 @@ export function CopyUrl({ url }: { url: string }) {
 }
 
 const STATUS: Record<string, { label: string; cls: string }> = {
-  triggered: { label: 'afgespeeld', cls: 'border-emerald-400/50 bg-emerald-400/10 text-emerald-300' },
+  triggered: { label: 'played', cls: 'border-emerald-400/50 bg-emerald-400/10 text-emerald-300' },
   test: { label: 'test', cls: 'border-cyan-400/50 bg-cyan-400/10 text-cyan-300' },
   cooldown: { label: 'cooldown', cls: 'border-amber-400/50 bg-amber-400/10 text-amber-300' },
-  denied: { label: 'geweigerd', cls: 'border-rose-400/50 bg-rose-400/10 text-rose-300' },
+  denied: { label: 'denied', cls: 'border-rose-400/50 bg-rose-400/10 text-rose-300' },
 };
 
 const AVATAR_GRADIENTS = [
@@ -67,7 +68,7 @@ export function ActivityList({ limit = 10, compact = false }: { limit?: number; 
   if (!data.length)
     return (
       <div className="rounded-xl border border-dashed border-white/10 p-8 text-center text-sm text-zinc-500">
-        Nog geen activiteit. Typ <code className="text-brand-400">!knuffel</code> in je Twitch-chat om het te testen.
+        <Trans text="No activity yet. Type {cmd} in your Twitch chat to test it." cmd={<code className="text-brand-400">{t('!hug')}</code>} />
       </div>
     );
   return (
@@ -79,14 +80,14 @@ export function ActivityList({ limit = 10, compact = false }: { limit?: number; 
             <ViewerAvatar name={a.viewer} />
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm text-zinc-200">
-                <span className="font-semibold text-white">{a.viewer}</span> gebruikte <code className="font-semibold text-brand-400">!{a.commandName}</code>
+                <Trans text="{viewer} used {command}" viewer={<span className="font-semibold text-white">{a.viewer}</span>} command={<code className="font-semibold text-brand-400">!{a.commandName}</code>} />
               </div>
               <div className="text-xs text-zinc-500">
                 {timeAgo(a.createdAt)}
-                {a.detail && ` · ${a.detail}`}
+                {a.detail && ` · ${t(a.detail)}`}
               </div>
             </div>
-            <span className={`chip border ${s.cls}`}>{s.label}</span>
+            <span className={`chip border ${s.cls}`}>{t(s.label)}</span>
           </li>
         );
       })}
@@ -118,7 +119,7 @@ export function MediaPicker({ kind, value, onChange, allowVideo = true }: { kind
       const res = await api<Upload>('/api/uploads', { method: 'POST', body: fd });
       await reload();
       onChange(res.url);
-      toast('Bestand geüpload');
+      toast(t('File uploaded'));
     } catch (e) {
       toast((e as Error).message, 'error');
     } finally {
@@ -130,16 +131,16 @@ export function MediaPicker({ kind, value, onChange, allowVideo = true }: { kind
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
         <button type="button" className="btn-ghost" disabled={busy} onClick={() => input.current?.click()}>
-          <Svg i="upload" className="h-4 w-4" /> {busy ? 'Uploaden…' : kind === 'image' ? (allowVideo ? 'Afbeelding / GIF / video uploaden' : 'Afbeelding / GIF uploaden') : 'Geluid uploaden'}
+          <Svg i="upload" className="h-4 w-4" /> {busy ? t('Uploading…') : kind === 'image' ? (allowVideo ? t('Upload image / GIF / video') : t('Upload image / GIF')) : t('Upload sound')}
         </button>
         {kind === 'image' && me.giphyEnabled && (
           <button type="button" className="btn-ghost" onClick={() => setGiphyOpen(true)}>
-            <Svg i="giphy" className="h-4 w-4" /> Zoek op GIPHY
+            <Svg i="giphy" className="h-4 w-4" /> {t('Search GIPHY')}
           </button>
         )}
         {value && (
           <button type="button" className="btn-ghost" onClick={() => onChange(null)}>
-            Verwijderen
+            {t('Remove')}
           </button>
         )}
         <input
@@ -155,7 +156,7 @@ export function MediaPicker({ kind, value, onChange, allowVideo = true }: { kind
         />
       </div>
       {kind === 'image' && !me.giphyEnabled && me.isOwner && (
-        <p className="text-xs text-zinc-500">Tip: stel onder Instellingen een GIPHY-sleutel in om GIF's te zoeken.</p>
+        <p className="text-xs text-zinc-500">{t('Tip: add a GIPHY key under Settings to search GIFs.')}</p>
       )}
       {giphyOpen && (
         <GiphyPicker
@@ -163,15 +164,15 @@ export function MediaPicker({ kind, value, onChange, allowVideo = true }: { kind
           onPick={(url) => {
             onChange(url);
             setGiphyOpen(false);
-            toast('GIF gekozen');
+            toast(t('GIF selected'));
           }}
         />
       )}
       {external && (
         <div className="flex items-center gap-3 rounded-xl border border-brand-500/40 bg-brand-500/5 p-2">
-          <MediaThumb src={external} alt="Gekozen media" className="checker h-16 w-16 rounded-lg object-contain" />
+          <MediaThumb src={external} alt={t('Selected media')} className="checker h-16 w-16 rounded-lg object-contain" />
           <div className="min-w-0 flex-1 text-sm">
-            <div className="font-semibold text-white">{isVideo(external) ? 'Gekozen video' : 'Gekozen GIF'}</div>
+            <div className="font-semibold text-white">{isVideo(external) ? t('Selected video') : t('Selected GIF')}</div>
             {external.includes('giphy.com') && <PoweredByGiphy />}
           </div>
         </div>

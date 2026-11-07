@@ -5,7 +5,7 @@ import { config } from '../config.js';
 import { decrypt, encrypt, randomToken } from '../crypto.js';
 import { authorizeUrl, exchangeCode, getUser, revokeToken } from '../twitch/api.js';
 import { createSession, currentUser, destroySession } from './session.js';
-import { DEFAULT_COMMANDS } from '../commands/defaults.js';
+import { asLocale, defaultCommands } from '../commands/defaults.js';
 import type { ChatManager } from '../twitch/manager.js';
 import type { EventSubManager } from '../twitch/eventsub.js';
 import { seedDefaultAlerts } from '../commands/seed.js';
@@ -21,7 +21,7 @@ export async function authRoutes(app: FastifyInstance, opts: { chat: ChatManager
       return reply
         .code(500)
         .type('text/plain; charset=utf-8')
-        .send('Twitch is nog niet ingesteld. Open de startpagina en doorloop de setup.');
+        .send('Twitch has not been set up yet. Open the start page and complete the setup.');
     }
     const state = randomToken(16);
     reply.setCookie(STATE_COOKIE, state, {
@@ -44,7 +44,7 @@ export async function authRoutes(app: FastifyInstance, opts: { chat: ChatManager
       if (error) return reply.redirect(`${config.appUrl}/?error=${encodeURIComponent(error_description || error)}`);
       const expected = cookie ? req.unsignCookie(cookie) : null;
       if (!code || !state || !expected?.valid || expected.value !== state) {
-        return reply.redirect(`${config.appUrl}/?error=${encodeURIComponent('Ongeldige OAuth-state, probeer opnieuw.')}`);
+        return reply.redirect(`${config.appUrl}/?error=${encodeURIComponent('Invalid OAuth state, please try again.')}`);
       }
 
       const tokens = await exchangeCode(code);
@@ -69,11 +69,12 @@ export async function authRoutes(app: FastifyInstance, opts: { chat: ChatManager
       } else {
         const row = db
           .insert(schema.users)
-          .values({ ...values, twitchId: tw.id, overlayToken: randomToken(24), createdAt: now })
+          // The language chosen on the start page (cookie) decides the default content.
+          .values({ ...values, twitchId: tw.id, overlayToken: randomToken(24), locale: asLocale(req.cookies.waviloop_lang), createdAt: now })
           .returning()
           .get();
         userId = row.id;
-        for (const c of DEFAULT_COMMANDS) {
+        for (const c of defaultCommands(asLocale(req.cookies.waviloop_lang))) {
           db.insert(schema.commands)
             .values({ ...c, userId, createdAt: now, updatedAt: now })
             .run();
@@ -103,11 +104,11 @@ export async function authRoutes(app: FastifyInstance, opts: { chat: ChatManager
   /** Fully disconnects Twitch: revokes the token and stops listening to chat. */
   app.post('/auth/disconnect', async (req, reply) => {
     const user = currentUser(req);
-    if (!user) return reply.code(401).send({ error: 'Niet ingelogd' });
+    if (!user) return reply.code(401).send({ error: 'Not logged in' });
     opts.chat.stop(user.id);
     opts.eventsub.stop(user.id);
     await revokeToken(decrypt(user.accessToken));
-    db.update(schema.users).set({ chatEnabled: false, authError: 'Twitch ontkoppeld' }).where(eq(schema.users.id, user.id)).run();
+    db.update(schema.users).set({ chatEnabled: false, authError: 'Twitch disconnected' }).where(eq(schema.users.id, user.id)).run();
     destroySession(req, reply);
     return { ok: true };
   });

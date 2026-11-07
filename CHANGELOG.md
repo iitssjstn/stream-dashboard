@@ -10,6 +10,13 @@ Nieuwe wijzigingen komen eerst onder **[Unreleased]**. Bij een release krijgen z
 
 ## [Unreleased]
 
+### Toegevoegd
+- **Taalkeuze:** Waviloop is nu standaard **Engels**, met **Nederlands** als taaloptie. Wisselen kan in de zijbalk, op de startpagina en onder *Settings → Language*; je keuze wordt aan je account gekoppeld en volgt je naar andere apparaten.
+- Nieuwe streamers krijgen standaard-commands en alerts in hun taal (Engels: `!hug`, `!wave` …; Nederlands: `!knuffel`, `!zwaai` …).
+
+### Gewijzigd
+- Alle teksten in het dashboard, foutmeldingen van de server en de overlay-debugstatus zijn nu Engels (vertaald naar het Nederlands als je die taal kiest). Bestaande commands, alerts en Discord-berichten worden niet aangepast.
+
 ## [1.0.1] - 2026-11-07
 
 ### Gewijzigd

@@ -92,12 +92,12 @@ if (fs.existsSync(config.webDist)) {
 }
 
 await app.listen({ port: config.port, host: config.host });
-app.log.info(`Waviloop v${config.version} gestart`);
+app.log.info(`Waviloop v${config.version} started`);
 if (!twitchConfigured()) {
   const code = ensureSetupCode();
   const line = '='.repeat(64);
   // Plain stdout so it is easy to spot with `docker logs stream-dashboard`.
-  console.log(`\n${line}\n  Twitch is nog niet ingesteld. Open ${config.publicUrl}\n  en vul deze eenmalige setup-code in:\n\n      SETUP CODE: ${code}\n\n  (nieuwe code bij elke herstart zolang de setup niet klaar is)\n${line}\n`);
+  console.log(`\n${line}\n  Twitch has not been set up yet. Open ${config.publicUrl}\n  and enter this one-time setup code:\n\n      SETUP CODE: ${code}\n\n  (a new code on every restart until the setup is done)\n${line}\n`);
 }
 chat.startAll();
 eventsub.startAll();
