@@ -1,6 +1,6 @@
 {
   "name": "@waviloop/server",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "scripts": {
     "dev": "node --env-file-if-exists=../.env --import tsx --watch src/index.ts",
     "start": "node --import tsx src/index.ts",
