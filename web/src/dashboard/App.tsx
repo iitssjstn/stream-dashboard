@@ -42,16 +42,21 @@ export function App() {
   );
 }
 
-const NAV: { to: string; label: string; icon: keyof typeof Icon }[] = [
-  { to: '/dashboard', label: 'Dashboard', icon: 'home' },
-  { to: '/commands', label: 'Commands', icon: 'bolt' },
-  { to: '/alerts', label: 'Alerts', icon: 'bell' },
-  { to: '/timers', label: 'Timers', icon: 'clock' },
-  { to: '/overlay', label: 'Overlay', icon: 'layers' },
-  { to: '/activity', label: 'Activity', icon: 'activity' },
-  { to: '/discord', label: 'Discord', icon: 'chat' },
-  { to: '/import', label: 'Import', icon: 'download' },
-  { to: '/settings', label: 'Settings', icon: 'cog' },
+const NAV: { label: string; items: { to: string; label: string; icon: keyof typeof Icon }[] }[] = [
+  {
+    label: 'Twitch',
+    items: [
+      { to: '/dashboard', label: 'Dashboard', icon: 'home' },
+      { to: '/commands', label: 'Commands', icon: 'bolt' },
+      { to: '/alerts', label: 'Alerts', icon: 'bell' },
+      { to: '/timers', label: 'Timers', icon: 'clock' },
+      { to: '/overlay', label: 'Overlay', icon: 'layers' },
+      { to: '/activity', label: 'Activity', icon: 'activity' },
+      { to: '/import', label: 'Import', icon: 'download' },
+    ],
+  },
+  { label: 'Discord', items: [{ to: '/discord', label: 'Discord', icon: 'chat' }] },
+  { label: 'General', items: [{ to: '/settings', label: 'Settings', icon: 'cog' }] },
 ];
 
 function Authed() {
@@ -75,23 +80,30 @@ function Authed() {
   const chatTone = me.chat.status === 'connected' ? 'ok' : me.chat.status === 'connecting' ? 'warn' : me.chat.status === 'auth_failed' ? 'error' : 'off';
 
   const nav = (
-    <nav className="flex flex-col gap-1">
-      {NAV.map((n) => (
-        <NavLink
-          key={n.to}
-          to={n.to}
-          onClick={() => setOpen(false)}
-          className={({ isActive }) =>
-            `group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-              isActive || (n.to === '/commands' && loc.pathname.startsWith('/commands'))
-                ? 'bg-gradient-to-r from-brand-500/30 to-brand-500/10 text-white shadow-[inset_0_0_0_1px_rgb(192_132_252/.55),0_0_22px_-6px_rgb(168_85_247/.8)]'
-                : 'text-zinc-400 hover:bg-white/[.04] hover:text-zinc-100'
-            }`
-          }
-        >
-          <Svg i={n.icon} className="h-[18px] w-[18px]" />
-          {t(n.label)}
-        </NavLink>
+    <nav className="flex flex-col gap-3">
+      {NAV.map((group) => (
+        <section key={group.label}>
+          <h2 className="px-3 pb-1 text-[10px] font-semibold tracking-wider text-zinc-500 uppercase">{t(group.label)}</h2>
+          <div className="flex flex-col gap-1">
+            {group.items.map((n) => (
+              <NavLink
+                key={n.to}
+                to={n.to}
+                onClick={() => setOpen(false)}
+                className={({ isActive }) =>
+                  `group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                    isActive || (n.to === '/commands' && loc.pathname.startsWith('/commands'))
+                      ? 'bg-gradient-to-r from-brand-500/30 to-brand-500/10 text-white shadow-[inset_0_0_0_1px_rgb(192_132_252/.55),0_0_22px_-6px_rgb(168_85_247/.8)]'
+                      : 'text-zinc-400 hover:bg-white/[.04] hover:text-zinc-100'
+                  }`
+                }
+              >
+                <Svg i={n.icon} className="h-[18px] w-[18px]" />
+                {t(n.label)}
+              </NavLink>
+            ))}
+          </div>
+        </section>
       ))}
     </nav>
   );

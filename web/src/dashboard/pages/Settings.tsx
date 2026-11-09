@@ -16,71 +16,86 @@ export function Settings() {
     <>
       <PageHeader title={t('Settings')} />
       <div className="grid max-w-3xl gap-6">
-        <section className="card p-5">
-          <h2 className="mb-4 font-semibold text-white">{t('Twitch account')}</h2>
-          <div className="flex items-center gap-4">
-            {me.user.profileImageUrl && <img src={me.user.profileImageUrl} alt="" className="h-14 w-14 rounded-full ring-2 ring-brand-500/40" />}
-            <div className="flex-1">
-              <div className="font-semibold text-white">{me.user.displayName}</div>
-              <div className="text-sm text-zinc-400">twitch.tv/{me.user.login}</div>
-              <div className="mt-1 text-xs text-zinc-500">{t('Permissions')}: {me.user.scopes.join(', ') || '–'}</div>
+        <div className="space-y-3">
+          <h2 className="px-1 text-xs font-bold tracking-wider text-zinc-500 uppercase">{t('General')}</h2>
+          <section className="card flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="font-semibold text-white">{t('Language')}</h3>
+              <p className="text-sm text-zinc-400">{t('The language of the dashboard. New default commands and alerts are also created in this language.')}</p>
             </div>
-            <a href="/auth/twitch/login" className="btn-ghost">
-              <Svg i="twitch" className="h-4 w-4" /> {t('Reconnect')}
-            </a>
-          </div>
-        </section>
+            <div className="w-full sm:w-64">
+              <LanguageSwitch onChange={(lang) => void api('/api/settings', { method: 'PATCH', json: { locale: lang } }).then(() => reload())} />
+            </div>
+          </section>
+          <section className="card p-5">
+            <button
+              className="btn-ghost"
+              onClick={async () => {
+                await api('/auth/logout', { method: 'POST' });
+                nav('/');
+              }}
+            >
+              {t('Log out')}
+            </button>
+          </section>
+        </div>
 
-        <section className="card flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="font-semibold text-white">{t('Language')}</h2>
-            <p className="text-sm text-zinc-400">{t('The language of the dashboard. New default commands and alerts are also created in this language.')}</p>
-          </div>
-          <div className="w-full sm:w-64">
-            <LanguageSwitch onChange={(lang) => void api('/api/settings', { method: 'PATCH', json: { locale: lang } }).then(() => reload())} />
-          </div>
-        </section>
+        <div className="space-y-3">
+          <h2 className="px-1 text-xs font-bold tracking-wider text-zinc-500 uppercase">{t('Twitch')}</h2>
+          <section className="card p-5">
+            <h3 className="mb-4 font-semibold text-white">{t('Twitch account')}</h3>
+            <div className="flex items-center gap-4">
+              {me.user.profileImageUrl && <img src={me.user.profileImageUrl} alt="" className="h-14 w-14 rounded-full ring-2 ring-brand-500/40" />}
+              <div className="flex-1">
+                <div className="font-semibold text-white">{me.user.displayName}</div>
+                <div className="text-sm text-zinc-400">twitch.tv/{me.user.login}</div>
+                <div className="mt-1 text-xs text-zinc-500">{t('Permissions')}: {me.user.scopes.join(', ') || '–'}</div>
+              </div>
+              <a href="/auth/twitch/login" className="btn-ghost">
+                <Svg i="twitch" className="h-4 w-4" /> {t('Reconnect')}
+              </a>
+            </div>
+          </section>
 
-        <section className="card flex items-center justify-between gap-4 p-5">
-          <div>
-            <h2 className="font-semibold text-white">{t('Listen to chat')}</h2>
-            <p className="text-sm text-zinc-400">{t('Turn off to pause all commands. The server listens 24/7, even when this dashboard is closed.')}</p>
+          <section className="card flex items-center justify-between gap-4 p-5">
+            <div>
+              <h3 className="font-semibold text-white">{t('Listen to chat')}</h3>
+              <p className="text-sm text-zinc-400">{t('Turn off to pause all commands. The server listens 24/7, even when this dashboard is closed.')}</p>
+            </div>
+            <Toggle
+              checked={me.chat.enabled}
+              onChange={async (v) => {
+                await api('/api/settings', { method: 'PATCH', json: { chatEnabled: v } });
+                toast(v ? t('Commands are on') : t('Commands paused'));
+                void reload();
+              }}
+            />
+          </section>
+
+          {me.isOwner && <TwitchAppSettings />}
+          {me.isOwner && <GiphySettings onChange={reload} />}
+
+          <section className="card p-5">
+            <button
+              className="btn-danger"
+              onClick={async () => {
+                if (!confirm(t('Fully disconnect Twitch? Commands stop working until you reconnect.'))) return;
+                await api('/auth/disconnect', { method: 'POST' });
+                nav('/');
+              }}
+            >
+              {t('Disconnect Twitch')}
+            </button>
+          </section>
+        </div>
+
+        {me.isOwner && (
+          <div className="space-y-3">
+            <h2 className="px-1 text-xs font-bold tracking-wider text-zinc-500 uppercase">{t('Discord')}</h2>
+            <p className="px-1 text-sm text-zinc-400">{t('Discord has its own bot and connection, separate from Twitch.')}</p>
+            <DiscordSetup onDone={reload} />
           </div>
-          <Toggle
-            checked={me.chat.enabled}
-            onChange={async (v) => {
-              await api('/api/settings', { method: 'PATCH', json: { chatEnabled: v } });
-              toast(v ? t('Commands are on') : t('Commands paused'));
-              void reload();
-            }}
-          />
-        </section>
-
-        {me.isOwner && <TwitchAppSettings />}
-        {me.isOwner && <GiphySettings onChange={reload} />}
-        {me.isOwner && <DiscordSetup onDone={reload} />}
-
-        <section className="card flex flex-wrap gap-3 p-5">
-          <button
-            className="btn-ghost"
-            onClick={async () => {
-              await api('/auth/logout', { method: 'POST' });
-              nav('/');
-            }}
-          >
-            {t('Log out')}
-          </button>
-          <button
-            className="btn-danger"
-            onClick={async () => {
-              if (!confirm(t('Fully disconnect Twitch? Commands stop working until you reconnect.'))) return;
-              await api('/auth/disconnect', { method: 'POST' });
-              nav('/');
-            }}
-          >
-            {t('Disconnect Twitch')}
-          </button>
-        </section>
+        )}
       </div>
     </>
   );

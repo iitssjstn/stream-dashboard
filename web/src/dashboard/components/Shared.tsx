@@ -39,6 +39,15 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   denied: { label: 'denied', cls: 'border-rose-400/50 bg-rose-400/10 text-rose-300' },
 };
 
+const ALERT_ACTIVITY: Record<string, string> = {
+  follow: '{viewer} followed',
+  subscriber: '{viewer} subscribed',
+  resub: '{viewer} resubscribed',
+  gift: '{viewer} gifted a subscription',
+  cheer: '{viewer} cheered',
+  raid: '{viewer} raided the channel',
+};
+
 const AVATAR_GRADIENTS = [
   'from-fuchsia-500 to-purple-600',
   'from-sky-400 to-indigo-600',
@@ -75,12 +84,17 @@ export function ActivityList({ limit = 10, compact = false }: { limit?: number; 
     <ul className="divide-y divide-white/[.06]">
       {data.map((a) => {
         const s = STATUS[a.status] ?? { label: a.status, cls: 'border-white/20 bg-white/5 text-zinc-300' };
+        const alertActivity = a.commandName.startsWith('alert:') ? ALERT_ACTIVITY[a.commandName.slice(6)] : null;
         return (
           <li key={a.id} className={`flex items-center gap-3 ${compact ? 'py-2.5' : 'py-3'}`}>
             <ViewerAvatar name={a.viewer} />
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm text-zinc-200">
-                <Trans text="{viewer} used {command}" viewer={<span className="font-semibold text-white">{a.viewer}</span>} command={<code className="font-semibold text-brand-400">!{a.commandName}</code>} />
+                {alertActivity ? (
+                  <Trans text={alertActivity} viewer={<span className="font-semibold text-white">{a.viewer}</span>} />
+                ) : (
+                  <Trans text="{viewer} used {command}" viewer={<span className="font-semibold text-white">{a.viewer}</span>} command={<code className="font-semibold text-brand-400">!{a.commandName}</code>} />
+                )}
               </div>
               <div className="text-xs text-zinc-500">
                 {timeAgo(a.createdAt)}
