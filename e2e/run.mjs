@@ -104,7 +104,7 @@ try {
   check(again.status === 409, 'Setup kan daarna niet opnieuw (ook niet met dezelfde code)');
   await page.getByRole('link', { name: /Koppel je Twitch-account/ }).click();
   await page.waitForURL('**/dashboard');
-  await page.getByText('Verbonden met Twitch').waitFor({ timeout: 10000 });
+  await page.locator('section.card').filter({ hasText: 'Chatverbinding' }).getByText('Verbonden met Twitch', { exact: true }).waitFor({ timeout: 10000 });
   check(true, 'Streamer koppelt Twitch via OAuth en dashboard toont "Verbonden met Twitch"');
   const me = await page.evaluate(() => fetch('/api/me').then((r) => r.json()));
   check(me.user.login === 'knuffelstreamer', `Ingelogd als ${me.user.login}`);
