@@ -44,6 +44,7 @@ export async function importRoutes(app: FastifyInstance, { engine }: { engine: C
     const now = Date.now();
 
     const all = () => db.select().from(schema.commands).where(eq(schema.commands.userId, userId)).all();
+    const defaultOverlay = db.select({ id: schema.overlays.id }).from(schema.overlays).where(eq(schema.overlays.userId, userId)).orderBy(schema.overlays.id).get()!;
 
     try {
       db.transaction(() => {
@@ -68,7 +69,7 @@ export async function importRoutes(app: FastifyInstance, { engine }: { engine: C
               db.update(schema.commands).set({ ...data, ...keep, updatedAt: now }).where(eq(schema.commands.id, existing.id)).run();
               result.updated++;
             } else {
-              db.insert(schema.commands).values({ ...data, userId, createdAt: now, updatedAt: now }).run();
+              db.insert(schema.commands).values({ ...data, userId, overlayId: defaultOverlay.id, createdAt: now, updatedAt: now }).run();
               result.created++;
             }
           } catch (e) {
@@ -113,7 +114,7 @@ export async function importRoutes(app: FastifyInstance, { engine }: { engine: C
             if (req.user.locale === 'nl') ab.text = ab.text.replace(/\bthe chat\b/g, 'de chat');
             const data = validateCommand(ab);
             if (existing && overwrite) db.update(schema.commands).set({ ...data, updatedAt: now }).where(eq(schema.commands.id, existing.id)).run();
-            else db.insert(schema.commands).values({ ...data, userId, createdAt: now, updatedAt: now }).run();
+            else db.insert(schema.commands).values({ ...data, userId, overlayId: defaultOverlay.id, createdAt: now, updatedAt: now }).run();
             result.alerts++;
           } catch (e) {
             result.errors.push(`Alert ${a?.label}: ${(e as Error).message}`);

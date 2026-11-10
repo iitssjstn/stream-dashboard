@@ -11,10 +11,12 @@ export function seedDefaultAlerts(userId: number) {
     .get();
   if (has) return;
   const now = Date.now();
+  const overlay = db.select({ id: schema.overlays.id }).from(schema.overlays).where(eq(schema.overlays.userId, userId)).orderBy(schema.overlays.id).get();
+  if (!overlay) return;
   const user = db.select({ locale: schema.users.locale }).from(schema.users).where(eq(schema.users.id, userId)).get();
   for (const a of defaultAlerts(asLocale(user?.locale))) {
     db.insert(schema.commands)
-      .values({ ...a, userId, targetMode: 'none', permission: 'everyone', userCooldownSec: 0, globalCooldownSec: 0, createdAt: now, updatedAt: now })
+      .values({ ...a, userId, overlayId: overlay.id, targetMode: 'none', permission: 'everyone', userCooldownSec: 0, globalCooldownSec: 0, createdAt: now, updatedAt: now })
       .onConflictDoNothing()
       .run();
   }

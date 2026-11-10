@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { useMe } from '../App';
-import { api, LABELS, type Command } from '../api';
+import { api, LABELS, type Command, type OverlayProfile } from '../api';
 import { usePoll } from '../hooks';
 import { CopyUrl } from '../components/Shared';
 import { OverlayPreview } from '../components/OverlayPreview';
@@ -19,37 +19,82 @@ export function OverlayPage() {
   const { me, reload } = useMe();
   const toast = useToast();
   const { data: allCmds, reload: reloadCmds, setData } = usePoll<Command[]>('/api/commands');
-  // Only things that actually appear in the overlay; alerts included.
-  const cmds = allCmds?.filter((c) => c.animation !== 'none') ?? null;
+  const { data: overlays, reload: reloadOverlays } = usePoll<OverlayProfile[]>('/api/overlays');
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const activeOverlay = overlays?.find((overlay) => overlay.id === activeId) ?? overlays?.[0] ?? null;
+  const cmds = allCmds?.filter((c) => c.animation !== 'none' && c.overlayId === activeOverlay?.id) ?? null;
   const [w, setW] = useState(me.overlay.width);
   const [h, setH] = useState(me.overlay.height);
   const [selected, setSelected] = useState<number | null>(null);
   const [hovered, setHovered] = useState<number | null>(null);
 
+  useEffect(() => {
+    if (!activeOverlay) return;
+    setW(activeOverlay.width);
+    setH(activeOverlay.height);
+    setSelected(null);
+  }, [activeOverlay?.id, activeOverlay?.width, activeOverlay?.height]);
+
   const saveRes = async (width: number, height: number) => {
+    if (!activeOverlay) return;
     setW(width);
     setH(height);
-    await api('/api/settings', { method: 'PATCH', json: { overlayWidth: width, overlayHeight: height } });
+    await api(`/api/overlays/${activeOverlay.id}`, { method: 'PATCH', json: { width, height } });
     toast(t('Resolution set to {w}×{h}. Also update the Browser Source in OBS.', { w: width, h: height }));
-    void reload();
+    void reloadOverlays();
   };
 
   const sel = cmds?.find((c) => c.id === selected) ?? null;
 
   return (
     <>
-      <PageHeader title="Overlay" subtitle={t('One URL for all your interactive elements. Works independently of this dashboard.')} />
+      <PageHeader title="Overlay" subtitle={t('Keep your commands and alerts organized across separate overlays.')} />
+
+      <section className="card mb-6 flex flex-wrap items-center gap-2 p-3">
+        {overlays?.map((overlay) => (
+          <button
+            key={overlay.id}
+            type="button"
+            role="tab"
+            aria-selected={overlay.id === activeOverlay?.id}
+            onClick={() => setActiveId(overlay.id)}
+            className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${overlay.id === activeOverlay?.id ? 'bg-brand-500/15 text-white' : 'text-zinc-400 hover:bg-white/[.04] hover:text-white'}`}
+          >
+            {overlay.name}
+          </button>
+        ))}
+        <button
+          className="btn-ghost ml-auto"
+          onClick={async () => {
+            const name = prompt(t('Name for the new overlay'), t('Overlay {n}', { n: (overlays?.length ?? 0) + 1 }));
+            if (!name?.trim()) return;
+            const created = await api<OverlayProfile>('/api/overlays', { method: 'POST', json: { name } });
+            await reloadOverlays();
+            setActiveId(created.id);
+          }}
+        >
+          <Svg i="plus" className="h-4 w-4" /> {t('New overlay')}
+        </button>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <section className="card space-y-4 p-5 lg:col-span-2">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-white">{t('Your overlay URL')}</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="font-semibold text-white">{t('Your overlay URL')}</h2>
+              {activeOverlay && <button className="btn-ghost px-2 py-1 text-xs" onClick={async () => {
+                const name = prompt(t('Rename overlay'), activeOverlay.name);
+                if (!name?.trim() || name.trim() === activeOverlay.name) return;
+                await api(`/api/overlays/${activeOverlay.id}`, { method: 'PATCH', json: { name } });
+                void reloadOverlays();
+              }}>{t('Rename')}</button>}
+            </div>
             <span className="flex items-center gap-2 text-sm text-zinc-300">
-              <StatusDot tone={me.overlay.connectedClients ? 'ok' : 'off'} />
-              {me.overlay.connectedClients ? t('{n} browser source(s) connected', { n: me.overlay.connectedClients }) : t('Not opened in OBS yet')}
+              <StatusDot tone={activeOverlay?.connectedClients ? 'ok' : 'off'} />
+              {activeOverlay?.connectedClients ? t('{n} browser source(s) connected', { n: activeOverlay.connectedClients }) : t('Not opened in OBS yet')}
             </span>
           </div>
-          <CopyUrl url={me.overlay.url} />
+          {activeOverlay && <CopyUrl url={activeOverlay.url} />}
           <p className="text-xs text-zinc-500">
             {t('This URL is secret: anyone who has it can see your overlay. Leaked? Create a new one; the old one stops working immediately. Add ?debug to the URL to show the connection status on screen.')}
           </p>
@@ -57,13 +102,26 @@ export function OverlayPage() {
             className="btn-danger"
             onClick={async () => {
               if (!confirm(t('Create a new URL? You will need to update the Browser Source in OBS afterwards.'))) return;
-              await api('/api/overlay/regenerate', { method: 'POST' });
+              if (!activeOverlay) return;
+              await api(`/api/overlays/${activeOverlay.id}/regenerate`, { method: 'POST' });
               toast(t('New overlay URL created'));
-              void reload();
+              void reloadOverlays();
             }}
           >
-            <Svg i="refresh" className="h-4 w-4" /> Nieuwe URL genereren
+            <Svg i="refresh" className="h-4 w-4" /> {t('Generate new URL')}
           </button>
+          {overlays && overlays.length > 1 && activeOverlay && <button
+            className="btn-danger ml-2"
+            onClick={async () => {
+              if (!confirm(t('Delete this overlay? Its commands will move to another overlay.'))) return;
+              await api(`/api/overlays/${activeOverlay.id}`, { method: 'DELETE' });
+              setActiveId(null);
+              void reloadOverlays();
+              void reloadCmds();
+            }}
+          >
+            <Svg i="trash" className="h-4 w-4" /> {t('Delete overlay')}
+          </button>}
         </section>
 
         <section className="card space-y-4 p-5">
@@ -101,11 +159,31 @@ export function OverlayPage() {
           <h2 className="font-semibold text-white">{t('Layout')}</h2>
           <p className="text-sm text-zinc-400">{t('Pick a command on the right, or click a box, and drag it into place. The selected command plays in the preview.')}</p>
         </div>
+        {activeOverlay && allCmds && allCmds.some((c) => c.animation !== 'none' && c.overlayId !== activeOverlay.id) && (
+          <label className="mb-4 block max-w-md">
+            <span className="label">{t('Add an existing command to this overlay')}</span>
+            <select
+              className="input"
+              value=""
+              onChange={async (event) => {
+                const commandId = Number(event.target.value);
+                if (!commandId) return;
+                await api(`/api/commands/${commandId}/overlay`, { method: 'PATCH', json: { overlayId: activeOverlay.id } });
+                void reloadCmds();
+              }}
+            >
+              <option value="">{t('Choose a command')}</option>
+              {allCmds.filter((c) => c.animation !== 'none' && c.overlayId !== activeOverlay.id).map((c) => (
+                <option key={c.id} value={c.id}>{c.trigger === 'chat' ? `!${c.name}` : `${c.trigger}${c.minAmount ? ` ${c.minAmount}+` : ''}`}</option>
+              ))}
+            </select>
+          </label>
+        )}
         {cmds && (
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
             <LayoutCanvas
-              width={me.overlay.width}
-              height={me.overlay.height}
+              width={activeOverlay?.width ?? me.overlay.width}
+              height={activeOverlay?.height ?? me.overlay.height}
               commands={cmds}
               selected={selected}
               hovered={hovered}

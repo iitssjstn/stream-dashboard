@@ -5,6 +5,7 @@ export type Trigger = 'chat' | 'follow' | 'subscriber' | 'resub' | 'gift' | 'che
 
 export type Command = {
   id: number;
+  overlayId: number;
   name: string;
   trigger: Trigger;
   /** Own description, e.g. the StreamElements overlay/alert it was imported from */
@@ -31,6 +32,15 @@ export type Command = {
   targetMode: 'optional' | 'required' | 'none';
   targetFallback: string;
   style: CommandStyle;
+};
+
+export type OverlayProfile = {
+  id: number;
+  name: string;
+  url: string;
+  width: number;
+  height: number;
+  connectedClients: number;
 };
 
 export type Me = {

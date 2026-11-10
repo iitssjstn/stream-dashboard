@@ -74,9 +74,20 @@ export async function authRoutes(app: FastifyInstance, opts: { chat: ChatManager
           .returning()
           .get();
         userId = row.id;
+      }
+      let overlay = db.select().from(schema.overlays).where(eq(schema.overlays.userId, userId)).orderBy(schema.overlays.id).get();
+      if (!overlay) {
+        const user = db.select().from(schema.users).where(eq(schema.users.id, userId)).get()!;
+        overlay = db
+          .insert(schema.overlays)
+          .values({ userId, name: 'Main overlay', token: user.overlayToken, width: user.overlayWidth, height: user.overlayHeight, createdAt: now })
+          .returning()
+          .get();
+      }
+      if (!existing) {
         for (const c of defaultCommands(asLocale(req.cookies.waviloop_lang))) {
           db.insert(schema.commands)
-            .values({ ...c, userId, createdAt: now, updatedAt: now })
+            .values({ ...c, userId, overlayId: overlay.id, createdAt: now, updatedAt: now })
             .run();
         }
       }

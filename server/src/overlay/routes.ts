@@ -7,7 +7,7 @@ import { config } from '../config.js';
 import type { OverlayHub } from './hub.js';
 
 const findByToken = (token: string) =>
-  /^[\w-]{16,64}$/.test(token) ? db.select().from(schema.users).where(eq(schema.users.overlayToken, token)).get() : undefined;
+  /^[\w-]{16,64}$/.test(token) ? db.select().from(schema.overlays).where(eq(schema.overlays.token, token)).get() : undefined;
 
 export async function overlayRoutes(app: FastifyInstance, { hub }: { hub: OverlayHub }) {
   // The browser source page itself. Independent of the dashboard: a tiny vanilla bundle.
@@ -23,12 +23,17 @@ export async function overlayRoutes(app: FastifyInstance, { hub }: { hub: Overla
   });
 
   app.get<{ Params: { token: string } }>('/ws/overlay/:token', { websocket: true }, (socket, req) => {
-    const user = findByToken(req.params.token);
+    const overlay = findByToken(req.params.token);
+    if (!overlay) {
+      socket.close(4004, 'unknown overlay');
+      return;
+    }
+    const user = db.select().from(schema.users).where(eq(schema.users.id, overlay.userId)).get();
     if (!user) {
       socket.close(4004, 'unknown overlay');
       return;
     }
-    hub.add(user.id, socket, { type: 'config', width: user.overlayWidth, height: user.overlayHeight, channel: user.login });
-    req.log.info({ userId: user.id, clients: hub.count(user.id) }, 'overlay connected');
+    hub.add(overlay.id, socket, { type: 'config', width: overlay.width, height: overlay.height, channel: user.login });
+    req.log.info({ userId: user.id, overlayId: overlay.id, clients: hub.count(overlay.id) }, 'overlay connected');
   });
 }

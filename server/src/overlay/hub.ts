@@ -31,9 +31,8 @@ const PENDING_TTL = 30_000;
 const PENDING_MAX = 10;
 
 /**
- * Routes events to the overlay browser sources of exactly one streamer. Sockets are keyed
- * by the streamer's user id (resolved from the secret overlay token at connect time), so
- * streamers can never receive each other's events.
+ * Routes events to the browser sources of exactly one overlay. Overlay IDs are resolved
+ * from secret tokens at connect time, so streamers can never receive each other's events.
  */
 export class OverlayHub {
   private clients = new Map<number, Set<Client>>();
@@ -45,10 +44,10 @@ export class OverlayHub {
     this.heartbeat = setInterval(() => this.sweep(), 15_000);
   }
 
-  add(userId: number, ws: WebSocket, initial: OverlayConfig) {
+  add(overlayId: number, ws: WebSocket, initial: OverlayConfig) {
     const client: Client = { ws, alive: true, connectedAt: Date.now() };
-    let set = this.clients.get(userId);
-    if (!set) this.clients.set(userId, (set = new Set()));
+    let set = this.clients.get(overlayId);
+    if (!set) this.clients.set(overlayId, (set = new Set()));
     set.add(client);
     ws.on('pong', () => (client.alive = true));
     ws.on('message', (raw) => {
@@ -65,37 +64,37 @@ export class OverlayHub {
       if (set!.size === 0) this.clients.delete(userId);
     });
     this.send(ws, initial);
-    const queued = (this.pending.get(userId) ?? []).filter((e) => Date.now() - e.createdAt < PENDING_TTL);
-    this.pending.delete(userId);
+    const queued = (this.pending.get(overlayId) ?? []).filter((e) => Date.now() - e.createdAt < PENDING_TTL);
+    this.pending.delete(overlayId);
     for (const e of queued) this.send(ws, e);
   }
 
-  emit(userId: number, event: Omit<OverlayCommandEvent, 'eventId' | 'createdAt' | 'type'>) {
+  emit(overlayId: number, event: Omit<OverlayCommandEvent, 'eventId' | 'createdAt' | 'type'>) {
     const full: OverlayCommandEvent = { type: 'command', eventId: randomUUID(), createdAt: Date.now(), ...event };
-    const set = this.clients.get(userId);
+    const set = this.clients.get(overlayId);
     if (!set || set.size === 0) {
-      const q = this.pending.get(userId) ?? [];
+      const q = this.pending.get(overlayId) ?? [];
       q.push(full);
-      this.pending.set(userId, q.slice(-PENDING_MAX));
+      this.pending.set(overlayId, q.slice(-PENDING_MAX));
       return { delivered: 0, eventId: full.eventId };
     }
     for (const c of set) this.send(c.ws, full);
     return { delivered: set.size, eventId: full.eventId };
   }
 
-  broadcast(userId: number, msg: ServerMessage) {
-    for (const c of this.clients.get(userId) ?? []) this.send(c.ws, msg);
+  broadcast(overlayId: number, msg: ServerMessage) {
+    for (const c of this.clients.get(overlayId) ?? []) this.send(c.ws, msg);
   }
 
-  /** Disconnect all overlays of a user (e.g. after the overlay URL was regenerated). */
-  disconnect(userId: number, code = 4001, reason = 'token revoked') {
-    for (const c of this.clients.get(userId) ?? []) c.ws.close(code, reason);
-    this.clients.delete(userId);
-    this.pending.delete(userId);
+  /** Disconnect one overlay (e.g. after its URL was regenerated or it was deleted). */
+  disconnect(overlayId: number, code = 4001, reason = 'token revoked') {
+    for (const c of this.clients.get(overlayId) ?? []) c.ws.close(code, reason);
+    this.clients.delete(overlayId);
+    this.pending.delete(overlayId);
   }
 
-  count(userId: number) {
-    return this.clients.get(userId)?.size ?? 0;
+  count(overlayId: number) {
+    return this.clients.get(overlayId)?.size ?? 0;
   }
 
   private send(ws: WebSocket, msg: ServerMessage) {

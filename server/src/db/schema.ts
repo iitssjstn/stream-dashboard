@@ -30,6 +30,22 @@ export const users = sqliteTable(
   (t) => [uniqueIndex('users_twitch_id_idx').on(t.twitchId), uniqueIndex('users_overlay_token_idx').on(t.overlayToken)],
 );
 
+export const overlays = sqliteTable(
+  'overlays',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    token: text('token').notNull(),
+    width: integer('width').notNull().default(1920),
+    height: integer('height').notNull().default(1080),
+    createdAt: integer('created_at').notNull(),
+  },
+  (t) => [uniqueIndex('overlays_token_idx').on(t.token), index('overlays_user_idx').on(t.userId)],
+);
+
 export const sessions = sqliteTable('sessions', {
   id: text('id').primaryKey(),
   userId: integer('user_id')
@@ -62,6 +78,9 @@ export const commands = sqliteTable(
     userId: integer('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    overlayId: integer('overlay_id')
+      .notNull()
+      .references(() => overlays.id, { onDelete: 'cascade' }),
     /** lowercased, without the leading "!" */
     name: text('name').notNull(),
     enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),

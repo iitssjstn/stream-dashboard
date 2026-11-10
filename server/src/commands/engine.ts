@@ -165,18 +165,28 @@ export class CommandEngine {
     this.fire(userId, cmd, msg.displayName, target, msg.channel, 'triggered', { args });
   }
 
-  /** Twitch alert (follow, sub, cheer, ...): picks the variation with the highest matching minimum amount. */
+  /** Twitch alert: picks the best matching variation independently for each overlay. */
   handleAlert(userId: number, channel: string, ev: AlertEvent) {
     if (!this.firstSeen(`${userId}:alert:${ev.id}`)) return null;
     const amount = ev.amount ?? 0;
-    const cmd = this.commandsFor(userId)
-      .alerts.filter((c) => c.enabled && c.trigger === ev.type && amount >= c.minAmount)
-      .sort((a, b) => b.minAmount - a.minAmount)[0];
-    if (!cmd) {
+    const matches = this.commandsFor(userId).alerts.filter((c) => c.enabled && c.trigger === ev.type && amount >= c.minAmount);
+    if (!matches.length) {
       this.record(userId, `alert:${ev.type}`, ev.user, 'denied', 'no active alert for this type');
       return null;
     }
-    return this.fire(userId, cmd, ev.user, null, channel, 'triggered', { amount, message: ev.message, tier: ev.tier, months: ev.months });
+    const bestByOverlay = new Map<number, Command>();
+    for (const cmd of matches) {
+      const current = bestByOverlay.get(cmd.overlayId);
+      if (!current || cmd.minAmount > current.minAmount) bestByOverlay.set(cmd.overlayId, cmd);
+    }
+    return [...bestByOverlay.values()].map((cmd, index) =>
+      this.fire(userId, index === 0 ? cmd : { ...cmd, reply: null }, ev.user, null, channel, 'triggered', {
+        amount,
+        message: ev.message,
+        tier: ev.tier,
+        months: ev.months,
+      }),
+    );
   }
 
   /** Plays a command/alert in the overlay and/or sends its chat reply. Also used by the dashboard's "test" button. */
@@ -199,7 +209,7 @@ export class CommandEngine {
     let delivered = 0;
     let eventId: string | null = null;
     if (cmd.animation !== 'none') {
-      const res = this.hub.emit(userId, {
+      const res = this.hub.emit(cmd.overlayId, {
         command: cmd.name,
         animation: cmd.animation,
         characterStyle: cmd.characterStyle,

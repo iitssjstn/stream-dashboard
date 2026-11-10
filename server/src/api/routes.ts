@@ -33,7 +33,7 @@ const UPLOAD_TYPES: Record<string, string> = {
 
 type Deps = { chat: ChatManager; engine: CommandEngine; hub: OverlayHub; eventsub: EventSubManager; timers: TimerScheduler };
 
-export const overlayUrl = (u: User) => `${config.publicUrl}/overlay/${u.overlayToken}`;
+export const overlayUrl = (overlay: { token: string }) => `${config.publicUrl}/overlay/${overlay.token}`;
 
 export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, eventsub, timers }: Deps) {
   app.addHook('preHandler', requireUser);
@@ -49,6 +49,7 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
 
   app.get('/me', async (req) => {
     const u = req.user;
+    const overlay = db.select().from(schema.overlays).where(eq(schema.overlays.userId, u.id)).orderBy(schema.overlays.id).get()!;
     const dayAgo = Date.now() - 24 * 3600_000;
     const stats = db
       .select({
@@ -61,13 +62,14 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
     const hourStart = Math.floor(Date.now() / 3600_000) * 3600_000;
     const firstHour = hourStart - 23 * 3600_000;
     const playsByHour = new Array<number>(24).fill(0);
-    for (const r of db
-      .select({ t: schema.activity.createdAt })
+    const hourBucket = sql<number>`CAST((${schema.activity.createdAt} - ${firstHour}) / 3600000 AS INTEGER)`;
+    const hourlyPlays = db
+      .select({ hour: hourBucket, count: sql<number>`count(*)` })
       .from(schema.activity)
       .where(and(eq(schema.activity.userId, u.id), eq(schema.activity.status, 'triggered'), gte(schema.activity.createdAt, firstHour)))
-      .all()) {
-      playsByHour[Math.min(23, Math.floor((r.t - firstHour) / 3600_000))]++;
-    }
+      .groupBy(hourBucket)
+      .all();
+    for (const r of hourlyPlays) playsByHour[Math.min(23, r.hour)] = r.count;
     return {
       user: {
         id: u.id,
@@ -79,10 +81,10 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
         locale: u.locale,
       },
       overlay: {
-        url: overlayUrl(u),
-        width: u.overlayWidth,
-        height: u.overlayHeight,
-        connectedClients: hub.count(u.id),
+        url: overlayUrl(overlay),
+        width: overlay.width,
+        height: overlay.height,
+        connectedClients: hub.count(overlay.id),
       },
       chat: { enabled: u.chatEnabled, ...chat.status(u.id) },
       alerts: eventsub.status(u.id),
@@ -91,6 +93,75 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
       isOwner: ownerUserId() === u.id,
       giphyEnabled: giphyKey().source !== 'none',
     };
+  });
+
+  app.get('/overlays', async (req) =>
+    db.select().from(schema.overlays).where(eq(schema.overlays.userId, req.user.id)).orderBy(schema.overlays.id).all().map((overlay) => ({
+      ...overlay,
+      url: overlayUrl(overlay),
+      connectedClients: hub.count(overlay.id),
+    })),
+  );
+
+  app.post('/overlays', async (req, reply) => {
+    const body = req.body as { name?: unknown } | undefined;
+    const name = typeof body?.name === 'string' ? body.name.trim() : '';
+    if (!name || name.length > 40) return reply.code(400).send({ error: 'Overlay name must be between 1 and 40 characters' });
+    const source = db.select().from(schema.overlays).where(eq(schema.overlays.userId, req.user.id)).orderBy(schema.overlays.id).get()!;
+    const overlay = db
+      .insert(schema.overlays)
+      .values({ userId: req.user.id, name, token: randomToken(24), width: source.width, height: source.height, createdAt: Date.now() })
+      .returning()
+      .get();
+    return reply.code(201).send({ ...overlay, url: overlayUrl(overlay), connectedClients: 0 });
+  });
+
+  app.patch<{ Params: { id: string } }>('/overlays/:id', async (req, reply) => {
+    const overlay = db
+      .select()
+      .from(schema.overlays)
+      .where(and(eq(schema.overlays.id, Number(req.params.id)), eq(schema.overlays.userId, req.user.id)))
+      .get();
+    if (!overlay) return reply.code(404).send({ error: 'Overlay not found' });
+    const body = (req.body ?? {}) as { name?: unknown; width?: unknown; height?: unknown };
+    const patch: Partial<typeof schema.overlays.$inferInsert> = {};
+    if (body.name !== undefined) {
+      const name = typeof body.name === 'string' ? body.name.trim() : '';
+      if (!name || name.length > 40) return reply.code(400).send({ error: 'Overlay name must be between 1 and 40 characters' });
+      patch.name = name;
+    }
+    if (body.width !== undefined) patch.width = Math.min(7680, Math.max(320, Math.round(Number(body.width))));
+    if (body.height !== undefined) patch.height = Math.min(4320, Math.max(240, Math.round(Number(body.height))));
+    const updated = db.update(schema.overlays).set(patch).where(eq(schema.overlays.id, overlay.id)).returning().get()!;
+    if (body.width !== undefined || body.height !== undefined) {
+      const user = db.select().from(schema.users).where(eq(schema.users.id, req.user.id)).get()!;
+      hub.broadcast(overlay.id, { type: 'config', width: updated.width, height: updated.height, channel: user.login });
+    }
+    return { ...updated, url: overlayUrl(updated), connectedClients: hub.count(updated.id) };
+  });
+
+  app.delete<{ Params: { id: string } }>('/overlays/:id', async (req, reply) => {
+    const overlay = db
+      .select()
+      .from(schema.overlays)
+      .where(and(eq(schema.overlays.id, Number(req.params.id)), eq(schema.overlays.userId, req.user.id)))
+      .get();
+    if (!overlay) return reply.code(404).send({ error: 'Overlay not found' });
+    const fallback = db
+      .select()
+      .from(schema.overlays)
+      .where(eq(schema.overlays.userId, req.user.id))
+      .orderBy(schema.overlays.id)
+      .all()
+      .find((candidate) => candidate.id !== overlay.id);
+    if (!fallback) return reply.code(400).send({ error: 'At least one overlay is required' });
+    db.transaction((tx) => {
+      tx.update(schema.commands).set({ overlayId: fallback.id }).where(eq(schema.commands.overlayId, overlay.id)).run();
+      tx.delete(schema.overlays).where(eq(schema.overlays.id, overlay.id)).run();
+    });
+    hub.disconnect(overlay.id);
+    engine.invalidate(req.user.id);
+    return { ok: true };
   });
 
   app.get('/meta', async () => ({ animations: ANIMATIONS, permissions: PERMISSIONS, effects: EFFECTS, particles: PARTICLES }));
@@ -104,7 +175,11 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
     if (b.locale !== undefined) patch.locale = asLocale(b.locale);
     db.update(schema.users).set(patch).where(eq(schema.users.id, req.user.id)).run();
     const u = db.select().from(schema.users).where(eq(schema.users.id, req.user.id)).get()!;
-    hub.broadcast(u.id, { type: 'config', width: u.overlayWidth, height: u.overlayHeight, channel: u.login });
+    const defaultOverlay = db.select().from(schema.overlays).where(eq(schema.overlays.userId, u.id)).orderBy(schema.overlays.id).get()!;
+    if (b.overlayWidth !== undefined || b.overlayHeight !== undefined) {
+      const updated = db.update(schema.overlays).set({ width: u.overlayWidth, height: u.overlayHeight }).where(eq(schema.overlays.id, defaultOverlay.id)).returning().get()!;
+      hub.broadcast(updated.id, { type: 'config', width: updated.width, height: updated.height, channel: u.login });
+    }
     if (b.chatEnabled !== undefined) {
       if (u.chatEnabled) {
         chat.ensure(u.id);
@@ -124,8 +199,22 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
 
   app.post('/overlay/regenerate', async (req) => {
     const token = randomToken(24);
-    db.update(schema.users).set({ overlayToken: token, updatedAt: Date.now() }).where(eq(schema.users.id, req.user.id)).run();
-    hub.disconnect(req.user.id);
+    const overlay = db.select().from(schema.overlays).where(eq(schema.overlays.userId, req.user.id)).orderBy(schema.overlays.id).get()!;
+    db.update(schema.overlays).set({ token }).where(eq(schema.overlays.id, overlay.id)).run();
+    hub.disconnect(overlay.id);
+    return { url: `${config.publicUrl}/overlay/${token}` };
+  });
+
+  app.post<{ Params: { id: string } }>('/overlays/:id/regenerate', async (req, reply) => {
+    const overlay = db
+      .select()
+      .from(schema.overlays)
+      .where(and(eq(schema.overlays.id, Number(req.params.id)), eq(schema.overlays.userId, req.user.id)))
+      .get();
+    if (!overlay) return reply.code(404).send({ error: 'Overlay not found' });
+    const token = randomToken(24);
+    db.update(schema.overlays).set({ token }).where(eq(schema.overlays.id, overlay.id)).run();
+    hub.disconnect(overlay.id);
     return { url: `${config.publicUrl}/overlay/${token}` };
   });
 
@@ -137,9 +226,10 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
   app.post('/commands', async (req, reply) => {
     const data = validateCommand(req.body);
     const now = Date.now();
+    const overlay = db.select({ id: schema.overlays.id }).from(schema.overlays).where(eq(schema.overlays.userId, req.user.id)).orderBy(schema.overlays.id).get()!;
     const row = db
       .insert(schema.commands)
-      .values({ ...data, userId: req.user.id, createdAt: now, updatedAt: now })
+      .values({ ...data, userId: req.user.id, overlayId: overlay.id, createdAt: now, updatedAt: now })
       .returning()
       .get();
     engine.invalidate(req.user.id);
@@ -157,6 +247,24 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
     if (!row) return reply.code(404).send({ error: 'Command not found' });
     engine.invalidate(req.user.id);
     return row;
+  });
+
+  app.patch<{ Params: { id: string }; Body: { overlayId: number } }>('/commands/:id/overlay', async (req, reply) => {
+    const overlay = db
+      .select({ id: schema.overlays.id })
+      .from(schema.overlays)
+      .where(and(eq(schema.overlays.id, Number(req.body?.overlayId)), eq(schema.overlays.userId, req.user.id)))
+      .get();
+    if (!overlay) return reply.code(404).send({ error: 'Overlay not found' });
+    const command = db
+      .update(schema.commands)
+      .set({ overlayId: overlay.id, updatedAt: Date.now() })
+      .where(and(eq(schema.commands.id, Number(req.params.id)), eq(schema.commands.userId, req.user.id)))
+      .returning()
+      .get();
+    if (!command) return reply.code(404).send({ error: 'Command not found' });
+    engine.invalidate(req.user.id);
+    return command;
   });
 
   app.delete<{ Params: { id: string } }>('/commands/:id', async (req) => {
