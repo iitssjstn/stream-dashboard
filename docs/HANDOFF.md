@@ -84,7 +84,7 @@ Duurt ±3 min en eindigt met `All checks passed`. Als iets hangt: `pkill -f "src
 
 ## Volgende stap
 
-**Stap 2 van het Discord-plan: Moderatie → v1.1.0.** Vraag de gebruiker eerst of hij daarmee verder wil.
+**Stap 2 van het Discord-plan: Moderatie → v1.2.0.** Vraag de gebruiker eerst of hij daarmee verder wil.
 
 ## Stappenplan Discord (afgesproken met de gebruiker)
 
@@ -96,6 +96,16 @@ Duurt ±3 min en eindigt met `All checks passed`. Als iets hangt: `pkill -f "src
 - [ ] 6. Ticket- en supportsysteem
 - [ ] 7. Server-statistieken en ModLogs
 - [ ] 8. Rechten- en teambeheer: **teamleden toevoegen op Twitch-naam met een rol** (Moderator / Editor / Beheerder), inloggen met Twitch en wisselen tussen accounts (besloten)
+
+## Idee om te onthouden: apart admin-account voor de instellingen
+
+De gebruiker heeft de Twitch-app-gegevens nu ingevuld met zijn **eigen Twitch-account**: de eerste Twitch-login wordt eigenaar (`ownerUserId()` in `server/src/settings.ts`) en alleen die mag de secrets beheren (Twitch-app, GIPHY-sleutel, Discord-bot-token). Het idee van de gebruiker: laat dit soort serverinstellingen en secrets lopen via een **apart admin-account** in plaats van via een streamer-Twitch-account.
+
+Mogelijke uitwerking, nog niet besloten (eerst met de gebruiker overleggen):
+- Admin-login met gebruikersnaam en wachtwoord (gehasht met scrypt of argon2), eventueel met 2FA (TOTP); los van Twitch, zodat het ook werkt als Twitch nog niet is ingesteld of het Twitch-account wisselt.
+- Een aparte adminpagina voor de Twitch-app, GIPHY, de Discord-bot, de eigenaar en (later) teambeheer. Streamers zien daar niets van.
+- Migratie: de huidige eigenaar maakt bij de eerste keer een admin-wachtwoord aan. De setup-code uit de logs blijft de manier om het allereerste admin-account aan te maken of het wachtwoord te resetten.
+- Past bij stap 8 (teambeheer): de rol "Beheerder" daar gaat over een streamer-team, de admin over de hele installatie.
 
 Uitgangspunt van de gebruiker: **zo simpel mogelijk** voor mensen met weinig technische kennis (duidelijke stappen, uitleg in gewone taal).
 
