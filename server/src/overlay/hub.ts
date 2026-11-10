@@ -61,7 +61,7 @@ export class OverlayHub {
     });
     ws.on('close', () => {
       set!.delete(client);
-      if (set!.size === 0) this.clients.delete(userId);
+      if (set!.size === 0) this.clients.delete(overlayId);
     });
     this.send(ws, initial);
     const queued = (this.pending.get(overlayId) ?? []).filter((e) => Date.now() - e.createdAt < PENDING_TTL);
