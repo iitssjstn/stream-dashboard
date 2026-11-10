@@ -172,7 +172,7 @@ try {
   const p2 = await dash2.newPage();
   await p2.goto(`${APP}/auth/twitch/login`);
   await p2.waitForURL('**/dashboard');
-  await p2.getByText('Connected to Twitch').waitFor({ timeout: 10000 });
+  await p2.locator('section.card').filter({ hasText: 'Chat connection' }).getByText('Connected to Twitch', { exact: true }).waitFor({ timeout: 10000 });
   const me2 = await p2.evaluate(() => fetch('/api/me').then((r) => r.json()));
   check(me2.user.locale === 'en', 'Nieuwe streamer zonder taalkeuze krijgt Engels als standaard');
   const cmds2 = await p2.evaluate(() => fetch('/api/commands').then((r) => r.json()));
