@@ -104,13 +104,17 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
   );
 
   app.post('/overlays', async (req, reply) => {
-    const body = req.body as { name?: unknown } | undefined;
+    const body = req.body as { name?: unknown; width?: unknown; height?: unknown } | undefined;
     const name = typeof body?.name === 'string' ? body.name.trim() : '';
     if (!name || name.length > 40) return reply.code(400).send({ error: 'Overlay name must be between 1 and 40 characters' });
     const source = db.select().from(schema.overlays).where(eq(schema.overlays.userId, req.user.id)).orderBy(schema.overlays.id).get()!;
+    const width = body.width === undefined ? source.width : Number(body.width);
+    const height = body.height === undefined ? source.height : Number(body.height);
+    if (!Number.isFinite(width) || width < 320 || width > 7680) return reply.code(400).send({ error: 'Width must be between 320 and 7680' });
+    if (!Number.isFinite(height) || height < 240 || height > 4320) return reply.code(400).send({ error: 'Height must be between 240 and 4320' });
     const overlay = db
       .insert(schema.overlays)
-      .values({ userId: req.user.id, name, token: randomToken(24), width: source.width, height: source.height, createdAt: Date.now() })
+      .values({ userId: req.user.id, name, token: randomToken(24), width: Math.round(width), height: Math.round(height), createdAt: Date.now() })
       .returning()
       .get();
     return reply.code(201).send({ ...overlay, url: overlayUrl(overlay), connectedClients: 0 });

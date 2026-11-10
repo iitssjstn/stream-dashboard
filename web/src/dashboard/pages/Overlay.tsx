@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useMe } from '../App';
 import { api, LABELS, type Command, type OverlayProfile } from '../api';
 import { usePoll } from '../hooks';
@@ -23,6 +24,12 @@ export function OverlayPage() {
   const [activeId, setActiveId] = useState<number | null>(null);
   const activeOverlay = overlays?.find((overlay) => overlay.id === activeId) ?? overlays?.[0] ?? null;
   const cmds = allCmds?.filter((c) => c.animation !== 'none' && c.overlayId === activeOverlay?.id) ?? null;
+  const [dialogMode, setDialogMode] = useState<'create' | 'rename' | null>(null);
+  const [overlayName, setOverlayName] = useState('');
+  const [newWidth, setNewWidth] = useState(me.overlay.width);
+  const [newHeight, setNewHeight] = useState(me.overlay.height);
+  const [savingOverlay, setSavingOverlay] = useState(false);
+  const overlayNameInput = useRef<HTMLInputElement>(null);
   const [w, setW] = useState(me.overlay.width);
   const [h, setH] = useState(me.overlay.height);
   const [selected, setSelected] = useState<number | null>(null);
@@ -35,6 +42,21 @@ export function OverlayPage() {
     setSelected(null);
   }, [activeOverlay?.id, activeOverlay?.width, activeOverlay?.height]);
 
+  useEffect(() => {
+    if (!dialogMode) return;
+    overlayNameInput.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setDialogMode(null);
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [dialogMode]);
+
   const saveRes = async (width: number, height: number) => {
     if (!activeOverlay) return;
     setW(width);
@@ -45,6 +67,38 @@ export function OverlayPage() {
   };
 
   const sel = cmds?.find((c) => c.id === selected) ?? null;
+
+  const openCreateDialog = () => {
+    setOverlayName(t('Overlay {n}', { n: (overlays?.length ?? 0) + 1 }));
+    setNewWidth(activeOverlay?.width ?? me.overlay.width);
+    setNewHeight(activeOverlay?.height ?? me.overlay.height);
+    setDialogMode('create');
+  };
+
+  const submitOverlayDialog = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = overlayName.trim();
+    if (!name || savingOverlay) return;
+    setSavingOverlay(true);
+    try {
+      if (dialogMode === 'create') {
+        const created = await api<OverlayProfile>('/api/overlays', {
+          method: 'POST',
+          json: { name, width: newWidth, height: newHeight },
+        });
+        await reloadOverlays();
+        setActiveId(created.id);
+      } else if (dialogMode === 'rename' && activeOverlay) {
+        await api(`/api/overlays/${activeOverlay.id}`, { method: 'PATCH', json: { name } });
+        void reloadOverlays();
+      }
+      setDialogMode(null);
+    } catch (error) {
+      toast((error as Error).message, 'error');
+    } finally {
+      setSavingOverlay(false);
+    }
+  };
 
   return (
     <>
@@ -65,13 +119,7 @@ export function OverlayPage() {
         ))}
         <button
           className="btn-ghost ml-auto"
-          onClick={async () => {
-            const name = prompt(t('Name for the new overlay'), t('Overlay {n}', { n: (overlays?.length ?? 0) + 1 }));
-            if (!name?.trim()) return;
-            const created = await api<OverlayProfile>('/api/overlays', { method: 'POST', json: { name } });
-            await reloadOverlays();
-            setActiveId(created.id);
-          }}
+          onClick={openCreateDialog}
         >
           <Svg i="plus" className="h-4 w-4" /> {t('New overlay')}
         </button>
@@ -82,11 +130,9 @@ export function OverlayPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <h2 className="font-semibold text-white">{t('Your overlay URL')}</h2>
-              {activeOverlay && <button className="btn-ghost px-2 py-1 text-xs" onClick={async () => {
-                const name = prompt(t('Rename overlay'), activeOverlay.name);
-                if (!name?.trim() || name.trim() === activeOverlay.name) return;
-                await api(`/api/overlays/${activeOverlay.id}`, { method: 'PATCH', json: { name } });
-                void reloadOverlays();
+              {activeOverlay && <button className="btn-ghost px-2 py-1 text-xs" onClick={() => {
+                setOverlayName(activeOverlay.name);
+                setDialogMode('rename');
               }}>{t('Rename')}</button>}
             </div>
             <span className="flex items-center gap-2 text-sm text-zinc-300">
@@ -252,6 +298,70 @@ export function OverlayPage() {
           </div>
         )}
       </section>
+      {dialogMode && createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink-950/80 p-0 backdrop-blur-md sm:items-center sm:p-6"
+          onClick={() => setDialogMode(null)}
+        >
+          <form
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="overlay-dialog-title"
+            onSubmit={submitOverlayDialog}
+            onClick={(event) => event.stopPropagation()}
+            className="fade-in w-full max-w-lg rounded-t-2xl border border-white/10 bg-ink-850 p-5 shadow-2xl shadow-black/60 sm:rounded-2xl sm:p-6"
+          >
+            <h2 id="overlay-dialog-title" className="text-lg font-semibold text-white">
+              {t(dialogMode === 'create' ? 'New overlay' : 'Rename overlay')}
+            </h2>
+            <label className="mt-5 block">
+              <span className="label">{t('Overlay name')}</span>
+              <input
+                ref={overlayNameInput}
+                className="input"
+                value={overlayName}
+                onChange={(event) => setOverlayName(event.target.value)}
+                maxLength={40}
+                required
+              />
+            </label>
+            {dialogMode === 'create' && (
+              <fieldset className="mt-5">
+                <legend className="label">{t('Resolution')}</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  {PRESETS.map(([presetWidth, presetHeight, label]) => {
+                    const selectedPreset = newWidth === presetWidth && newHeight === presetHeight;
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        aria-pressed={selectedPreset}
+                        onClick={() => {
+                          setNewWidth(presetWidth);
+                          setNewHeight(presetHeight);
+                        }}
+                        className={`rounded-lg border px-3 py-2.5 text-sm transition ${selectedPreset ? 'border-brand-500 bg-brand-500/10 text-white' : 'border-white/10 text-zinc-300 hover:bg-white/[.04]'}`}
+                      >
+                        <span className="block font-semibold">{t(label)}</span>
+                        <span className="block text-xs text-zinc-500">{presetWidth}×{presetHeight}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" className="btn-ghost" disabled={savingOverlay} onClick={() => setDialogMode(null)}>
+                {t('Cancel')}
+              </button>
+              <button type="submit" className="btn-primary" disabled={savingOverlay || !overlayName.trim()}>
+                {savingOverlay ? t('Saving…') : t(dialogMode === 'create' ? 'Create overlay' : 'Save')}
+              </button>
+            </div>
+          </form>
+        </div>,
+        document.body,
+      )}
     </>
   );
 }
