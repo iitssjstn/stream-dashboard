@@ -104,7 +104,7 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
   );
 
   app.post('/overlays', async (req, reply) => {
-    const body = req.body as { name?: unknown; width?: unknown; height?: unknown } | undefined;
+    const body = (req.body ?? {}) as { name?: unknown; width?: unknown; height?: unknown };
     const name = typeof body?.name === 'string' ? body.name.trim() : '';
     if (!name || name.length > 40) return reply.code(400).send({ error: 'Overlay name must be between 1 and 40 characters' });
     const source = db.select().from(schema.overlays).where(eq(schema.overlays.userId, req.user.id)).orderBy(schema.overlays.id).get()!;
