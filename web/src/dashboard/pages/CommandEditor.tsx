@@ -10,7 +10,7 @@ import { MediaPicker } from '../components/Shared';
 import { Field, PageHeader, Svg, Toggle, useToast } from '../ui';
 import { t, Trans } from '../i18n';
 
-type Draft = Omit<Command, 'id'> & { id?: number };
+type Draft = Omit<Command, 'id' | 'overlayId'> & { id?: number; overlayId?: number };
 
 /** Stable fingerprint of the editable fields, used to detect unsaved changes. */
 const fingerprint = (x: Draft) =>
