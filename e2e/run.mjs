@@ -347,7 +347,7 @@ try {
   await p1.setViewportSize({ width: 1440, height: 1000 });
   await p1.goto(`${APP}/overlay`);
   await p1.locator('article.card').first().getByRole('button', { name: 'Bewerken', exact: true }).click();
-  const list = p1.getByRole('list', { name: 'Commands in de overlay' });
+  const list = p1.getByRole('list', { name: 'Commands en alerts in de overlay' });
   await list.waitFor();
   const visibleCount = (await p1.evaluate(() => fetch('/api/commands').then((r) => r.json()))).filter((c) => c.animation !== 'none').length;
   check((await list.getByRole('listitem').count()) === visibleCount, `Indeling toont lijst met alle ${visibleCount} overlay-elementen (commands + alerts)`);

@@ -34,7 +34,7 @@ export function Dashboard() {
       <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
         <MetricTile label={t('Chat connection')} value={health.label} detail={`#${me.user.login}`} color={health.glow} icon="twitch" />
         <MetricTile label={t('Connected browser sources')} value={String(connectedSources)} detail={t('{n} overlay profiles', { n: overlayCount })} color={CYAN} icon="layers" />
-        <MetricTile label={t('Enabled commands')} value={String(me.stats.commands)} detail={t('Ready for chat and alerts')} color={PURPLE} icon="bolt" />
+        <MetricTile label={t('Enabled commands')} value={String(me.stats.commands)} detail={t('{n} alerts enabled', { n: me.stats.alerts })} color={PURPLE} icon="bolt" />
         <MetricTile label={t('Plays (24 h)')} value={String(me.stats.triggers24h)} detail={t('Triggered in the last 24 hours')} color="#f59e0b" icon="activity" />
       </div>
 

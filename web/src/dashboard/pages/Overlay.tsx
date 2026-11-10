@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useMe } from '../App';
-import { api, LABELS, type Command, type OverlayProfile } from '../api';
+import { ALERT_TYPES, api, LABELS, type Command, type OverlayProfile } from '../api';
 import { usePoll } from '../hooks';
 import { CopyUrl } from '../components/Shared';
 import { OverlayPreview } from '../components/OverlayPreview';
@@ -235,11 +235,11 @@ export function OverlayPage() {
       <section className="card mt-6 p-5">
         <div className="mb-4">
           <h2 className="font-semibold text-white">{t('Layout')}</h2>
-          <p className="text-sm text-zinc-400">{t('Pick a command on the right, or click a box, and drag it into place. The selected command plays in the preview.')}</p>
+          <p className="text-sm text-zinc-400">{t('Pick a command or alert on the right, or click a box, and drag it into place. The selected item plays in the preview.')}</p>
         </div>
         {activeOverlay && allCmds && allCmds.some((c) => c.animation !== 'none' && c.overlayId !== activeOverlay.id) && (
           <label className="mb-4 block max-w-md">
-            <span className="label">{t('Add an existing command to this overlay')}</span>
+            <span className="label">{t('Move a command or alert to this overlay')}</span>
             <select
               className="input"
               value=""
@@ -250,10 +250,17 @@ export function OverlayPage() {
                 void reloadCmds();
               }}
             >
-              <option value="">{t('Choose a command')}</option>
-              {allCmds.filter((c) => c.animation !== 'none' && c.overlayId !== activeOverlay.id).map((c) => (
-                <option key={c.id} value={c.id}>{c.trigger === 'chat' ? `!${c.name}` : `${c.trigger}${c.minAmount ? ` ${c.minAmount}+` : ''}`}</option>
-              ))}
+              <option value="">{t('Choose a command or alert')}</option>
+              {(['chat', 'alert'] as const).map((group) => {
+                const items = allCmds.filter((c) => c.animation !== 'none' && c.overlayId !== activeOverlay.id && (c.trigger === 'chat') === (group === 'chat'));
+                return items.length ? (
+                  <optgroup key={group} label={group === 'chat' ? t('Commands') : t('Alerts')}>
+                    {items.map((c) => (
+                      <option key={c.id} value={c.id}>{itemLabel(c)}</option>
+                    ))}
+                  </optgroup>
+                ) : null;
+              })}
             </select>
           </label>
         )}
@@ -279,7 +286,7 @@ export function OverlayPage() {
               }}
               preview={sel}
             />
-            <ul className="flex max-h-[520px] flex-col gap-1.5 overflow-y-auto pr-1" aria-label={t('Commands in the overlay')}>
+            <ul className="flex max-h-[520px] flex-col gap-1.5 overflow-y-auto pr-1" aria-label={t('Commands and alerts in the overlay')}>
               {cmds.map((c, i) => {
                 const active = c.id === selected;
                 return (
@@ -299,7 +306,7 @@ export function OverlayPage() {
                       >
                       <div className="flex items-center gap-2.5">
                         <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: colorFor(i) }} />
-                        <span className="truncate font-mono text-sm font-semibold text-white">{c.trigger === 'chat' ? `!${c.name}` : `🔔 ${c.trigger}${c.minAmount ? ` ${c.minAmount}+` : ''}`}</span>
+                        <span className="truncate font-mono text-sm font-semibold text-white">{itemLabel(c, true)}</span>
                         {!c.enabled && <span className="chip ml-auto bg-white/[.06] px-2 py-0.5 text-[10px] text-zinc-400">{t('off')}</span>}
                       </div>
                       <div className="mt-0.5 pl-[22px] text-xs text-zinc-500">
@@ -494,14 +501,14 @@ function OverlayLibrary(props: OverlayLibraryProps) {
                       {preview ? (
                         <div className="max-w-[85%] rounded-lg border bg-ink-950/75 px-4 py-3 text-center shadow-xl" style={{ borderColor: `${preview.style.accentColor}80` }}>
                           <div className="text-xs font-bold" style={{ color: preview.style.accentColor }}>
-                            {preview.trigger === 'chat' ? `!${preview.name}` : LABELS.animation[preview.animation] ?? preview.animation}
+                            {itemLabel(preview, true)}
                           </div>
                           <p className="mt-1 truncate text-sm font-semibold text-white">{previewText}</p>
                         </div>
                       ) : (
                         <div className="text-center text-zinc-500">
                           <Svg i="layers" className="mx-auto mb-2 h-7 w-7 text-brand-400/70" />
-                          <span className="text-xs">{t('No animated commands')}</span>
+                          <span className="text-xs">{t('No commands or alerts yet')}</span>
                         </div>
                       )}
                     </div>
@@ -542,6 +549,13 @@ function OverlayLibrary(props: OverlayLibraryProps) {
 
 const PALETTE = ['#a855f7', '#3b82f6', '#ec4899', '#22d3ee', '#f59e0b', '#10b981', '#f43f5e', '#8b5cf6', '#84cc16', '#06b6d4'];
 const colorFor = (i: number) => PALETTE[i % PALETTE.length];
+
+function itemLabel(c: Command, withIcon = false) {
+  if (c.trigger === 'chat') return `!${c.name}`;
+  const type = ALERT_TYPES.find((a) => a.trigger === c.trigger);
+  const name = `${type?.label ?? c.trigger}${c.minAmount ? ` ${c.minAmount}+` : ''}`;
+  return withIcon ? `🔔 ${name}` : name;
+}
 
 function LayoutCanvas(props: {
   width: number;
@@ -627,7 +641,7 @@ function LayoutCanvas(props: {
                 title={LABELS.animation[c.animation]}
               >
                 <span className={`rounded px-1.5 py-0.5 font-mono text-white shadow ${dimmed ? 'invisible' : ''}`} style={{ background: color }}>
-                  {c.trigger === 'chat' ? `!${c.name}` : `🔔 ${c.trigger}${c.minAmount ? ` ${c.minAmount}+` : ''}`}
+                  {itemLabel(c, true)}
                 </span>
               </div>
             );

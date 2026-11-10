@@ -53,7 +53,8 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
     const dayAgo = Date.now() - 24 * 3600_000;
     const stats = db
       .select({
-        commands: sql<number>`(select count(*) from commands where user_id = ${u.id} and enabled = 1)`,
+        commands: sql<number>`(select count(*) from commands where user_id = ${u.id} and enabled = 1 and trigger = 'chat')`,
+        alerts: sql<number>`(select count(*) from commands where user_id = ${u.id} and enabled = 1 and trigger <> 'chat')`,
         triggers24h: sql<number>`(select count(*) from activity where user_id = ${u.id} and status = 'triggered' and created_at >= ${dayAgo})`,
       })
       .from(sql`(select 1)`)

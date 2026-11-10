@@ -48,7 +48,7 @@ export type Me = {
   overlay: { url: string; width: number; height: number; connectedClients: number };
   chat: { enabled: boolean; status: 'disconnected' | 'connecting' | 'connected' | 'auth_failed'; lastError: string | null; connectedAt: number | null };
   alerts: { status: 'off' | 'connecting' | 'connected' | 'error'; subscribed: string[]; missingScopes: string[]; lastError: string | null };
-  stats: { commands: number; triggers24h: number; playsByHour: number[]; playsFirstHour: number };
+  stats: { commands: number; alerts: number; triggers24h: number; playsByHour: number[]; playsFirstHour: number };
   twitchConfigured: boolean;
   isOwner: boolean;
   giphyEnabled: boolean;
