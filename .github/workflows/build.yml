@@ -63,7 +63,14 @@ jobs:
       - name: Install Playwright (Chromium)
         run: |
           npm install --no-save --no-package-lock playwright@1.49.1
-          npx playwright install --with-deps chromium
+          # The Ubuntu apt mirrors on the runners sometimes fail to resolve briefly; retry.
+          for i in 1 2 3; do
+            npx playwright install --with-deps chromium && exit 0
+            echo "::warning::Playwright install mislukt (poging $i), opnieuw proberen..."
+            sleep $((i * 15))
+            sudo apt-get update || true
+          done
+          exit 1
       - name: End-to-end test (chat -> overlay)
         run: node e2e/run.mjs
       - uses: actions/upload-artifact@v4
