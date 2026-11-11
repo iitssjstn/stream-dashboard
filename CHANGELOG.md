@@ -10,6 +10,8 @@ Nieuwe wijzigingen komen eerst onder **[Unreleased]**. Bij een release krijgen z
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-11
+
 ### Toegevoegd
 - **Nieuwe overlay-maker.** *Bewerken* bij een overlay opent nu een schermvullende editor in de donkere Waviloop-stijl:
   - links een **lagenlijst** met al je widgets, alerts en commands (tonen/verbergen, centreren, dupliceren, verwijderen, volgorde);
