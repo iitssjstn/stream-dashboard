@@ -100,7 +100,7 @@ Duurt ±3 min en eindigt met `All checks passed`. Als iets hangt: `pkill -f "src
 ## Overlay-maker (gebouwd in v1.2.0)
 
 Schermvullende editor op `/editor/:id` (niet `/overlay/:id`: dat pad is van de OBS-pagina met het token). Referentie van de gebruiker: `docs/overlay-editor-referentie.png`.
-- `web/src/dashboard/pages/OverlayEditor.tsx`: bovenbalk (naam, URL, Voorbeeld, Opslaan), lagenlijst, canvas (slepen, schalen, zoomen, hulplijnen), werkbalk, undo/redo-geschiedenis en opslaan.
+- `web/src/dashboard/pages/OverlayEditor.tsx`: bovenbalk (naam, URL, Voorbeeld, Opslaan), één paneel links (lagenlijst; bij een selectie komen de instellingen eroverheen, met pijl terug — wens van de gebruiker, geen paneel rechts), canvas (slepen, schalen, zoomen, hulplijnen), werkbalk, undo/redo-geschiedenis en opslaan.
 - `web/src/dashboard/editor/Inspector.tsx`: instellingen per widget/command in inklapbare blokken; `editor/model.ts`: widgettypes en standaardwaarden.
 - `web/src/overlay/widgets.ts` (`WidgetLayer`): tekent de widgets, in OBS én in de editor (zelfde code).
 - Server: tabellen `widgets` en `stream_events` (migratie 0013), `server/src/overlay/widgets.ts` (validatie, live data, `recordStreamEvent`), routes `GET/PUT /api/overlays/:id/widgets` en `POST /api/overlays/:id/emulate`. De overlay krijgt een `widgets`-bericht bij verbinden, na opslaan en na elk Twitch-event.

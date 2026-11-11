@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ALERT_TYPES, api, LABELS, type Command, type OverlayProfile, type Trigger } from '../api';
-import { CopyUrl } from '../components/Shared';
 import { previewEvent } from '../components/OverlayPreview';
 import { playEvent } from '../../overlay/renderer';
 import { WidgetLayer, type WidgetData, type WidgetType } from '../../overlay/widgets';
@@ -46,7 +45,6 @@ export function OverlayEditor() {
   const [grid, setGrid] = useState(true);
   const [muted, setMuted] = useState(true);
   const [showLeft, setShowLeft] = useState(false);
-  const [showRight, setShowRight] = useState(false);
   const [name, setName] = useState('');
   const [, rerender] = useState(0);
   const docRef = useRef<Doc | null>(null);
@@ -187,7 +185,7 @@ export function OverlayEditor() {
     apply((cur) => ({ ...cur, widgets: [...cur.widgets, makeWidget(type, id, cur.widgets.length, d.widgets.filter((w) => w.type === type).length + 1)] }));
     setSel({ kind: 'widget', id });
     setMenu(null);
-    setShowRight(true);
+    setShowLeft(true);
   };
   const addCommand = (trigger: Trigger) => {
     const id = tempId.current--;
@@ -195,7 +193,7 @@ export function OverlayEditor() {
     apply((cur) => ({ ...cur, cmds: [...cur.cmds, makeCommand(trigger, id, overlayId, taken)] }));
     setSel({ kind: 'cmd', id });
     setMenu(null);
-    setShowRight(true);
+    setShowLeft(true);
   };
   const adopt = (c: Command) => {
     apply((cur) => ({ ...cur, cmds: [...cur.cmds, { ...c, overlayId }] }));
@@ -412,7 +410,9 @@ export function OverlayEditor() {
           }}
           className="group flex min-w-0 shrink cursor-pointer items-center gap-2 rounded-lg border border-white/10 bg-ink-950/60 py-1.5 pr-2.5 pl-3 text-left transition hover:border-brand-500/60"
         >
-          <Svg i="link" className="h-4 w-4 shrink-0 text-brand-400" />
+          <span className="shrink-0" title={overlay.connectedClients ? t('{n} browser source(s) connected', { n: overlay.connectedClients }) : t('Not opened in OBS yet')}>
+            <StatusDot tone={overlay.connectedClients ? 'ok' : 'off'} />
+          </span>
           <code className="hidden min-w-0 truncate font-mono text-xs text-zinc-300 md:block">{overlay.url.replace(/\/overlay\/(.{4}).+$/, '/overlay/$1••••••••')}</code>
           <Svg i="copy" className="h-4 w-4 shrink-0 text-zinc-500 group-hover:text-white" />
         </button>
@@ -426,7 +426,7 @@ export function OverlayEditor() {
               <Popover onClose={() => setMenu(null)} className="top-11 right-0 w-80 p-4">
                 <h3 className="mb-2 text-sm font-semibold text-white">{t('How it works')}</h3>
                 <ul className="space-y-1.5 text-xs text-zinc-300">
-                  <li>{t('Click a layer or an item on the canvas to select it; its settings open on the right.')}</li>
+                  <li>{t('Click a layer or an item on the canvas to select it; its settings open on the left, over the list.')}</li>
                   <li>{t('Drag to move, drag a corner to resize.')}</li>
                   {(
                     [
@@ -447,9 +447,6 @@ export function OverlayEditor() {
               </Popover>
             )}
           </div>
-          <button type="button" className={`${iconBtn} md:hidden`} onClick={() => setShowRight((v) => !v)} title={t('Settings')} aria-label={t('Settings')}>
-            <Svg i="cog" />
-          </button>
           <a className="btn-ghost hidden px-5 py-2 sm:inline-flex" href={overlay.url} target="_blank" rel="noreferrer" title={t('Opens the real overlay in a new tab')}>
             {t('Preview')}
           </a>
@@ -460,24 +457,58 @@ export function OverlayEditor() {
       </header>
 
       <div className="relative flex min-h-0 flex-1">
-        <aside className={`${showLeft ? 'flex' : 'hidden'} absolute inset-y-0 left-0 z-20 w-64 shrink-0 flex-col border-r border-white/[.08] bg-ink-900 lg:static lg:flex`} aria-label={t('Layers')}>
-          <div className="flex items-center justify-between border-b border-white/[.06] px-3 py-2.5">
-            <h2 className="flex items-center gap-2 text-xs font-bold tracking-widest text-zinc-300 uppercase">
-              <Svg i="layers" className="h-4 w-4 text-brand-400" /> {t('Layers')}
-            </h2>
-            <div className="flex">
-              <button type="button" className={`${iconBtn} h-8 w-8`} disabled={!active} title={t('Centre')} aria-label={t('Centre')} onClick={() => active && setPos(active, { x: 50, y: 50 }, '')}>
-                <Svg i="center" className="h-4 w-4" />
+        <aside className={`${showLeft ? 'flex' : 'hidden'} absolute inset-y-0 left-0 z-20 w-80 max-w-full shrink-0 flex-col border-r border-white/[.08] bg-ink-900 lg:static lg:flex`} aria-label={active ? t('Settings') : t('Layers')}>
+          {/* One panel: the layer list, and the settings of the chosen layer on top of it. */}
+          {active ? (
+            <div className="flex items-center justify-between border-b border-white/[.06] py-1.5 pr-2 pl-1">
+              <button type="button" onClick={() => setSel(null)} className="flex cursor-pointer items-center gap-1 rounded-lg px-2 py-2 text-xs font-bold tracking-widest text-zinc-300 uppercase hover:bg-white/[.06] hover:text-white">
+                <Svg i="back" className="h-4 w-4 text-brand-400" /> {t('Layers')}
               </button>
-              <button type="button" className={`${iconBtn} h-8 w-8`} disabled={!active} title={t('Duplicate')} aria-label={t('Duplicate')} onClick={() => active && duplicate(active)}>
-                <Svg i="copy" className="h-4 w-4" />
-              </button>
-              <button type="button" className={`${iconBtn} h-8 w-8`} disabled={!active} title={t('Delete')} aria-label={t('Delete')} onClick={() => active && remove(active)}>
-                <Svg i="trash" className="h-4 w-4" />
-              </button>
+              <div className="flex">
+                <button type="button" className={`${iconBtn} h-8 w-8`} title={t('Centre')} aria-label={t('Centre')} onClick={() => active && setPos(active, { x: 50, y: 50 }, '')}>
+                  <Svg i="center" className="h-4 w-4" />
+                </button>
+                <button type="button" className={`${iconBtn} h-8 w-8`} title={t('Duplicate')} aria-label={t('Duplicate')} onClick={() => active && duplicate(active)}>
+                  <Svg i="copy" className="h-4 w-4" />
+                </button>
+                <button type="button" className={`${iconBtn} h-8 w-8`} title={t('Delete')} aria-label={t('Delete')} onClick={() => active && remove(active)}>
+                  <Svg i="trash" className="h-4 w-4" />
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto p-2">
+          ) : (
+            <div className="flex items-center justify-between border-b border-white/[.06] px-3 py-3">
+              <h2 className="flex items-center gap-2 text-xs font-bold tracking-widest text-zinc-300 uppercase">
+                <Svg i="layers" className="h-4 w-4 text-brand-400" /> {t('Layers')}
+              </h2>
+            </div>
+          )}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {selWidget ? (
+            <WidgetInspector key={`w${selWidget.id}`} w={selWidget} width={overlay.width} height={overlay.height} onChange={(p, k) => patchWidget(selWidget.id, p, k)} />
+          ) : selCmd ? (
+            <>
+              <CommandInspector key={`c${selCmd.id}`} c={selCmd} width={overlay.width} height={overlay.height} onChange={(p, k) => patchCmd(selCmd.id, p, k)} />
+              {selCmd.id > 0 && (
+                <div className="p-4">
+                  <button
+                    type="button"
+                    className="btn-ghost w-full py-2 text-xs"
+                    onClick={async () => {
+                      if (dirty) await save();
+                      const r = await api<{ delivered: number }>(`/api/commands/${selCmd.id}/test`, { method: 'POST' });
+                      toast(r.delivered ? t('Played in OBS') : t('No overlay open in OBS'), r.delivered ? 'ok' : 'error');
+                    }}
+                  >
+                    <Svg i="play" className="h-3 w-3" /> {dirty ? t('Save & test in OBS') : t('Test in OBS')}
+                  </button>
+                </div>
+              )}
+            </>
+          ) : null}
+            {!active && (
+              <>
+              <div className="p-2">
             {group(
               t('Widgets'),
               [...doc.widgets].reverse().map((w) =>
@@ -502,6 +533,49 @@ export function OverlayEditor() {
             {group(t('Commands'), chats.map((c) => layerRow({ kind: 'cmd', id: c.id }, cmdLabel(c), 'bolt', c.enabled, () => patchCmd(c.id, { enabled: !c.enabled }))))}
             {!doc.widgets.length && !doc.cmds.length && <p className="p-3 text-sm text-zinc-500">{t('This overlay is still empty. Add your first widget with the button at the bottom.')}</p>}
           </div>
+                <div className="mt-2 border-t border-white/[.06]">
+                  <h3 className="px-4 pt-4 pb-1 text-[10px] font-bold tracking-widest text-zinc-500 uppercase">{t('Overlay settings')}</h3>
+              <Section title={t('Resolution')} defaultOpen>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {PRESETS.map(([pw, ph, l]) => (
+                    <button key={l} type="button" aria-pressed={overlay.width === pw && overlay.height === ph} onClick={() => void patchOverlay({ width: pw, height: ph })} className={`cursor-pointer rounded-lg border px-2 py-1.5 text-left text-xs transition ${overlay.width === pw && overlay.height === ph ? 'border-brand-500 bg-brand-500/15 text-white' : 'border-white/10 text-zinc-300 hover:bg-white/[.05]'}`}>
+                      <span className="block font-semibold">{t(l)}</span>
+                      <span className="block text-zinc-500">{pw}×{ph}</span>
+                    </button>
+                  ))}
+                </div>
+              </Section>
+              <Section title={t('Danger zone')}>
+                <button
+                  type="button"
+                  className="btn-danger w-full py-2 text-xs"
+                  onClick={async () => {
+                    if (!confirm(t('Create a new URL? You will need to update the Browser Source in OBS afterwards.'))) return;
+                    const r = await api<{ url: string }>(`/api/overlays/${overlayId}/regenerate`, { method: 'POST' });
+                    setOverlay({ ...overlay, url: r.url, connectedClients: 0 });
+                    toast(t('New overlay URL created'));
+                  }}
+                >
+                  <Svg i="refresh" className="h-3.5 w-3.5" /> {t('Generate new URL')}
+                </button>
+                {overlayCount > 1 && (
+                  <button
+                    type="button"
+                    className="btn-danger w-full py-2 text-xs"
+                    onClick={async () => {
+                      if (!confirm(t('Delete this overlay? Its commands will move to another overlay.'))) return;
+                      await api(`/api/overlays/${overlayId}`, { method: 'DELETE' });
+                      nav('/overlay');
+                    }}
+                  >
+                    <Svg i="trash" className="h-3.5 w-3.5" /> {t('Delete overlay')}
+                  </button>
+                )}
+              </Section>
+                </div>
+              </>
+            )}
+          </div>
         </aside>
 
         <main className="relative min-w-0 flex-1">
@@ -518,7 +592,6 @@ export function OverlayEditor() {
             onZoom={(z) => setZoomMode(clamp(z, 0.1, 3))}
             onSelect={(s) => {
               setSel(s);
-              if (s) setShowLeft(false);
             }}
             posOf={posOf}
             setPos={setPos}
@@ -594,82 +667,6 @@ export function OverlayEditor() {
           </div>
         </main>
 
-        <aside className={`${showRight ? 'block' : 'hidden'} absolute inset-y-0 right-0 z-20 w-80 max-w-full shrink-0 overflow-y-auto border-l border-white/[.08] bg-ink-900 md:static md:block`} aria-label={t('Settings')}>
-          {selWidget ? (
-            <WidgetInspector key={`w${selWidget.id}`} w={selWidget} width={overlay.width} height={overlay.height} onChange={(p, k) => patchWidget(selWidget.id, p, k)} />
-          ) : selCmd ? (
-            <>
-              <CommandInspector key={`c${selCmd.id}`} c={selCmd} width={overlay.width} height={overlay.height} onChange={(p, k) => patchCmd(selCmd.id, p, k)} />
-              {selCmd.id > 0 && (
-                <div className="p-4">
-                  <button
-                    type="button"
-                    className="btn-ghost w-full py-2 text-xs"
-                    onClick={async () => {
-                      if (dirty) await save();
-                      const r = await api<{ delivered: number }>(`/api/commands/${selCmd.id}/test`, { method: 'POST' });
-                      toast(r.delivered ? t('Played in OBS') : t('No overlay open in OBS'), r.delivered ? 'ok' : 'error');
-                    }}
-                  >
-                    <Svg i="play" className="h-3 w-3" /> {dirty ? t('Save & test in OBS') : t('Test in OBS')}
-                  </button>
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="border-b border-white/[.06] p-4">
-                <h2 className="text-sm font-semibold text-white">{t('Overlay settings')}</h2>
-                <p className="mt-1 text-xs text-zinc-400">{t('Select a layer to edit it, or add a widget with the button at the bottom.')}</p>
-              </div>
-              <Section title={t('Add to OBS')} defaultOpen>
-                <span className="flex items-center gap-2 text-xs text-zinc-300">
-                  <StatusDot tone={overlay.connectedClients ? 'ok' : 'off'} />
-                  {overlay.connectedClients ? t('{n} browser source(s) connected', { n: overlay.connectedClients }) : t('Not opened in OBS yet')}
-                </span>
-                <CopyUrl url={overlay.url} />
-                <p className="text-[11px] leading-snug text-zinc-500">{t('In OBS: add a Browser Source, paste this URL and set the size to {w}×{h}. Keep the URL secret.', { w: overlay.width, h: overlay.height })}</p>
-              </Section>
-              <Section title={t('Resolution')} defaultOpen>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {PRESETS.map(([pw, ph, l]) => (
-                    <button key={l} type="button" aria-pressed={overlay.width === pw && overlay.height === ph} onClick={() => void patchOverlay({ width: pw, height: ph })} className={`cursor-pointer rounded-lg border px-2 py-1.5 text-left text-xs transition ${overlay.width === pw && overlay.height === ph ? 'border-brand-500 bg-brand-500/15 text-white' : 'border-white/10 text-zinc-300 hover:bg-white/[.05]'}`}>
-                      <span className="block font-semibold">{t(l)}</span>
-                      <span className="block text-zinc-500">{pw}×{ph}</span>
-                    </button>
-                  ))}
-                </div>
-              </Section>
-              <Section title={t('Danger zone')}>
-                <button
-                  type="button"
-                  className="btn-danger w-full py-2 text-xs"
-                  onClick={async () => {
-                    if (!confirm(t('Create a new URL? You will need to update the Browser Source in OBS afterwards.'))) return;
-                    const r = await api<{ url: string }>(`/api/overlays/${overlayId}/regenerate`, { method: 'POST' });
-                    setOverlay({ ...overlay, url: r.url, connectedClients: 0 });
-                    toast(t('New overlay URL created'));
-                  }}
-                >
-                  <Svg i="refresh" className="h-3.5 w-3.5" /> {t('Generate new URL')}
-                </button>
-                {overlayCount > 1 && (
-                  <button
-                    type="button"
-                    className="btn-danger w-full py-2 text-xs"
-                    onClick={async () => {
-                      if (!confirm(t('Delete this overlay? Its commands will move to another overlay.'))) return;
-                      await api(`/api/overlays/${overlayId}`, { method: 'DELETE' });
-                      nav('/overlay');
-                    }}
-                  >
-                    <Svg i="trash" className="h-3.5 w-3.5" /> {t('Delete overlay')}
-                  </button>
-                )}
-              </Section>
-            </>
-          )}
-        </aside>
       </div>
     </div>
   );

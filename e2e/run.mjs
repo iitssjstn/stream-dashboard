@@ -349,16 +349,18 @@ try {
   await p1.goto(`${APP}/overlay`);
   await p1.locator('article.card').first().getByRole('button', { name: 'Bewerken', exact: true }).click();
   await p1.waitForURL('**/editor/*');
-  const layers = p1.getByRole('complementary', { name: 'Lagen' });
-  const inspector = p1.getByRole('complementary', { name: 'Instellingen' });
+  // One panel on the left: the layer list, and the settings of the chosen layer on top of it.
+  const layers = p1.locator('aside');
+  const inspector = p1.locator('aside');
   await layers.getByRole('button', { name: '!love' }).waitFor();
   const visibleCount = (await p1.evaluate(() => fetch('/api/commands').then((r) => r.json()))).filter((c) => c.animation !== 'none').length;
   check((await layers.getByRole('listitem').count()) === visibleCount, `Editor: lagenlijst toont alle ${visibleCount} commands en alerts`);
-  check(await inspector.getByText('Overlay-instellingen').isVisible(), 'Editor: zonder selectie staan rechts de overlay-instellingen (URL, resolutie)');
+  check(await inspector.getByText('Overlay-instellingen').isVisible(), 'Editor: zonder selectie staan onder de lagen de overlay-instellingen (resolutie)');
   await layers.getByRole('button', { name: '!love' }).click();
   await p1.getByTestId('selection').waitFor();
   await p1.locator('.wl-stage .lm-scene-love').waitFor({ timeout: 5000 });
-  check(await inspector.getByText('Chatcommand').isVisible(), 'Editor: laag kiezen opent de instellingen op dezelfde pagina en speelt de animatie in het canvas');
+  check(await inspector.getByText('Chatcommand').isVisible(), 'Editor: laag kiezen opent de instellingen links over de lijst heen en speelt de animatie in het canvas');
+  check((await layers.getByRole('listitem').count()) === 0 && (await p1.getByRole('complementary', { name: 'Instellingen' }).count()) === 1, 'Editor: de lagenlijst maakt plaats voor de instellingen');
   await sleep(1200);
   await p1.screenshot({ path: path.join(OUT, '7b-editor-command.png') });
   check(await p1.getByRole('button', { name: 'Kopieer URL' }).first().isVisible(), 'Editor: overlay-URL staat in de bovenbalk naast de naam');
@@ -376,6 +378,8 @@ try {
     await p1.getByRole('button', { name: 'Widget toevoegen' }).click();
     await p1.getByRole('dialog').getByRole('button', { name: label }).click();
   };
+  await inspector.getByRole('button', { name: 'Lagen' }).click();
+  check((await layers.getByRole('listitem').count()) === visibleCount, 'Editor: pijl terug toont de lagenlijst weer');
   await addWidget(/^Tekst/);
   await inspector.locator('textarea').first().fill('Welkom bij de stream!');
   const textWidget = p1.locator('.wl-stage .lm-w-text');
