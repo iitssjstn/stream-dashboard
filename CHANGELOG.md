@@ -10,6 +10,8 @@ Nieuwe wijzigingen komen eerst onder **[Unreleased]**. Bij een release krijgen z
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-11
+
 ### Gewijzigd
 - Overlay-maker: de instellingen van een widget, alert of command openen nu **links, over de lagenlijst heen** (met een pijl terug naar de lijst), in plaats van in een apart paneel rechts. Het canvas is daardoor groter. De resolutie en de gevarenzone staan onder de lagenlijst.
 - De overlay-URL staat alleen nog in de bovenbalk naast de naam van de overlay, met een kopieerknop en een bolletje dat laat zien of OBS verbonden is.
