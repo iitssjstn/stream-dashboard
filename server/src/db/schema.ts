@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // Kept to portable column types so the schema maps 1:1 onto drizzle's pg-core later.
 
@@ -228,3 +228,48 @@ export const appSettings = sqliteTable('app_settings', {
 export type User = typeof users.$inferSelect;
 export type Command = typeof commands.$inferSelect;
 export type Timer = typeof timers.$inferSelect;
+
+/** Always-visible overlay widgets (text, image, latest event, rotator, goal, countdown). */
+export type WidgetConfig = Record<string, unknown>;
+export const widgets = sqliteTable(
+  'widgets',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    overlayId: integer('overlay_id')
+      .notNull()
+      .references(() => overlays.id, { onDelete: 'cascade' }),
+    type: text('type').notNull(),
+    name: text('name').notNull(),
+    enabled: integer('enabled', { mode: 'boolean' }).notNull().default(true),
+    /** Centre of the widget in percent of the overlay (two decimals). */
+    x: real('x').notNull().default(50),
+    y: real('y').notNull().default(50),
+    scale: real('scale').notNull().default(1),
+    /** Stacking order: higher is on top. */
+    z: integer('z').notNull().default(0),
+    config: text('config', { mode: 'json' }).$type<WidgetConfig>().notNull(),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (t) => [index('widgets_overlay_idx').on(t.overlayId)],
+);
+export type Widget = typeof widgets.$inferSelect;
+
+/** Twitch events (follows, subs, bits, raids) kept for "latest …" widgets and goals. */
+export const streamEvents = sqliteTable(
+  'stream_events',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    type: text('type').notNull(),
+    viewer: text('viewer').notNull(),
+    amount: integer('amount').notNull().default(0),
+    createdAt: integer('created_at').notNull(),
+  },
+  (t) => [index('stream_events_user_idx').on(t.userId, t.type, t.createdAt)],
+);

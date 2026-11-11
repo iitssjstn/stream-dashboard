@@ -17,6 +17,9 @@ import type { TimerScheduler } from '../timers/scheduler.js';
 import type { CommandEngine } from '../commands/engine.js';
 import type { OverlayHub } from '../overlay/hub.js';
 import type { User } from '../db/schema.js';
+import { listWidgets, pushWidgets, saveWidgets, validateWidgets, widgetData } from '../overlay/widgets.js';
+import { randomUUID } from 'node:crypto';
+import { TRIGGERS } from '../commands/defaults.js';
 
 const UPLOAD_TYPES: Record<string, string> = {
   'image/png': '.png',
@@ -223,6 +226,42 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
     return { url: `${config.publicUrl}/overlay/${token}` };
   });
 
+  // ---- widgets (always-visible overlay elements) ----
+  const ownOverlay = (userId: number, id: string) =>
+    db.select().from(schema.overlays).where(and(eq(schema.overlays.id, Number(id)), eq(schema.overlays.userId, userId))).get();
+
+  app.get<{ Params: { id: string } }>('/overlays/:id/widgets', async (req, reply) => {
+    const overlay = ownOverlay(req.user.id, req.params.id);
+    if (!overlay) return reply.code(404).send({ error: 'Overlay not found' });
+    const widgets = listWidgets(overlay.id);
+    return { widgets, data: widgetData(req.user.id, widgets) };
+  });
+
+  app.put<{ Params: { id: string } }>('/overlays/:id/widgets', async (req, reply) => {
+    const overlay = ownOverlay(req.user.id, req.params.id);
+    if (!overlay) return reply.code(404).send({ error: 'Overlay not found' });
+    saveWidgets(req.user.id, overlay.id, validateWidgets(req.body));
+    pushWidgets(hub, req.user.id, overlay.id);
+    const widgets = listWidgets(overlay.id);
+    return { widgets, data: widgetData(req.user.id, widgets) };
+  });
+
+  /** Plays a made-up Twitch event in this overlay, to see how its alert looks ("Emulate"). */
+  app.post<{ Params: { id: string }; Body: { type?: string } }>('/overlays/:id/emulate', async (req, reply) => {
+    const overlay = ownOverlay(req.user.id, req.params.id);
+    if (!overlay) return reply.code(404).send({ error: 'Overlay not found' });
+    const type = req.body?.type;
+    if (typeof type !== 'string' || type === 'chat' || !(TRIGGERS as readonly string[]).includes(type)) return reply.code(400).send({ error: 'Invalid event type' });
+    const amount = type === 'cheer' ? 500 : type === 'raid' ? 42 : type === 'gift' ? 5 : type === 'resub' ? 6 : 1;
+    const results = engine.handleAlert(
+      req.user.id,
+      req.user.login,
+      { type: type as Exclude<(typeof TRIGGERS)[number], 'chat'>, id: `emulate-${randomUUID()}`, user: 'TestViewer', amount, months: 6, tier: '1', message: 'This is a test message' },
+      { overlayId: overlay.id, emulated: true },
+    );
+    return { played: results?.length ?? 0, delivered: results?.reduce((n, r) => n + r.delivered, 0) ?? 0 };
+  });
+
   // ---- commands ----
   app.get('/commands', async (req) =>
     db.select().from(schema.commands).where(eq(schema.commands.userId, req.user.id)).orderBy(schema.commands.name).all(),
@@ -231,7 +270,9 @@ export async function apiRoutes(app: FastifyInstance, { chat, engine, hub, event
   app.post('/commands', async (req, reply) => {
     const data = validateCommand(req.body);
     const now = Date.now();
-    const overlay = db.select({ id: schema.overlays.id }).from(schema.overlays).where(eq(schema.overlays.userId, req.user.id)).orderBy(schema.overlays.id).get()!;
+    const mine = db.select({ id: schema.overlays.id }).from(schema.overlays).where(eq(schema.overlays.userId, req.user.id)).orderBy(schema.overlays.id).all();
+    // A new command lands in the overlay it was created in, or else in the first one.
+    const overlay = mine.find((o) => o.id === Number((req.body as { overlayId?: unknown })?.overlayId)) ?? mine[0];
     const row = db
       .insert(schema.commands)
       .values({ ...data, userId: req.user.id, overlayId: overlay.id, createdAt: now, updatedAt: now })

@@ -4,6 +4,7 @@ import { db, schema } from '../db/index.js';
 import type { Command } from '../db/schema.js';
 import type { ChatMessage, ChatRole } from '../twitch/irc.js';
 import type { OverlayHub } from '../overlay/hub.js';
+import { recordStreamEvent } from '../overlay/widgets.js';
 import type { Trigger } from './defaults.js';
 
 const RANK: Record<string, number> = { everyone: 0, subscriber: 1, vip: 2, moderator: 3, broadcaster: 4 };
@@ -166,10 +167,12 @@ export class CommandEngine {
   }
 
   /** Twitch alert: picks the best matching variation independently for each overlay. */
-  handleAlert(userId: number, channel: string, ev: AlertEvent) {
+  handleAlert(userId: number, channel: string, ev: AlertEvent, opts: { overlayId?: number; emulated?: boolean } = {}) {
     if (!this.firstSeen(`${userId}:alert:${ev.id}`)) return null;
     const amount = ev.amount ?? 0;
-    const matches = this.commandsFor(userId).alerts.filter((c) => c.enabled && c.trigger === ev.type && amount >= c.minAmount);
+    // Real events feed the "latest …" widgets and goals; emulated ones only play the alert.
+    if (!opts.emulated) recordStreamEvent(this.hub, userId, { type: ev.type, user: ev.user, amount });
+    const matches = this.commandsFor(userId).alerts.filter((c) => c.enabled && c.trigger === ev.type && amount >= c.minAmount && (!opts.overlayId || c.overlayId === opts.overlayId));
     if (!matches.length) {
       this.record(userId, `alert:${ev.type}`, ev.user, 'denied', 'no active alert for this type');
       return null;
@@ -180,7 +183,7 @@ export class CommandEngine {
       if (!current || cmd.minAmount > current.minAmount) bestByOverlay.set(cmd.overlayId, cmd);
     }
     return [...bestByOverlay.values()].map((cmd, index) =>
-      this.fire(userId, index === 0 ? cmd : { ...cmd, reply: null }, ev.user, null, channel, 'triggered', {
+      this.fire(userId, index === 0 && !opts.emulated ? cmd : { ...cmd, reply: null }, ev.user, null, channel, opts.emulated ? 'test' : 'triggered', {
         amount,
         message: ev.message,
         tier: ev.tier,

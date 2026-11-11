@@ -10,6 +10,19 @@ Nieuwe wijzigingen komen eerst onder **[Unreleased]**. Bij een release krijgen z
 
 ## [Unreleased]
 
+### Toegevoegd
+- **Nieuwe overlay-maker.** *Bewerken* bij een overlay opent nu een schermvullende editor in de donkere Waviloop-stijl:
+  - links een **lagenlijst** met al je widgets, alerts en commands (tonen/verbergen, centreren, dupliceren, verwijderen, volgorde);
+  - in het midden het **canvas** op de echte resolutie: slepen om te verplaatsen, een hoek slepen om te vergroten, hulplijnen in het midden, zoomen;
+  - rechts de **instellingen van het gekozen onderdeel** in inklapbare blokken, met pijltjes voor de positie (ook met de pijltoetsen). Een apart bewerkscherm is niet meer nodig;
+  - onder een **werkbalk**: widget toevoegen, emuleren (test-event), ongedaan maken/opnieuw, zoomen, passend maken, raster en geluid;
+  - boven de naam van de overlay, de **overlay-URL met kopieerknop**, Voorbeeld en Opslaan (ook Ctrl+S).
+- **Widgets die altijd in beeld staan:** tekst, afbeelding/GIF/video, laatste event (follower, sub, gift, cheer, raid), event-rotator, doelbalk (followers, subs of bits) en aftelklok. Ze werken live bij in OBS, zonder herladen.
+- **Emuleren:** speel een test-follow, -sub, -cheer of -raid af om je alert te zien; er gaat niets naar de chat.
+
+### Gewijzigd
+- Posities van commands en alerts worden nauwkeuriger opgeslagen (twee decimalen), zodat slepen in de editor precies is.
+
 ## [1.1.0] - 2026-11-07
 
 ### Toegevoegd

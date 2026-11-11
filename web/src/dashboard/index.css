@@ -84,3 +84,31 @@ input[type="range"] { accent-color: var(--color-brand-500); }
 .thin-scroll::-webkit-scrollbar-thumb { background: rgb(255 255 255 / .18); border-radius: 999px; }
 .thin-scroll::-webkit-scrollbar-track { background: transparent; }
 html { color-scheme: dark; }
+
+/* ---------- overlay editor ---------- */
+.wl-canvas {
+  background-color: #0a0913;
+  background-image: radial-gradient(rgb(192 132 252 / .16) 1px, transparent 1px);
+  background-size: 18px 18px;
+}
+.wl-board, .wl-board-grid {
+  background-color: #14121f;
+  box-shadow: 0 0 0 1px rgb(192 132 252 / .45), 0 0 60px -10px rgb(168 85 247 / .35);
+}
+.wl-board-grid {
+  background-image:
+    linear-gradient(rgb(255 255 255 / .05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / .05) 1px, transparent 1px);
+  background-size: 5% 10%;
+}
+.wl-stage .lm-widget { pointer-events: auto; cursor: grab; user-select: none; }
+.wl-stage .lm-widget:active { cursor: grabbing; }
+.wl-stage .lm-widget.wl-off { opacity: .3; }
+.wl-stage .lm-w-image img, .wl-stage .lm-w-image video { pointer-events: none; }
+.lm-w-empty { width: 400px; height: 225px; display: grid; place-items: center; border: 3px dashed rgb(255 255 255 / .35); border-radius: 16px; font: 600 22px system-ui, sans-serif; color: rgb(255 255 255 / .6); }
+/* Boxes that stand for commands and alerts: faint until you point at them, and always underneath the widgets. */
+.wl-cmd { opacity: .35; transition: opacity .15s, background-color .15s; }
+.wl-cmd:hover { opacity: 1; background: var(--tint); z-index: 1; }
+.wl-cmd .wl-cmd-label { display: none; }
+.wl-cmd:hover .wl-cmd-label { display: block; }
+.wl-cmd.wl-cmd-off { opacity: .15; }

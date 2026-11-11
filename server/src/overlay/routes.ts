@@ -5,6 +5,7 @@ import path from 'node:path';
 import { db, schema } from '../db/index.js';
 import { config } from '../config.js';
 import type { OverlayHub } from './hub.js';
+import { widgetState } from './widgets.js';
 
 const findByToken = (token: string) =>
   /^[\w-]{16,64}$/.test(token) ? db.select().from(schema.overlays).where(eq(schema.overlays.token, token)).get() : undefined;
@@ -33,7 +34,7 @@ export async function overlayRoutes(app: FastifyInstance, { hub }: { hub: Overla
       socket.close(4004, 'unknown overlay');
       return;
     }
-    hub.add(overlay.id, socket, { type: 'config', width: overlay.width, height: overlay.height, channel: user.login });
+    hub.add(overlay.id, socket, { type: 'config', width: overlay.width, height: overlay.height, channel: user.login }, widgetState(user.id, overlay.id));
     req.log.info({ userId: user.id, overlayId: overlay.id, clients: hub.count(overlay.id) }, 'overlay connected');
   });
 }

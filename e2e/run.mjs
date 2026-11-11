@@ -343,20 +343,77 @@ try {
   const withGif = (await p1.evaluate(() => fetch('/api/commands').then((r) => r.json()))).find((c) => c.name === 'knuffel');
   check(withGif.imageUrl === 'https://media.giphy.com/media/hug-3/giphy.gif', `GIPHY-GIF opgeslagen bij !knuffel (${withGif.imageUrl})`);
 
-  // 14. Layout: command list next to the canvas
-  await p1.setViewportSize({ width: 1440, height: 1000 });
+  // 14. Overlay editor: layers, canvas, settings on the same page, widgets
+  const api1 = (url, method = 'GET', body) => p1.evaluate(([u, m, b]) => fetch(u, { method: m, headers: b ? { 'content-type': 'application/json' } : {}, body: b ? JSON.stringify(b) : undefined }).then(async (r) => ({ status: r.status, json: await r.json() })), [url, method, body]);
+  await p1.setViewportSize({ width: 1600, height: 950 });
   await p1.goto(`${APP}/overlay`);
   await p1.locator('article.card').first().getByRole('button', { name: 'Bewerken', exact: true }).click();
-  const list = p1.getByRole('list', { name: 'Commands en alerts in de overlay' });
-  await list.waitFor();
+  await p1.waitForURL('**/editor/*');
+  const layers = p1.getByRole('complementary', { name: 'Lagen' });
+  const inspector = p1.getByRole('complementary', { name: 'Instellingen' });
+  await layers.getByRole('button', { name: '!love' }).waitFor();
   const visibleCount = (await p1.evaluate(() => fetch('/api/commands').then((r) => r.json()))).filter((c) => c.animation !== 'none').length;
-  check((await list.getByRole('listitem').count()) === visibleCount, `Indeling toont lijst met alle ${visibleCount} overlay-elementen (commands + alerts)`);
-  await list.getByRole('button', { name: /!love/ }).click();
-  await p1.getByRole('button', { name: 'Test in OBS' }).waitFor();
-  check(true, 'Command in lijst selecteren toont Test/Bewerken');
-  await sleep(1500);
-  await p1.getByText('Indeling', { exact: true }).scrollIntoViewIfNeeded();
-  await p1.screenshot({ path: path.join(OUT, '7-layout.png') });
+  check((await layers.getByRole('listitem').count()) === visibleCount, `Editor: lagenlijst toont alle ${visibleCount} commands en alerts`);
+  check(await inspector.getByText('Overlay-instellingen').isVisible(), 'Editor: zonder selectie staan rechts de overlay-instellingen (URL, resolutie)');
+  await layers.getByRole('button', { name: '!love' }).click();
+  await p1.getByTestId('selection').waitFor();
+  await p1.locator('.wl-stage .lm-scene-love').waitFor({ timeout: 5000 });
+  check(await inspector.getByText('Chatcommand').isVisible(), 'Editor: laag kiezen opent de instellingen op dezelfde pagina en speelt de animatie in het canvas');
+  await sleep(1200);
+  await p1.screenshot({ path: path.join(OUT, '7b-editor-command.png') });
+  check(await p1.getByRole('button', { name: 'Kopieer URL' }).first().isVisible(), 'Editor: overlay-URL staat in de bovenbalk naast de naam');
+  const loveX = async () => Number(await inspector.getByRole('spinbutton').first().inputValue());
+  const x0 = await loveX();
+  await inspector.getByRole('button', { name: 'Naar rechts' }).click();
+  await p1.keyboard.press('Shift+ArrowRight');
+  const x1 = await loveX();
+  check(Math.abs(x1 - x0 - (11 / 1920) * 100) < 0.02, `Editor: pijltjes en pijltoetsen verplaatsen (${x0}% → ${x1}%)`);
+  check(await p1.getByText('niet opgeslagen').isVisible(), 'Editor: melding "niet opgeslagen" na een wijziging');
+  await p1.getByRole('button', { name: 'Ongedaan maken' }).click();
+  check((await loveX()) === x0 && !(await p1.getByText('niet opgeslagen').isVisible()), 'Editor: ongedaan maken zet de wijziging terug');
+
+  const addWidget = async (label) => {
+    await p1.getByRole('button', { name: 'Widget toevoegen' }).click();
+    await p1.getByRole('dialog').getByRole('button', { name: label }).click();
+  };
+  await addWidget(/^Tekst/);
+  await inspector.locator('textarea').first().fill('Welkom bij de stream!');
+  const textWidget = p1.locator('.wl-stage .lm-w-text');
+  await textWidget.getByText('Welkom bij de stream!').waitFor();
+  const boxBefore = await textWidget.boundingBox();
+  await p1.mouse.move(boxBefore.x + boxBefore.width / 2, boxBefore.y + boxBefore.height / 2);
+  await p1.mouse.down();
+  await p1.mouse.move(boxBefore.x + boxBefore.width / 2 + 60, boxBefore.y + boxBefore.height / 2 - 180, { steps: 6 });
+  await p1.mouse.up();
+  const boxAfter = await textWidget.boundingBox();
+  check(Math.abs(boxAfter.x - boxBefore.x - 60) < 4 && Math.abs(boxAfter.y - boxBefore.y + 180) < 4, 'Editor: widget slepen in het canvas');
+  await addWidget(/Laatste event/);
+  await p1.locator('.wl-stage .lm-w-latest').getByText('Laatste follower: NewFollower').waitFor();
+  check(true, 'Editor: "Laatste event"-widget toont een voorbeeldnaam zolang er nog geen follower is');
+  await addWidget(/Doelbalk/);
+  await p1.locator('.wl-stage .lm-w-goal').getByText('0 / 100').waitFor();
+  await addWidget(/Aftelklok/);
+  await p1.locator('.wl-stage .lm-w-countdown').getByText('5:00').waitFor();
+  await p1.keyboard.press('Delete');
+  check((await p1.locator('.wl-stage .lm-w-countdown').count()) === 0, 'Editor: Delete-toets verwijdert de gekozen widget');
+  await sleep(500);
+  await p1.screenshot({ path: path.join(OUT, '7-editor.png') });
+  await p1.getByRole('button', { name: 'Opslaan', exact: true }).click();
+  await p1.getByText('Overlay opgeslagen').waitFor();
+  const overlayId = Number(p1.url().split('/').pop());
+  const savedWidgets = (await api1(`/api/overlays/${overlayId}/widgets`)).json.widgets;
+  check(savedWidgets.length === 3 && savedWidgets.every((w) => w.id > 0), `Editor: opslaan bewaart de widgets (${savedWidgets.map((w) => w.type).join(', ')})`);
+  await overlay.locator('.lm-w-text').getByText('Welkom bij de stream!').waitFor({ timeout: 4000 });
+  check((await overlay.locator('.lm-w-latest').textContent()) === 'Laatste follower: —' && (await overlay.locator('.lm-w-goal-count').textContent()) === '0 / 100', 'OBS-overlay toont de opgeslagen widgets direct, zonder herladen');
+  await p1.getByRole('button', { name: 'Emuleren' }).click();
+  await p1.getByRole('dialog').getByRole('button', { name: 'Raid' }).click();
+  await p1.getByText('Hier en in OBS afgespeeld').waitFor();
+  await overlay.locator('.lm-text').getByText('TestViewer raidt met 42 kijkers!').waitFor({ timeout: 4000 });
+  check((await overlay.locator('.lm-w-goal-count').textContent()) === '0 / 100', 'Emuleren speelt de alert af in editor en OBS, zonder de widgets te veranderen');
+  const bad = await api1(`/api/overlays/${overlayId}/widgets`, 'PUT', { widgets: [{ type: 'image', name: 'x', config: { url: 'javascript:alert(1)' } }] });
+  const foreign = await p2.evaluate((id) => fetch(`/api/overlays/${id}/widgets`).then((r) => r.status), overlayId);
+  check(bad.status === 400 && foreign === 404, 'Widgets: ongeldige afbeeldings-URL geweigerd en andere streamer kan er niet bij');
+  await waitFor(async () => (await overlay.locator('.lm-item').count()) === 0, 12000);
 
   // 16. Commands page: hero grid and list view, choice remembered
   await p1.goto(`${APP}/commands`);
@@ -378,7 +435,6 @@ try {
   await p1.screenshot({ path: path.join(OUT, '6-dashboard-activity.png') });
 
   // ===== 17. Chat replies, timers, alerts (EventSub) and the StreamElements import =====
-  const api1 = (url, method = 'GET', body) => p1.evaluate(([u, m, b]) => fetch(u, { method: m, headers: b ? { 'content-type': 'application/json' } : {}, body: b ? JSON.stringify(b) : undefined }).then(async (r) => ({ status: r.status, json: await r.json() })), [url, method, body]);
   const sentIncludes = (txt) => waitFor(() => tw.state.sent.some((l) => l.includes(txt)), 6000);
   const baseCmd = (await api1('/api/commands')).json.find((c) => c.name === 'knuffel');
   const mk = (over) => ({ ...baseCmd, id: undefined, aliases: [], reply: null, trigger: 'chat', minAmount: 0, userCooldownSec: 0, globalCooldownSec: 0, ...over });
@@ -409,6 +465,7 @@ try {
   tw.event('channel.follow', { user_id: '9001', user_name: 'NieuweVolger', broadcaster_user_id: '1001' }, 'follow-1');
   await overlay.waitForSelector('.lm-scene-wave', { timeout: 4000 });
   check((await overlay.locator('.lm-text').textContent()) === 'Bedankt voor de follow, NieuweVolger!', 'Follow-alert verschijnt in de overlay');
+  check((await overlay.locator('.lm-w-latest').textContent()) === 'Laatste follower: NieuweVolger' && (await overlay.locator('.lm-w-goal-count').textContent()) === '1 / 100', 'Widgets: laatste follower en doelbalk werken live bij na een follow');
   await waitFor(async () => (await overlay.locator('.lm-item').count()) === 0, 10000);
   await sleep(800);
   check((await overlay.locator('.lm-item').count()) === 0, 'Dubbel afgeleverd Twitch-event speelt maar één keer');

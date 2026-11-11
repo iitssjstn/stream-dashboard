@@ -23,7 +23,9 @@ export type OverlayCommandEvent = {
 
 export type OverlayConfig = { type: 'config'; width: number; height: number; channel: string };
 
-type ServerMessage = OverlayCommandEvent | OverlayConfig | { type: 'ping'; t: number } | { type: 'reload' };
+export type OverlayWidgets = { type: 'widgets'; widgets: unknown[]; data: unknown };
+
+type ServerMessage = OverlayCommandEvent | OverlayConfig | OverlayWidgets | { type: 'ping'; t: number } | { type: 'reload' };
 
 type Client = { ws: WebSocket; alive: boolean; connectedAt: number };
 
@@ -44,7 +46,7 @@ export class OverlayHub {
     this.heartbeat = setInterval(() => this.sweep(), 15_000);
   }
 
-  add(overlayId: number, ws: WebSocket, initial: OverlayConfig) {
+  add(overlayId: number, ws: WebSocket, initial: OverlayConfig, widgets?: OverlayWidgets) {
     const client: Client = { ws, alive: true, connectedAt: Date.now() };
     let set = this.clients.get(overlayId);
     if (!set) this.clients.set(overlayId, (set = new Set()));
@@ -64,6 +66,7 @@ export class OverlayHub {
       if (set!.size === 0) this.clients.delete(overlayId);
     });
     this.send(ws, initial);
+    if (widgets) this.send(ws, widgets);
     const queued = (this.pending.get(overlayId) ?? []).filter((e) => Date.now() - e.createdAt < PENDING_TTL);
     this.pending.delete(overlayId);
     for (const e of queued) this.send(ws, e);

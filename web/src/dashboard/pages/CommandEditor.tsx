@@ -20,7 +20,7 @@ const fingerprint = (x: Draft) =>
   }));
 
 /** Defaults for a new command, in the chosen language. */
-const makeBlank = (): Draft => ({
+export const makeBlank = (): Draft => ({
   name: '',
   trigger: 'chat',
   label: null,

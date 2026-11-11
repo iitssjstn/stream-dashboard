@@ -84,7 +84,7 @@ Duurt ±3 min en eindigt met `All checks passed`. Als iets hangt: `pkill -f "src
 
 ## Volgende stap
 
-**Stap 2 van het Discord-plan: Moderatie → v1.2.0.** Vraag de gebruiker eerst of hij daarmee verder wil.
+**Stap 2 van het Discord-plan: Moderatie → v1.3.0**, of eerst een van de andere grote upgrades (channel points, OBS-koppeling, startpakketten). Vraag de gebruiker eerst of hij daarmee verder wil.
 
 ## Stappenplan Discord (afgesproken met de gebruiker)
 
@@ -97,15 +97,17 @@ Duurt ±3 min en eindigt met `All checks passed`. Als iets hangt: `pkill -f "src
 - [ ] 7. Server-statistieken en ModLogs
 - [ ] 8. Rechten- en teambeheer: **teamleden toevoegen op Twitch-naam met een rol** (Moderator / Editor / Beheerder), inloggen met Twitch en wisselen tussen accounts (besloten)
 
-## Wens om te onthouden: nieuwe overlay-maker (editor zoals StreamElements, maar donker)
+## Overlay-maker (gebouwd in v1.2.0)
 
-Referentie van de gebruiker: `docs/overlay-editor-referentie.png` (StreamElements-overlay-editor). Opzet die de gebruiker wil, in de **donkere Waviloop-stijl** (paars/blauw neon):
-- **Bovenbalk:** terugknop, naam van de overlay (aanpasbaar), knoppen Preview en Save (plus hulp en kopieer-overlay-URL).
-- **Links: Layers-paneel** met alle widgets (commands, alerts, later meer), met knoppen groeperen, centreren, dupliceren en verwijderen; aanklikken selecteert de widget.
-- **Midden: canvas** van 1920×1080 met stippen-raster, waarop widgets met een kader staan die je kunt slepen en schalen; "Delete with [delete]"-hint en het Delete-toetsje werkt.
-- **Onder: zwevende werkbalk** met Add widget, Emulate (test-event/alert afspelen), undo/redo, inzoomen/uitzoomen, passend maken/volledig scherm, raster aan/uit en geluid aan/uit.
-- **Widgets aanpassen op de pagina zelf** via een zijpaneel (of dropdown) met inklapbare secties: positie/grootte met **pijltjes** (nudgen, ook met de pijltoetsen), tekst & stijl, animatie, afbeelding/GIF/video, geluid en timing. Geen apart scherm meer nodig zoals de huidige CommandEditor.
-- Bouwt voort op de huidige indeling op de Overlay-pagina (`web/src/dashboard/pages/Overlay.tsx`) en de overlay-renderer die ook in de editor gebruikt wordt (`OverlayPreview`). Onvoorziene wijzigingen blijven via de "niet opgeslagen"-balk lopen.
+Schermvullende editor op `/editor/:id` (niet `/overlay/:id`: dat pad is van de OBS-pagina met het token). Referentie van de gebruiker: `docs/overlay-editor-referentie.png`.
+- `web/src/dashboard/pages/OverlayEditor.tsx`: bovenbalk (naam, URL, Voorbeeld, Opslaan), lagenlijst, canvas (slepen, schalen, zoomen, hulplijnen), werkbalk, undo/redo-geschiedenis en opslaan.
+- `web/src/dashboard/editor/Inspector.tsx`: instellingen per widget/command in inklapbare blokken; `editor/model.ts`: widgettypes en standaardwaarden.
+- `web/src/overlay/widgets.ts` (`WidgetLayer`): tekent de widgets, in OBS én in de editor (zelfde code).
+- Server: tabellen `widgets` en `stream_events` (migratie 0013), `server/src/overlay/widgets.ts` (validatie, live data, `recordStreamEvent`), routes `GET/PUT /api/overlays/:id/widgets` en `POST /api/overlays/:id/emulate`. De overlay krijgt een `widgets`-bericht bij verbinden, na opslaan en na elk Twitch-event.
+- Wijzigingen in de editor zijn pas definitief na Opslaan (commands: POST/PUT/DELETE per stuk, widgets: de hele lijst in één PUT).
+- Let op: migratie 0012 is met de hand geschreven zonder snapshot; `drizzle-kit generate` wil daardoor `overlays` opnieuw aanmaken. Haal dat deel uit een nieuwe migratie.
+
+Ideeën voor later: chatbox-widget, groeperen van lagen, widgets delen tussen overlays, BRB-/starting-soon-schermen als sjabloon.
 
 ## Besloten: donaties voorlopig niet
 

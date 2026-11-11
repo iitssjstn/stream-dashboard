@@ -10,6 +10,7 @@ import { Dashboard } from './pages/Dashboard';
 import { Commands } from './pages/Commands';
 import { CommandEditor } from './pages/CommandEditor';
 import { OverlayPage } from './pages/Overlay';
+import { OverlayEditor } from './pages/OverlayEditor';
 import { ActivityPage } from './pages/Activity';
 import { Settings } from './pages/Settings';
 import { AlertsPage } from './pages/Alerts';
@@ -34,6 +35,7 @@ export function App() {
         <Route path="/import" element={<ImportPage />} />
         <Route path="/discord" element={<DiscordPage />} />
         <Route path="/overlay" element={<OverlayPage />} />
+        <Route path="/editor/:id" element={<OverlayEditor />} />
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
@@ -75,6 +77,14 @@ function Authed() {
       <div className="grid min-h-screen place-items-center">
         <div className="h-10 w-10 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
       </div>
+    );
+
+  // The overlay editor uses the whole screen, without the sidebar.
+  if (loc.pathname.startsWith('/editor/'))
+    return (
+      <Ctx.Provider value={{ me, reload }}>
+        <Outlet />
+      </Ctx.Provider>
     );
 
   const chatTone = me.chat.status === 'connected' ? 'ok' : me.chat.status === 'connecting' ? 'warn' : me.chat.status === 'auth_failed' ? 'error' : 'off';

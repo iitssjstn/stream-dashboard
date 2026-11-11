@@ -1,5 +1,6 @@
 import { EventQueue } from './renderer';
 import type { OverlayEvent } from './types';
+import { WidgetLayer } from './widgets';
 
 /**
  * OBS Browser Source entry. No framework, no dashboard dependency:
@@ -10,6 +11,7 @@ const params = new URLSearchParams(location.search);
 const debug = params.has('debug');
 
 const stage = document.getElementById('stage')!;
+const widgets = new WidgetLayer(stage);
 const queue = new EventQueue(stage);
 let width = Number(params.get('w')) || 1920;
 let height = Number(params.get('h')) || 1080;
@@ -57,6 +59,7 @@ function connect() {
       return;
     }
     if (msg.type === 'command') queue.push(msg as OverlayEvent);
+    else if (msg.type === 'widgets') widgets.update(msg.widgets, msg.data);
     else if (msg.type === 'config' && !fixedSize) {
       width = msg.width;
       height = msg.height;

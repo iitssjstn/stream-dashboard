@@ -8,6 +8,12 @@ const int = (v: unknown, name: string, min: number, max: number): number => {
   if (!Number.isFinite(n) || n < min || n > max) throw new ValidationError(`${name} must be between ${min} and ${max}`);
   return Math.round(n);
 };
+/** Like int, but keeps two decimals (positions dragged in the overlay editor). */
+const dec = (v: unknown, name: string, min: number, max: number): number => {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < min || n > max) throw new ValidationError(`${name} must be between ${min} and ${max}`);
+  return Math.round(n * 100) / 100;
+};
 const oneOf = <T extends readonly string[]>(v: unknown, list: T, name: string): T[number] => {
   if (typeof v !== 'string' || !list.includes(v)) throw new ValidationError(`Invalid ${name}`);
   return v as T[number];
@@ -44,8 +50,8 @@ export function validateCommand(body: any) {
     fontSize: int(s.fontSize, 'Font size', 12, 140),
     textColor: color(s.textColor, 'Text colour'),
     accentColor: color(s.accentColor, 'Accent colour'),
-    x: int(s.x, 'Position X', 0, 100),
-    y: int(s.y, 'Position Y', 0, 100),
+    x: dec(s.x, 'Position X', 0, 100),
+    y: dec(s.y, 'Position Y', 0, 100),
     scale: Math.min(3, Math.max(0.2, Number(s.scale) || 1)),
     effect: oneOf(s.effect, EFFECTS, 'effect'),
     particles: oneOf(s.particles, PARTICLES, 'particles'),
