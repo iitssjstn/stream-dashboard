@@ -97,6 +97,16 @@ Duurt ±3 min en eindigt met `All checks passed`. Als iets hangt: `pkill -f "src
 - [ ] 7. Server-statistieken en ModLogs
 - [ ] 8. Rechten- en teambeheer: **teamleden toevoegen op Twitch-naam met een rol** (Moderator / Editor / Beheerder), inloggen met Twitch en wisselen tussen accounts (besloten)
 
+## Wens om te onthouden: nieuwe overlay-maker (editor zoals StreamElements, maar donker)
+
+Referentie van de gebruiker: `docs/overlay-editor-referentie.png` (StreamElements-overlay-editor). Opzet die de gebruiker wil, in de **donkere Waviloop-stijl** (paars/blauw neon):
+- **Bovenbalk:** terugknop, naam van de overlay (aanpasbaar), knoppen Preview en Save (plus hulp en kopieer-overlay-URL).
+- **Links: Layers-paneel** met alle widgets (commands, alerts, later meer), met knoppen groeperen, centreren, dupliceren en verwijderen; aanklikken selecteert de widget.
+- **Midden: canvas** van 1920×1080 met stippen-raster, waarop widgets met een kader staan die je kunt slepen en schalen; "Delete with [delete]"-hint en het Delete-toetsje werkt.
+- **Onder: zwevende werkbalk** met Add widget, Emulate (test-event/alert afspelen), undo/redo, inzoomen/uitzoomen, passend maken/volledig scherm, raster aan/uit en geluid aan/uit.
+- **Widgets aanpassen op de pagina zelf** via een zijpaneel (of dropdown) met inklapbare secties: positie/grootte met **pijltjes** (nudgen, ook met de pijltoetsen), tekst & stijl, animatie, afbeelding/GIF/video, geluid en timing. Geen apart scherm meer nodig zoals de huidige CommandEditor.
+- Bouwt voort op de huidige indeling op de Overlay-pagina (`web/src/dashboard/pages/Overlay.tsx`) en de overlay-renderer die ook in de editor gebruikt wordt (`OverlayPreview`). Onvoorziene wijzigingen blijven via de "niet opgeslagen"-balk lopen.
+
 ## Idee om te onthouden: apart admin-account voor de instellingen
 
 De gebruiker heeft de Twitch-app-gegevens nu ingevuld met zijn **eigen Twitch-account**: de eerste Twitch-login wordt eigenaar (`ownerUserId()` in `server/src/settings.ts`) en alleen die mag de secrets beheren (Twitch-app, GIPHY-sleutel, Discord-bot-token). Het idee van de gebruiker: laat dit soort serverinstellingen en secrets lopen via een **apart admin-account** in plaats van via een streamer-Twitch-account.
