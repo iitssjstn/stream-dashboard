@@ -107,6 +107,13 @@ Referentie van de gebruiker: `docs/overlay-editor-referentie.png` (StreamElement
 - **Widgets aanpassen op de pagina zelf** via een zijpaneel (of dropdown) met inklapbare secties: positie/grootte met **pijltjes** (nudgen, ook met de pijltoetsen), tekst & stijl, animatie, afbeelding/GIF/video, geluid en timing. Geen apart scherm meer nodig zoals de huidige CommandEditor.
 - Bouwt voort op de huidige indeling op de Overlay-pagina (`web/src/dashboard/pages/Overlay.tsx`) en de overlay-renderer die ook in de editor gebruikt wordt (`OverlayPreview`). Onvoorziene wijzigingen blijven via de "niet opgeslagen"-balk lopen.
 
+## Besloten: donaties voorlopig niet
+
+De gebruiker wil **nu geen donaties/fooien** (geen geldstromen van streamers beheren). Eerst een goed platform neerzetten; later bekijken of het een goed idee is. Kanttekening voor later: een koppeling met Ko-fi/StreamElements Tip/PayPal waarbij het geld rechtstreeks naar de streamer gaat en Waviloop alleen de melding krijgt, beheert zelf geen geld.
+
+## Brainstorm grote upgrades (nog niet gekozen)
+Widgetbibliotheek bij de overlay-maker (last event/rotator, doelbalken, chatbox, aftelklok, BRB-schermen), channel points-beloningen en een eigen loyaliteitssysteem met minigames, afstandsbediening op de telefoon en een alert-wachtrij, OBS-koppeling met één klik (OBS WebSocket), gezamenlijke moderatie Twitch + Discord, statistieken en een samenvatting na de stream, startpakketten en overlays delen, YouTube/Kick, back-ups en een gezondheidspagina.
+
 ## Idee om te onthouden: apart admin-account voor de instellingen
 
 De gebruiker heeft de Twitch-app-gegevens nu ingevuld met zijn **eigen Twitch-account**: de eerste Twitch-login wordt eigenaar (`ownerUserId()` in `server/src/settings.ts`) en alleen die mag de secrets beheren (Twitch-app, GIPHY-sleutel, Discord-bot-token). Het idee van de gebruiker: laat dit soort serverinstellingen en secrets lopen via een **apart admin-account** in plaats van via een streamer-Twitch-account.
